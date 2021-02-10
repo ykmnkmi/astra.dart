@@ -4,18 +4,15 @@ import 'package:http2/http2.dart' show Header;
 export 'package:http2/http2.dart' show Header;
 
 class Headers {
-  Headers({Map<String, Object> scope, Map<String, String> headers, List<Header> raw}) {
+  Headers({Map<String, String>? headers, List<Header>? raw}) : raw = <Header>[] {
     if (headers != null) {
-      assert(scope == null);
       assert(raw == null);
-      this.raw = <Header>[for (final name in headers.keys) Header(latin1.encode(name.toLowerCase()), latin1.encode(headers[name]))];
+
+      for (final entry in headers.entries) {
+        this.raw.add(Header(ascii.encode(entry.key.toLowerCase()), ascii.encode(entry.value)));
+      }
     } else if (raw != null) {
-      assert(scope == null);
-      this.raw = raw;
-    } else if (scope != null) {
-      this.raw = scope['headers'] as List<Header>;
-    } else {
-      this.raw = <Header>[];
+      this.raw.addAll(raw);
     }
   }
 
@@ -26,7 +23,7 @@ class Headers {
   }
 
   bool contains(String name) {
-    final encodedName = latin1.encode(name.toLowerCase());
+    final encodedName = ascii.encode(name.toLowerCase());
 
     for (final pair in raw) {
       if (encodedName == pair.name) {
@@ -37,12 +34,12 @@ class Headers {
     return false;
   }
 
-  String get(String name) {
-    final encodedName = latin1.encode(name.toLowerCase());
+  String? get(String name) {
+    final encodedName = ascii.encode(name.toLowerCase());
 
     for (final pair in raw) {
       if (encodedName == pair.name) {
-        return latin1.decode(pair.value);
+        return ascii.decode(pair.value);
       }
     }
 
@@ -50,11 +47,11 @@ class Headers {
   }
 
   List<String> getAll(String name) {
-    final encodedName = latin1.encode(name.toLowerCase());
+    final encodedName = ascii.encode(name.toLowerCase());
 
     return <String>[
       for (final pair in raw)
-        if (encodedName == pair.name) latin1.decode(pair.value)
+        if (encodedName == pair.name) ascii.decode(pair.value)
     ];
   }
 
@@ -64,16 +61,16 @@ class Headers {
 }
 
 class MutableHeaders extends Headers {
-  MutableHeaders({Map<String, Object> scope, Map<String, String> headers, List<Header> raw}) : super(scope: scope, headers: headers, raw: raw);
+  MutableHeaders({Map<String, String>? headers, List<Header>? raw}) : super(headers: headers, raw: raw);
 
   void add(String name, String value) {
-    final encodedName = latin1.encode(name.toLowerCase());
-    final encodedValue = latin1.encode(value);
+    final encodedName = ascii.encode(name.toLowerCase());
+    final encodedValue = ascii.encode(value);
     raw.add(Header(encodedName, encodedValue));
   }
 
   void delete(String name) {
-    final encodedName = latin1.encode(name.toLowerCase());
+    final encodedName = ascii.encode(name.toLowerCase());
     final indexes = <int>[];
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
@@ -88,8 +85,8 @@ class MutableHeaders extends Headers {
   }
 
   void set(String name, String value) {
-    final encodedName = latin1.encode(name.toLowerCase());
-    final encodedValue = latin1.encode(value);
+    final encodedName = ascii.encode(name.toLowerCase());
+    final encodedValue = ascii.encode(value);
     final indexes = <int>[];
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
