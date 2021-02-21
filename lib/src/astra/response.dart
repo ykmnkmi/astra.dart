@@ -1,12 +1,12 @@
-import 'dart:convert';
-import 'dart:io';
+part of '../../astra.dart';
 
-import 'http.dart';
-import 'headers.dart';
+Future<Message> emptyStart(int statusCode, List<Header> headers) {
+  throw UnimplementedError();
+}
 
-typedef Start = Future<void> Function(int statusCode, List<Header> headers);
-
-typedef Respond = Future<void> Function(List<int> body);
+Future<Message> emptyRespond(List<int> body) {
+  throw UnimplementedError();
+}
 
 abstract class Response<T extends Object> {
   Response({this.statusCode = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : rawHeaders = <Header>[] {
@@ -67,17 +67,21 @@ abstract class Response<T extends Object> {
   }
 }
 
-class PlainTextResponse extends Response<String> {
-  PlainTextResponse({int statusCode = HttpStatus.ok, Map<String, String>? headers, String? content})
-      : super(statusCode: statusCode, headers: headers, content: content);
+class TextResponse extends Response<String> {
+  TextResponse(String? content, {int status = HttpStatus.ok, Map<String, String>? headers}) : super(statusCode: status, headers: headers, content: content);
 }
 
 class HTMLResponse extends Response<String> {
-  HTMLResponse({int statusCode = HttpStatus.ok, Map<String, String>? headers, String? content})
-      : super(statusCode: statusCode, contentType: ContentTypes.html, headers: headers, content: content);
+  HTMLResponse(String? content, {int status = HttpStatus.ok, Map<String, String>? headers})
+      : super(statusCode: status, contentType: ContentTypes.html, headers: headers, content: content);
 }
 
 class JSONResponse extends Response<Object> {
-  JSONResponse({int statusCode = HttpStatus.ok, Map<String, String>? headers, Object? content})
-      : super(statusCode: statusCode, contentType: ContentTypes.json, headers: headers, content: content);
+  JSONResponse(Object? content, {int status = HttpStatus.ok, Map<String, String>? headers})
+      : super(statusCode: status, contentType: ContentTypes.json, headers: headers, content: content);
+
+  @override
+  List<int> render(Object? content) {
+    return super.render(json.encode(content));
+  }
 }

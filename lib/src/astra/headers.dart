@@ -1,26 +1,34 @@
-import 'dart:convert';
+part of '../../astra.dart';
 
-import 'package:http2/http2.dart' show Header;
-export 'package:http2/http2.dart' show Header;
+class Header {
+  Header(this.name, this.value);
+
+  Header.from(String name, String value)
+      : name = ascii.encode(name),
+        value = ascii.encode(value);
+
+  final List<int> name;
+
+  final List<int> value;
+}
 
 class Headers {
-  Headers({Map<String, String>? headers, List<Header>? raw}) : raw = <Header>[] {
+  Headers({Map<String, String>? headers, List<Header>? raw}) {
     if (headers != null) {
       assert(raw == null);
+      _raw = <Header>[];
 
       for (final entry in headers.entries) {
-        this.raw.add(Header(ascii.encode(entry.key.toLowerCase()), ascii.encode(entry.value)));
+        _raw.add(Header.from(entry.key.toLowerCase(), entry.value));
       }
     } else if (raw != null) {
-      this.raw.addAll(raw);
+      _raw = raw;
     }
   }
 
-  List<Header> raw;
+  late List<Header> _raw;
 
-  void clear() {
-    raw.clear();
-  }
+  List<Header> get raw => _raw;
 
   bool contains(String name) {
     final encodedName = ascii.encode(name.toLowerCase());
@@ -64,9 +72,11 @@ class MutableHeaders extends Headers {
   MutableHeaders({Map<String, String>? headers, List<Header>? raw}) : super(headers: headers, raw: raw);
 
   void add(String name, String value) {
-    final encodedName = ascii.encode(name.toLowerCase());
-    final encodedValue = ascii.encode(value);
-    raw.add(Header(encodedName, encodedValue));
+    raw.add(Header.from(name, value));
+  }
+
+  void clear() {
+    raw.clear();
   }
 
   void delete(String name) {

@@ -1,10 +1,8 @@
 include: package:pedantic/analysis_options.yaml
 
 analyzer:
-  enable-experiment:
-    - nonfunction-type-aliases
-  exclude:
-    - example/**
+  # exclude:
+  #   - example/**
   language:
     strict-inference: true
     strict-raw-types: true
