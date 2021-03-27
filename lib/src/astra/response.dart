@@ -9,7 +9,7 @@ Future<Message> emptyRespond(List<int> body) {
 }
 
 abstract class Response<T extends Object> {
-  Response({this.statusCode = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : rawHeaders = <Header>[] {
+  Response({this.status = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : raw = <Header>[] {
     body = render(content);
 
     var populateContentLength = true;
@@ -20,68 +20,69 @@ abstract class Response<T extends Object> {
 
       for (final entry in headers.entries) {
         keys.add(entry.key);
-        rawHeaders.add(Header(ascii.encode(entry.key.toLowerCase()), ascii.encode(entry.value)));
-        populateContentLength = !keys.contains('content-length');
-        populateContentType = !keys.contains('content-type');
+        raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
+        populateContentLength = !keys.contains('Content-Length');
+        populateContentType = !keys.contains('Content-Type');
       }
     }
 
-    if (body.isNotEmpty && populateContentLength) {
-      rawHeaders.add(Header(ascii.encode('content-length'), ascii.encode(body.length.toString())));
+    if (body != null && body!.isNotEmpty && populateContentLength) {
+      raw.add(Header.ascii('Content-Length', body!.length.toString()));
     }
 
     if (populateContentType) {
-      rawHeaders.add(Header(ascii.encode('content-type'), ascii.encode(contentType)));
+      raw.add(Header.ascii('Content-Type', contentType));
     }
   }
 
-  int statusCode;
+  int status;
 
   String contentType;
 
-  List<Header> rawHeaders;
+  List<Header> raw;
 
-  late List<int> body;
+  List<int>? body;
 
-  MutableHeaders get headers => MutableHeaders(raw: rawHeaders);
-
-  Future<void> call(Start start, Respond respond) async {
-    await start(statusCode, rawHeaders);
-    await respond(body);
+  MutableHeaders get headers {
+    return MutableHeaders(raw: raw);
   }
 
-  List<int> render(T? content) {
+  void call(Start start, Respond respond) {
+    start(status, raw);
+
+    if (body != null) {
+      respond(body!);
+    }
+  }
+
+  List<int> render(T? content);
+}
+
+class TextResponse extends Response<String> {
+  TextResponse(String? content, {int status = HttpStatus.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
+      : super(status: status, contentType: contentType, headers: headers, content: content);
+
+  @override
+  List<int> render(String? content) {
     if (content == null) {
       return const <int>[];
     }
 
-    if (content is List<int>) {
-      return content;
-    }
-
-    if (content is String) {
-      return utf8.encode(content);
-    }
-
-    throw Exception('wrong type: ${content.runtimeType}');
+    return utf8.encode(content);
   }
 }
 
-class TextResponse extends Response<String> {
-  TextResponse(String? content, {int status = HttpStatus.ok, Map<String, String>? headers}) : super(statusCode: status, headers: headers, content: content);
-}
-
-class HTMLResponse extends Response<String> {
+class HTMLResponse extends TextResponse {
   HTMLResponse(String? content, {int status = HttpStatus.ok, Map<String, String>? headers})
-      : super(statusCode: status, contentType: ContentTypes.html, headers: headers, content: content);
+      : super(content, status: status, contentType: ContentTypes.html, headers: headers);
 }
 
 class JSONResponse extends Response<Object> {
   JSONResponse(Object? content, {int status = HttpStatus.ok, Map<String, String>? headers})
-      : super(statusCode: status, contentType: ContentTypes.json, headers: headers, content: content);
+      : super(status: status, contentType: ContentTypes.json, headers: headers, content: content);
 
   @override
   List<int> render(Object? content) {
-    return super.render(json.encode(content));
+    return utf8.encode(json.encode(content));
   }
 }

@@ -11,5 +11,5 @@ abstract class Request {
 
   Stream<List<int>> get stream;
 
-  Future<DataMessage> receive();
+  FutureOr<DataMessage> receive();
 }

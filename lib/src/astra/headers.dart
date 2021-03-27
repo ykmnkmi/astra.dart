@@ -1,17 +1,5 @@
 part of '../../astra.dart';
 
-class Header {
-  Header(this.name, this.value);
-
-  Header.from(String name, String value)
-      : name = ascii.encode(name),
-        value = ascii.encode(value);
-
-  final List<int> name;
-
-  final List<int> value;
-}
-
 class Headers {
   Headers({Map<String, String>? headers, List<Header>? raw}) {
     if (headers != null) {
@@ -19,16 +7,18 @@ class Headers {
       _raw = <Header>[];
 
       for (final entry in headers.entries) {
-        _raw.add(Header.from(entry.key.toLowerCase(), entry.value));
+        _raw!.add(Header.ascii(entry.key.toLowerCase(), entry.value));
       }
     } else if (raw != null) {
       _raw = raw;
+    } else {
+      _raw = <Header>[];
     }
   }
 
-  late List<Header> _raw;
+  List<Header>? _raw;
 
-  List<Header> get raw => _raw;
+  List<Header> get raw => _raw!;
 
   bool contains(String name) {
     final encodedName = ascii.encode(name.toLowerCase());
@@ -72,7 +62,7 @@ class MutableHeaders extends Headers {
   MutableHeaders({Map<String, String>? headers, List<Header>? raw}) : super(headers: headers, raw: raw);
 
   void add(String name, String value) {
-    raw.add(Header.from(name, value));
+    raw.add(Header.ascii(name, value));
   }
 
   void clear() {

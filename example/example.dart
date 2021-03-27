@@ -1,12 +1,13 @@
-import 'dart:async';
-
 import 'package:astra/astra.dart';
-import 'package:astra/http.dart';
+import 'package:astra/io.dart';
 
-FutureOr<Response> hello(Request request) {
-  return TextResponse('Hello, world!');
+void hello(Receive receive, Start start, Respond respond) {
+  final response = TextResponse('Hello, world!');
+  response(start, respond);
 }
 
 void main(List<String> arguments) {
-  serve(hello);
+  serve(hello, 'localhost', 3000).then<void>((server) {
+    print('serving at http://localhost:3000');
+  });
 }
