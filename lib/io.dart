@@ -1,45 +1,59 @@
-import 'dart:async';
+import 'dart:async' show StreamIterator;
 import 'dart:convert' show ascii;
-import 'dart:io' show HttpServer, HttpRequest;
-
-import 'package:stack_trace/stack_trace.dart' show Trace;
+import 'dart:io' show HttpRequest, HttpServer, SecurityContext;
 
 import 'astra.dart';
 
-Future<HttpServer> serve(Application application, Object? address, int port) {
-  return HttpServer.bind(address, port).then<HttpServer>((HttpServer server) {
-    runZonedGuarded<void>(
-      () {
-        server.listen((HttpRequest request) {
-          final response = request.response;
+class IORunner implements Runner<HttpServer> {
+  IORunner(this.server);
 
-          Future<DataStreamMessage> receive() {
-            return request.first.then((bytes) => DataStreamMessage(bytes));
-          }
+  @override
+  final HttpServer server;
 
-          void start(int status, List<Header> headers) {
-            response.statusCode = status;
+  @override
+  Future<void> close({bool force = false}) {
+    return server.close(force: force);
+  }
+}
 
-            for (final header in headers) {
-              response.headers.set(ascii.decode(header.name), ascii.decode(header.value), preserveHeaderCase: true);
-            }
-          }
+Future<Runner<HttpServer>> start(Middleware application, Object? address, int port, {int backlog = 0, bool shared = false, SecurityContext? context}) {
+  final serverFuture = context != null
+      ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
+      : HttpServer.bind(address, port, backlog: backlog, shared: shared);
+  return serverFuture.then<Runner<HttpServer>>((HttpServer server) {
+    serve(server, application);
+    return IORunner(server);
+  });
+}
 
-          void send(List<int> bytes) {
-            response.add(bytes);
-          }
+void serve(Stream<HttpRequest> server, Middleware application) {
+  server.listen((HttpRequest request) {
+    handle(request, application);
+  });
+}
 
-          Future<void>.sync(() => application(receive, start, send)).then<void>((_) {
-            response.close();
-          });
-        });
-      },
-      (Object error, StackTrace stackTrace) {
-        print(error);
-        print(Trace.format(stackTrace));
-      },
-    );
+void handle(HttpRequest request, Middleware application) {
+  final response = request.response;
 
-    return server;
+  final iterable = StreamIterator<List<int>>(request);
+
+  Future<DataStreamMessage> receive() {
+    return iterable.moveNext().then((hasNext) => hasNext ? DataStreamMessage(iterable.current) : DataStreamMessage(const <int>[], endStream: true));
+  }
+
+  void start(int status, List<Header> headers) {
+    response.statusCode = status;
+
+    for (final header in headers) {
+      response.headers.set(ascii.decode(header.name), ascii.decode(header.value), preserveHeaderCase: true);
+    }
+  }
+
+  void send(List<int> bytes) {
+    response.add(bytes);
+  }
+
+  Future<void>.sync(() => application(receive, start, send)).then<void>((_) {
+    response.close();
   });
 }

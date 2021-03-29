@@ -1,13 +1,5 @@
 part of '../../astra.dart';
 
-Future<Message> emptyStart(int statusCode, List<Header> headers) {
-  throw UnimplementedError();
-}
-
-Future<Message> emptyRespond(List<int> body) {
-  throw UnimplementedError();
-}
-
 abstract class Response<T extends Object> {
   Response({this.status = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : raw = <Header>[] {
     body = render(content);

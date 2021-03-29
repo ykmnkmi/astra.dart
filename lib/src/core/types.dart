@@ -8,4 +8,8 @@ typedef Respond = void Function(List<int> body);
 
 typedef Handler = FutureOr<Response> Function(Request request);
 
-typedef Application = void Function(Receive receive, Start start, Respond respond);
+typedef Middleware = FutureOr<void> Function(Receive receive, Start start, Respond respond);
+
+abstract class Application {
+  FutureOr<void> call(Receive receive, Start start, Respond respond);
+}

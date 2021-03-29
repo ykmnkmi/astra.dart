@@ -4,21 +4,19 @@ class Headers {
   Headers({Map<String, String>? headers, List<Header>? raw}) {
     if (headers != null) {
       assert(raw == null);
-      _raw = <Header>[];
+      raw = <Header>[];
 
       for (final entry in headers.entries) {
-        _raw!.add(Header.ascii(entry.key.toLowerCase(), entry.value));
+        raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
       }
     } else if (raw != null) {
-      _raw = raw;
+      raw = raw;
     } else {
-      _raw = <Header>[];
+      raw = <Header>[];
     }
   }
 
-  List<Header>? _raw;
-
-  List<Header> get raw => _raw!;
+  late List<Header> raw;
 
   bool contains(String name) {
     final encodedName = ascii.encode(name.toLowerCase());
