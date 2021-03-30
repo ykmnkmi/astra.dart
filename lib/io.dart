@@ -53,7 +53,7 @@ void handle(HttpRequest request, Middleware application) {
     response.add(bytes);
   }
 
-  Future<void>.sync(() => application(receive, start, send)).then<void>((_) {
+  Future<void>.sync(() => application(<String, Object?>{}, receive, start, send)).then<void>((_) {
     response.close();
   });
 }

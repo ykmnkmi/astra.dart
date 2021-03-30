@@ -41,7 +41,7 @@ void handleHttp2Request(ServerTransportStream stream, Middleware application) {
   }
 
   void start(int status, List<Header> headers) {
-    stream.sendHeaders([Header.ascii(':status', '$status'), ...headers]);
+    stream.sendHeaders(<Header>[Header.ascii(':status', '$status'), ...headers]);
   }
 
   void send(List<int> bytes) {
@@ -51,7 +51,7 @@ void handleHttp2Request(ServerTransportStream stream, Middleware application) {
   final completer = Completer<void>();
 
   completer.future.then((_) {
-    Future<void>.sync(() => application(receive, start, send)).then<void>((_) {
+    Future<void>.sync(() => application(<String, Object?>{}, receive, start, send)).then<void>((_) {
       stream.outgoingMessages.close();
     });
   });

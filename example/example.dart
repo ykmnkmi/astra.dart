@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:astra/astra.dart';
 import 'package:astra/io.dart';
 
-void app(Receive receive, Start start, Respond respond) {
+void app(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
   Request(receive).stream.transform<String>(utf8.decoder).listen(print);
   final response = TextResponse('Hello, world!\n');
   return response(start, respond);
