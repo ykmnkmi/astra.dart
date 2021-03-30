@@ -1,5 +1,3 @@
-part of '../../astra.dart';
-
 abstract class Runner<T> {
   T get server;
 

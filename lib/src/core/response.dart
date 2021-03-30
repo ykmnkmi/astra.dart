@@ -1,4 +1,10 @@
-part of '../../astra.dart';
+import 'dart:convert' show json, utf8;
+import 'dart:io' show HttpStatus;
+
+import 'package:http2/http2.dart' show Header;
+
+import 'http.dart';
+import 'types.dart';
 
 abstract class Response<T extends Object> {
   Response({this.status = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : raw = <Header>[] {

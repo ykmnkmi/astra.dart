@@ -1,3 +1,5 @@
+library astra.io;
+
 import 'dart:async' show StreamIterator;
 import 'dart:convert' show ascii;
 import 'dart:io' show HttpRequest, HttpServer, SecurityContext;

@@ -1,4 +1,9 @@
-part of '../../astra.dart';
+import 'dart:async' show FutureOr;
+
+import 'package:http2/http2.dart' show DataStreamMessage, Header;
+
+import 'request.dart';
+import 'response.dart';
 
 typedef Receive = FutureOr<DataStreamMessage> Function();
 

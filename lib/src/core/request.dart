@@ -1,4 +1,9 @@
-part of '../../astra.dart';
+import 'dart:async' show StreamController;
+
+import 'package:http2/http2.dart' show DataStreamMessage;
+
+import 'http.dart';
+import 'types.dart';
 
 Future<DataStreamMessage> emptyReceive() {
   throw UnimplementedError();
