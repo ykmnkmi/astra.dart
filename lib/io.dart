@@ -55,7 +55,7 @@ void handle(HttpRequest request, Application application) {
     response.add(bytes);
   }
 
-  Future<void>.sync(() => application(<String, Object?>{}, receive, start, send)).then<void>((_) {
+  Future<void>.sync(() => application(<String, Object?>{'type': 'http'}, receive, start, send)).then<void>((_) {
     response.close();
   });
 }

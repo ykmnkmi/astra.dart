@@ -13,22 +13,21 @@ abstract class ContentTypes {
 }
 
 class Headers {
-  Headers({Map<String, Object?>? scope, Map<String, String>? headers, List<Header>? raw}) {
+  Headers({Map<String, Object?>? scope, Map<String, String>? headers, List<Header>? raw}) : raw = <Header>[] {
     if (headers != null) {
-      assert(raw == null);
-      raw = <Header>[];
+      assert(this.raw.isEmpty);
 
       for (final entry in headers.entries) {
-        raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
+        this.raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
       }
     } else if (raw != null) {
-      raw = raw;
-    } else if (scope != null) {
-      raw = (scope['heaeders'] as List<Header>?) ?? <Header>[];
+      this.raw.addAll(raw);
+    } else if (scope != null && scope['heaeders'] != null) {
+      this.raw.addAll(scope['heaeders'] as List<Header>);
     }
   }
 
-  late List<Header> raw;
+  List<Header> raw;
 
   bool contains(String name) {
     final encodedName = ascii.encode(name.toLowerCase());

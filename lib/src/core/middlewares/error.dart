@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:stack_trace/stack_trace.dart';
+
 import '../http.dart';
 import '../request.dart';
 import '../response.dart';
@@ -27,14 +29,14 @@ class ServerErrorMiddleware implements ApplicationController {
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(scope, receive, starter, respond)).catchError((Object error) {
+    return Future<void>.sync(() => application(scope, receive, starter, respond)).catchError((Object error, StackTrace stackTrace) {
       if (responseStarted) {
         throw error;
       }
 
       final request = Request(scope);
 
-      if (debug) {
+      if (!debug) {
         final accept = request.headers.get('accept');
 
         if (accept != null && accept.contains('text/html')) {
@@ -42,15 +44,15 @@ class ServerErrorMiddleware implements ApplicationController {
           return HTMLResponse(content, status: 500).call(scope, start, respond);
         }
 
-        final content = '';
-        return TextResponse(content, status: 500).call(scope, start, respond);
+        final trace = Trace.format(stackTrace);
+        return TextResponse('$error\n\n$trace', status: 500).call(scope, start, respond);
       }
 
       if (handler == null) {
-        return TextResponse('Internal Server Error', status: 500)(scope, start, respond);
+        return TextResponse('Internal Server Error', status: 500).call(scope, start, respond);
       }
 
-      return Future<Response>.sync(() => handler!(request, error)).then<void>((response) => response(scope, start, respond));
+      return Future<Response>.sync(() => handler!(request, error, stackTrace)).then<void>((response) => response(scope, start, respond));
     });
   }
 }

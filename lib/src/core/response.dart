@@ -1,3 +1,4 @@
+import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
 import 'dart:io' show HttpStatus;
 
@@ -45,7 +46,7 @@ class Response<T extends Object?> {
     return MutableHeaders(raw: raw);
   }
 
-  void call(Map<String, Object?> scope, Start start, Respond respond) {
+  FutureOr<void> call(Map<String, Object?> scope, Start start, Respond respond) {
     start(status, raw);
 
     if (body != null) {

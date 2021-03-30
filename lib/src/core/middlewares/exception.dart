@@ -69,7 +69,7 @@ class ExceptionMiddleware implements ApplicationController {
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(scope, receive, starter, respond)).catchError((Object error) {
+    return Future<void>.sync(() => application(scope, receive, starter, respond)).catchError((Object error, StackTrace stackTrace) {
       ExceptionHandler? handler;
 
       if (error is HTTPException) {
@@ -89,11 +89,11 @@ class ExceptionMiddleware implements ApplicationController {
       }
 
       final request = Request(scope, receive: receive);
-      return Future<Response>.sync(() => handler!(request, error)).then<void>((response) => response(scope, start, respond));
+      return Future<Response>.sync(() => handler!(request, error, stackTrace)).then<void>((response) => response(scope, start, respond));
     });
   }
 
-  static Response httpException(Request request, Object exception) {
+  static Response httpException(Request request, Object exception, StackTrace stackTrace) {
     if (exception is HTTPException) {
       if (exception.status == 204 || exception.status == 304) {
         return Response(status: exception.status);

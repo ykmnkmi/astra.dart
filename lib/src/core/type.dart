@@ -13,7 +13,7 @@ typedef Respond = void Function(List<int> body);
 
 typedef Handler = FutureOr<Response> Function(Request request);
 
-typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception);
+typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception, StackTrace stackTrace);
 
 typedef Application = FutureOr<void> Function(Map<String, Object?> scope, Receive receive, Start start, Respond respond);
 
