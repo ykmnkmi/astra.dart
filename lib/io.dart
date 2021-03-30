@@ -18,7 +18,7 @@ class IORunner implements Runner<HttpServer> {
   }
 }
 
-Future<Runner<HttpServer>> start(Middleware application, Object? address, int port, {int backlog = 0, bool shared = false, SecurityContext? context}) {
+Future<Runner<HttpServer>> start(Application application, Object? address, int port, {int backlog = 0, bool shared = false, SecurityContext? context}) {
   final serverFuture = context != null
       ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
       : HttpServer.bind(address, port, backlog: backlog, shared: shared);
@@ -28,13 +28,13 @@ Future<Runner<HttpServer>> start(Middleware application, Object? address, int po
   });
 }
 
-void serve(Stream<HttpRequest> server, Middleware application) {
+void serve(Stream<HttpRequest> server, Application application) {
   server.listen((HttpRequest request) {
     handle(request, application);
   });
 }
 
-void handle(HttpRequest request, Middleware application) {
+void handle(HttpRequest request, Application application) {
   final response = request.response;
 
   final iterable = StreamIterator<List<int>>(request);

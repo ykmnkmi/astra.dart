@@ -9,7 +9,7 @@ import 'package:stack_trace/stack_trace.dart' show Trace;
 
 import 'astra.dart';
 
-Future<MultiProtocolHttpServer> serve(Middleware application, Object? address, int port, {SecurityContext? context}) {
+Future<MultiProtocolHttpServer> serve(Application application, Object? address, int port, {SecurityContext? context}) {
   return MultiProtocolHttpServer.bind(address, port, context!).then<MultiProtocolHttpServer>((MultiProtocolHttpServer server) {
     server.startServing(
       (HttpRequest request) {
@@ -28,7 +28,7 @@ Future<MultiProtocolHttpServer> serve(Middleware application, Object? address, i
   });
 }
 
-void handleHttp2Request(ServerTransportStream stream, Middleware application) {
+void handleHttp2Request(ServerTransportStream stream, Application application) {
   final headers = Headers();
   final datas = Queue<DataStreamMessage>();
 

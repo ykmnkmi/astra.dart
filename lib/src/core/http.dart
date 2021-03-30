@@ -2,6 +2,8 @@ import 'dart:convert' show ascii;
 
 import 'package:http2/http2.dart' show Header;
 
+export 'package:http2/http2.dart' show DataStreamMessage, Header, HeadersStreamMessage, StreamMessage;
+
 abstract class ContentTypes {
   static const String text = 'text/plain; charset=utf-8';
 
@@ -11,7 +13,7 @@ abstract class ContentTypes {
 }
 
 class Headers {
-  Headers({Map<String, String>? headers, List<Header>? raw}) {
+  Headers({Map<String, Object?>? scope, Map<String, String>? headers, List<Header>? raw}) {
     if (headers != null) {
       assert(raw == null);
       raw = <Header>[];
@@ -21,8 +23,8 @@ class Headers {
       }
     } else if (raw != null) {
       raw = raw;
-    } else {
-      raw = <Header>[];
+    } else if (scope != null) {
+      raw = (scope['heaeders'] as List<Header>?) ?? <Header>[];
     }
   }
 

@@ -4,10 +4,10 @@ import 'dart:io' show HttpStatus;
 import 'package:http2/http2.dart' show Header;
 
 import 'http.dart';
-import 'types.dart';
+import 'type.dart';
 
-abstract class Response<T extends Object> {
-  Response({this.status = HttpStatus.ok, this.contentType = ContentTypes.text, Map<String, String>? headers, T? content}) : raw = <Header>[] {
+class Response<T extends Object?> {
+  Response({this.status = HttpStatus.ok, this.contentType, Map<String, String>? headers, T? content}) : raw = <Header>[] {
     body = render(content);
 
     var populateContentLength = true;
@@ -28,16 +28,16 @@ abstract class Response<T extends Object> {
       raw.add(Header.ascii('Content-Length', body!.length.toString()));
     }
 
-    if (populateContentType) {
-      raw.add(Header.ascii('Content-Type', contentType));
+    if (contentType != null && populateContentType) {
+      raw.add(Header.ascii('Content-Type', contentType!));
     }
   }
 
   int status;
 
-  String contentType;
-
   List<Header> raw;
+
+  String? contentType;
 
   List<int>? body;
 
@@ -45,7 +45,7 @@ abstract class Response<T extends Object> {
     return MutableHeaders(raw: raw);
   }
 
-  void call(Start start, Respond respond) {
+  void call(Map<String, Object?> scope, Start start, Respond respond) {
     start(status, raw);
 
     if (body != null) {
@@ -53,7 +53,25 @@ abstract class Response<T extends Object> {
     }
   }
 
-  List<int> render(T? content);
+  List<int> render(T? content) {
+    if (content == null) {
+      return const <int>[];
+    }
+
+    if (content is List<int>) {
+      return content;
+    }
+
+    if (content is String) {
+      return utf8.encode(content);
+    }
+
+    if (content is Iterable<int>) {
+      return content.toList();
+    }
+
+    throw TypeError();
+  }
 }
 
 class TextResponse extends Response<String> {

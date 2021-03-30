@@ -3,36 +3,40 @@ import 'dart:async' show StreamController;
 import 'package:http2/http2.dart' show DataStreamMessage;
 
 import 'http.dart';
-import 'types.dart';
+import 'type.dart';
 
 Future<DataStreamMessage> emptyReceive() {
   throw UnimplementedError();
 }
 
 class Request {
-  Request(this.receive) : streamConsumed = false;
+  Request(this.scope, {this.receive = emptyReceive}) : streamConsumed = false;
+
+  final Map<String, Object?> scope;
 
   final Receive receive;
 
   bool streamConsumed;
 
-  List<int>? cached;
+  Headers? _headers;
 
-  Future<List<int>> get body {
-    if (cached == null) {
-      return stream.fold<List<int>>(<int>[], (chunks, chunk) => chunks..addAll(chunk));
-    }
-
-    return Future<List<int>>.value(cached!);
-  }
+  List<int>? _body;
 
   Headers get headers {
-    throw UnimplementedError();
+    return _headers ??= Headers(scope: scope);
+  }
+
+  Future<List<int>> get body {
+    if (_body == null) {
+      return stream.reduce((chunks, chunk) => chunks + chunk).then<List<int>>((chunks) => _body = chunks);
+    }
+
+    return Future<List<int>>.value(_body!);
   }
 
   Stream<List<int>> get stream {
-    if (cached != null) {
-      return Stream<List<int>>.value(cached!);
+    if (_body != null) {
+      return Stream<List<int>>.value(_body!);
     }
 
     if (streamConsumed) {
