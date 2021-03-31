@@ -58,10 +58,6 @@ class ExceptionMiddleware implements ApplicationController {
 
   @override
   FutureOr<void> call(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
-    if (scope['type'] != 'http') {
-      return application(scope, receive, start, respond);
-    }
-
     var responseStarted = false;
 
     void starter(int status, List<Header> headers) {
@@ -94,14 +90,12 @@ class ExceptionMiddleware implements ApplicationController {
   }
 
   static Response httpException(Request request, Object exception, StackTrace stackTrace) {
-    if (exception is HTTPException) {
-      if (exception.status == 204 || exception.status == 304) {
-        return Response(status: exception.status);
-      }
+    final typedException = exception as HTTPException;
 
-      return TextResponse(exception.message ?? '', status: exception.status);
+    if (typedException.status == 204 || typedException.status == 304) {
+      return Response(status: typedException.status);
     }
 
-    return TextResponse(exception.toString(), status: 500);
+    return TextResponse(typedException.message ?? '', status: exception.status);
   }
 }

@@ -1,7 +1,7 @@
 library astra.core;
 
 export 'src/core/headers.dart';
-export 'src/core/http.dart';
+export 'src/core/http.dart' hide equals;
 export 'src/core/middlewares.dart';
 export 'src/core/request.dart';
 export 'src/core/response.dart';

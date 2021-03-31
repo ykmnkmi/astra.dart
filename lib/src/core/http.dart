@@ -13,21 +13,15 @@ abstract class ContentTypes {
 }
 
 class Headers {
-  Headers({Map<String, Object?>? scope, Map<String, String>? headers, List<Header>? raw}) : raw = <Header>[] {
-    if (headers != null) {
-      assert(this.raw.isEmpty);
-
-      for (final entry in headers.entries) {
-        this.raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
-      }
-    } else if (raw != null) {
-      this.raw.addAll(raw);
-    } else if (scope != null && scope['headers'] != null) {
-      this.raw.addAll(scope['headers'] as List<Header>);
+  Headers({List<Header>? raw}) : _raw = <Header>[] {
+    if (raw != null) {
+      _raw.addAll(raw);
     }
   }
 
-  List<Header> raw;
+  final List<Header> _raw;
+
+  List<Header> get raw => _raw;
 
   bool contains(String name) {
     final encodedName = ascii.encode(name.toLowerCase());
@@ -42,8 +36,10 @@ class Headers {
   }
 
   String? get(String name) {
-    for (final header in raw) {
-      if (name == ascii.decode(header.name)) {
+    final encodedName = ascii.encode(name.toLowerCase());
+
+    for (final header in raw.reversed) {
+      if (equals(encodedName, header.name)) {
         return ascii.decode(header.value);
       }
     }
@@ -55,8 +51,8 @@ class Headers {
     final encodedName = ascii.encode(name.toLowerCase());
 
     return <String>[
-      for (final pair in raw)
-        if (encodedName == pair.name) ascii.decode(pair.value)
+      for (final header in raw)
+        if (equals(encodedName, header.name)) ascii.decode(header.value)
     ];
   }
 
@@ -66,7 +62,7 @@ class Headers {
 }
 
 class MutableHeaders extends Headers {
-  MutableHeaders({Map<String, String>? headers, List<Header>? raw}) : super(headers: headers, raw: raw);
+  MutableHeaders({List<Header>? raw}) : super(raw: raw);
 
   void add(String name, String value) {
     raw.add(Header.ascii(name, value));
@@ -81,7 +77,7 @@ class MutableHeaders extends Headers {
     final indexes = <int>[];
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (encodedName == raw[index].name) {
+      if (equals(encodedName, raw[index].name)) {
         indexes.add(index);
       }
     }
@@ -113,4 +109,28 @@ class MutableHeaders extends Headers {
       }
     }
   }
+}
+
+bool equals(List<int>? list1, List<int>? list2) {
+  if (identical(list1, list2)) {
+    return true;
+  }
+
+  if (list1 == null || list2 == null) {
+    return false;
+  }
+
+  final length = list1.length;
+
+  if (length != list2.length) {
+    return false;
+  }
+
+  for (var i = 0; i < length; i++) {
+    if (list1[i] != list2[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }

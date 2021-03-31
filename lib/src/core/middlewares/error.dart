@@ -20,10 +20,6 @@ class ServerErrorMiddleware implements ApplicationController {
 
   @override
   FutureOr<void> call(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
-    if (scope['type'] != 'http') {
-      return application(scope, receive, start, respond);
-    }
-
     var responseStarted = false;
 
     void starter(int status, List<Header> headers) {
@@ -87,7 +83,7 @@ const String template = '<html>'
     '<style>$style</style>'
     '</head>'
     '<body>'
-    '<h1>Astra Debugger</h1>'
+    '<h1>Astra: debugger</h1>'
     '<h2>{error}</h2>'
     '<div class="traceback">'
     '<p class="title">Traceback <span style="color:grey">(most recent call first)</span></p>'
@@ -126,15 +122,20 @@ String renderFrames(List<Frame> frames) {
 
     if (scheme == 'file' && frame.line != null) {
       final lines = File.fromUri(frame.uri).readAsLinesSync();
-      String code;
+      final line = lines[frame.line! - 1];
+      final leftTrimmed = line.trimLeft();
+      final column = (frame.column ?? 0) - line.length + leftTrimmed.length - 1;
+      final code = leftTrimmed.trimRight();
 
-      if (frame.column != null) {
-        code = lines[frame.line! - 1].substring(frame.column! - 1).trimRight();
+      buffer.write('<br><pre style="">');
+
+      if (column != 0) {
+        buffer..write(code.substring(0, column))..write('<u>')..write(code.substring(column, column + 1))..write('</u>')..write(code.substring(column + 1));
       } else {
-        code = lines[frame.line! - 1].trim();
+        buffer.write(code);
       }
 
-      buffer..write('<br><pre>')..write(code)..write('</pre>');
+      buffer.write('</pre>');
     }
 
     buffer.write('</div>');

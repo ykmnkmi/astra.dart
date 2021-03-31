@@ -1,4 +1,5 @@
 import 'dart:async' show StreamController;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:http2/http2.dart' show DataStreamMessage;
 
@@ -6,7 +7,7 @@ import 'http.dart';
 import 'type.dart';
 
 Future<DataStreamMessage> emptyReceive() {
-  throw UnimplementedError();
+  return Future<DataStreamMessage>.value(DataStreamMessage(const <int>[], endStream: true));
 }
 
 class Request {
@@ -23,12 +24,12 @@ class Request {
   List<int>? _body;
 
   Headers get headers {
-    return _headers ??= Headers(scope: scope);
+    return _headers ??= scope['headers'] as Headers;
   }
 
   Future<List<int>> get body {
     if (_body == null) {
-      return stream.reduce((chunks, chunk) => chunks + chunk).then<List<int>>((chunks) => _body = chunks);
+      return stream.fold<List<int>>(<int>[], (chunks, chunk) => chunks..addAll(chunk)).then<List<int>>((chunks) => _body = chunks);
     }
 
     return Future<List<int>>.value(_body!);

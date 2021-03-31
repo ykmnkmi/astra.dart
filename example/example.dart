@@ -10,7 +10,7 @@ void oops() {
 
 FutureOr<void> application(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
   final response = TextResponse('Hello, world!\n');
-  oops();
+  Function.apply(oops, <Object?>[]);
   return response(scope, start, respond);
 }
 
