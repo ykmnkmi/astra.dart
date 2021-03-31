@@ -22,8 +22,8 @@ class Headers {
       }
     } else if (raw != null) {
       this.raw.addAll(raw);
-    } else if (scope != null && scope['heaeders'] != null) {
-      this.raw.addAll(scope['heaeders'] as List<Header>);
+    } else if (scope != null && scope['headers'] != null) {
+      this.raw.addAll(scope['headers'] as List<Header>);
     }
   }
 
@@ -42,11 +42,9 @@ class Headers {
   }
 
   String? get(String name) {
-    final encodedName = ascii.encode(name.toLowerCase());
-
-    for (final pair in raw) {
-      if (encodedName == pair.name) {
-        return ascii.decode(pair.value);
+    for (final header in raw) {
+      if (name == ascii.decode(header.name)) {
+        return ascii.decode(header.value);
       }
     }
 

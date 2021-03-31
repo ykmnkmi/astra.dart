@@ -37,6 +37,19 @@ void serve(Stream<HttpRequest> server, Application application) {
 void handle(HttpRequest request, Application application) {
   final response = request.response;
 
+  final headers = <Header>[];
+
+  request.headers.forEach((name, values) {
+    for (final value in values) {
+      headers.add(Header.ascii(name, value));
+    }
+  });
+
+  final scope = <String, Object?>{
+    'headers': headers,
+    'type': 'http',
+  };
+
   final iterable = StreamIterator<List<int>>(request);
 
   Future<DataStreamMessage> receive() {
@@ -55,7 +68,7 @@ void handle(HttpRequest request, Application application) {
     response.add(bytes);
   }
 
-  Future<void>.sync(() => application(<String, Object?>{'type': 'http'}, receive, start, send)).then<void>((_) {
+  Future<void>.sync(() => application(scope, receive, start, send)).then<void>((_) {
     response.close();
   });
 }
