@@ -18,7 +18,8 @@ class IORunner implements Runner<HttpServer> {
   }
 }
 
-Future<Runner<HttpServer>> start(Application application, Object? address, int port, {int backlog = 0, bool shared = false, SecurityContext? context}) {
+Future<Runner<HttpServer>> start(Application application, Object? address, int port,
+    {int backlog = 0, bool shared = false, SecurityContext? context}) {
   final serverFuture = context != null
       ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
       : HttpServer.bind(address, port, backlog: backlog, shared: shared);
@@ -38,7 +39,8 @@ void handle(HttpRequest request, Application application) {
   final iterable = StreamIterator<List<int>>(request);
 
   Future<DataStreamMessage> receive() {
-    return iterable.moveNext().then((hasNext) => hasNext ? DataStreamMessage(iterable.current) : DataStreamMessage(const <int>[], endStream: true));
+    return iterable.moveNext().then(
+        (hasNext) => hasNext ? DataStreamMessage(iterable.current) : DataStreamMessage(const <int>[], endStream: true));
   }
 
   final response = request.response;
@@ -56,11 +58,8 @@ void handle(HttpRequest request, Application application) {
   }
 
   final headers = IOHeaders(request.headers);
-  final scope = <String, Object?>{'headers': headers};
-
-  Future<void>.sync(() => application(scope, receive, start, send)).then<void>((_) {
-    response.close();
-  });
+  final scope = <String, Object?>{'headers': headers, 'type': 'http'};
+  Future<void>.sync(() => application(scope, receive, start, send)).then<void>((_) => response.close());
 }
 
 class IOHeaders implements Headers {

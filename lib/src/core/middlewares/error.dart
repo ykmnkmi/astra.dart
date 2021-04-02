@@ -1,5 +1,4 @@
 import 'dart:async' show FutureOr;
-import 'dart:convert' show ascii;
 import 'dart:io' show File;
 
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
@@ -27,7 +26,8 @@ class ServerErrorMiddleware implements ApplicationController {
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(scope, receive, starter, respond)).catchError((Object error, StackTrace stackTrace) {
+    return Future<void>.sync(() => application(scope, receive, starter, respond))
+        .catchError((Object error, StackTrace stackTrace) {
       if (responseStarted) {
         throw error;
       }
@@ -63,7 +63,8 @@ class ServerErrorMiddleware implements ApplicationController {
         return TextResponse('Internal Server Error', status: 500).call(scope, start, respond);
       }
 
-      return Future<Response>.sync(() => handler!(request, error, stackTrace)).then<void>((response) => response(scope, start, respond));
+      return Future<Response>.sync(() => handler!(request, error, stackTrace))
+          .then<void>((response) => response(scope, start, respond));
     });
   }
 }
@@ -130,7 +131,12 @@ String renderFrames(List<Frame> frames) {
       buffer.write('<br><pre style="">');
 
       if (column != 0) {
-        buffer..write(code.substring(0, column))..write('<u>')..write(code.substring(column, column + 1))..write('</u>')..write(code.substring(column + 1));
+        buffer
+          ..write(code.substring(0, column))
+          ..write('<u>')
+          ..write(code.substring(column, column + 1))
+          ..write('</u>')
+          ..write(code.substring(column + 1));
       } else {
         buffer.write(code);
       }

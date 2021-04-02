@@ -10,7 +10,8 @@ import 'package:stack_trace/stack_trace.dart' show Trace;
 import 'astra.dart';
 
 Future<MultiProtocolHttpServer> serve(Application application, Object? address, int port, {SecurityContext? context}) {
-  return MultiProtocolHttpServer.bind(address, port, context!).then<MultiProtocolHttpServer>((MultiProtocolHttpServer server) {
+  return MultiProtocolHttpServer.bind(address, port, context!)
+      .then<MultiProtocolHttpServer>((MultiProtocolHttpServer server) {
     server.startServing(
       (HttpRequest request) {
         io.handle(request, application);
@@ -48,15 +49,12 @@ void handle(ServerTransportStream stream, Application application) {
   }
 
   final headers = Headers();
-  final scope = <String, Object?>{'headers': headers};
+  final scope = <String, Object?>{'headers': headers, 'type': 'http'};
 
   final completer = Completer<void>();
-
-  completer.future.then((_) {
-    Future<void>.sync(() => application(scope, receive, start, send)).then<void>((_) {
-      stream.outgoingMessages.close();
-    });
-  });
+  completer.future
+      .then<void>((_) => application(scope, receive, start, send))
+      .then<void>((_) => stream.outgoingMessages.close());
 
   stream.incomingMessages.listen((StreamMessage message) {
     if (message is HeadersStreamMessage) {

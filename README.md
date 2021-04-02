@@ -1,6 +1,6 @@
-# A simple web server framework.
+# A simple web server framework based on starlette.
 
-Write some code.
+## WIP.
 
 ```dart
 // lib/package.dart
@@ -15,4 +15,4 @@ FutureOr<void> application(Map<String, Object?> scope, Receive receive, Start st
 }
 ```
 
-And run `astra serve` or `astra build` for AOT compilation.
+(Not yet) And run `astra serve` or `astra build` for AOT compilation.

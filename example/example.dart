@@ -4,13 +4,10 @@ import 'dart:io';
 import 'package:astra/astra.dart';
 import 'package:astra/io.dart';
 
-void oops() {
-  throw Exception('wtf!');
-}
-
 FutureOr<void> application(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
-  final response = TextResponse('Hello, world!\n');
-  Function.apply(oops, <Object?>[]);
+  const names = <String>['jhon', 'jane'];
+  final name = names[2];
+  final response = TextResponse('Hello, $name!\n');
   return response(scope, start, respond);
 }
 

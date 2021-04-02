@@ -29,7 +29,8 @@ class Request {
 
   Future<List<int>> get body {
     if (_body == null) {
-      return stream.fold<List<int>>(<int>[], (chunks, chunk) => chunks..addAll(chunk)).then<List<int>>((chunks) => _body = chunks);
+      return stream.fold<List<int>>(
+          <int>[], (chunks, chunk) => chunks..addAll(chunk)).then<List<int>>((chunks) => _body = chunks);
     }
 
     return Future<List<int>>.value(_body!);

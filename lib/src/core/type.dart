@@ -15,7 +15,8 @@ typedef Handler = FutureOr<Response> Function(Request request);
 
 typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception, StackTrace stackTrace);
 
-typedef Application = FutureOr<void> Function(Map<String, Object?> scope, Receive receive, Start start, Respond respond);
+typedef Application = FutureOr<void> Function(
+    Map<String, Object?> scope, Receive receive, Start start, Respond respond);
 
 abstract class ApplicationController {
   FutureOr<void> call(Map<String, Object?> scope, Receive receive, Start start, Respond respond);

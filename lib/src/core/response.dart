@@ -8,7 +8,8 @@ import 'http.dart';
 import 'type.dart';
 
 class Response<T extends Object?> {
-  Response({this.status = HttpStatus.ok, this.contentType, Map<String, String>? headers, T? content}) : raw = <Header>[] {
+  Response({this.status = HttpStatus.ok, this.contentType, Map<String, String>? headers, T? content})
+      : raw = <Header>[] {
     body = render(content);
 
     var populateContentLength = true;
@@ -76,7 +77,8 @@ class Response<T extends Object?> {
 }
 
 class TextResponse extends Response<String> {
-  TextResponse(String? content, {int status = HttpStatus.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
+  TextResponse(String? content,
+      {int status = HttpStatus.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
       : super(status: status, contentType: contentType, headers: headers, content: content);
 
   @override
