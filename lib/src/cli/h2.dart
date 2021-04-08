@@ -2,16 +2,29 @@ import 'dart:async' show Completer, FutureOr;
 import 'dart:collection' show Queue;
 import 'dart:io' show HttpRequest, SecurityContext;
 
-import 'package:astra/io.dart' as io show handle;
+import 'package:astra/src/cli/io.dart' as io show handle;
 import 'package:http2/multiprotocol_server.dart' show MultiProtocolHttpServer;
 import 'package:http2/transport.dart' show ServerTransportStream, StreamMessage;
 import 'package:stack_trace/stack_trace.dart' show Trace;
 
-import 'astra.dart';
+import 'package:astra/astra.dart';
 
-Future<MultiProtocolHttpServer> serve(Application application, Object? address, int port, {SecurityContext? context}) {
-  return MultiProtocolHttpServer.bind(address, port, context!)
-      .then<MultiProtocolHttpServer>((MultiProtocolHttpServer server) {
+import 'runner.dart';
+
+class H2Runner implements Runner<MultiProtocolHttpServer> {
+  H2Runner(this.server);
+
+  final MultiProtocolHttpServer server;
+
+  @override
+  Future<void> close({bool force = false}) {
+    return server.close(force: force);
+  }
+}
+
+Future<Runner<MultiProtocolHttpServer>> serve(Application application, Object? address, int port,
+    {SecurityContext? context}) {
+  return MultiProtocolHttpServer.bind(address, port, context!).then<H2Runner>((MultiProtocolHttpServer server) {
     server.startServing(
       (HttpRequest request) {
         io.handle(request, application);
@@ -25,7 +38,7 @@ Future<MultiProtocolHttpServer> serve(Application application, Object? address, 
       },
     );
 
-    return server;
+    return H2Runner(server);
   });
 }
 

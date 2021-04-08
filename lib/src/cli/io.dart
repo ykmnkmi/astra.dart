@@ -4,12 +4,13 @@ import 'dart:async' show StreamIterator;
 import 'dart:convert' show ascii;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
-import 'astra.dart';
+import 'package:astra/astra.dart';
+
+import 'runner.dart';
 
 class IORunner implements Runner<HttpServer> {
   IORunner(this.server);
 
-  @override
   final HttpServer server;
 
   @override

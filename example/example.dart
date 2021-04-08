@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/astra.dart';
-import 'package:astra/io.dart';
+import 'package:astra/src/cli/io.dart';
 
 FutureOr<void> application(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
   const names = <String>['jhon', 'jane'];
