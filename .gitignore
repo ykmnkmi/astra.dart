@@ -1,4 +1,6 @@
 .dart_tool/
 build/
 doc/api/
+*.o
+*.so
 .packages

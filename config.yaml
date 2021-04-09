@@ -1,0 +1,9 @@
+name: 'AstraNative'
+description: 'Astra bindings to C server.'
+headers:
+  entry-points:
+    - 'native/native.h'
+functions:
+  include:
+    - add
+output: 'bin/native.dart'
