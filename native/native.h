@@ -1,6 +1,6 @@
 #ifndef native_h__
 #define native_h__
  
-extern int add(int a, int b);
+extern void call(void (*f)());
  
 #endif  // native_h__

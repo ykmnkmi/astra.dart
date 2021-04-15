@@ -1,8 +1,8 @@
 import 'dart:ffi';
 
-typedef _c_add = Int32 Function(Int32 a, Int32 b);
+typedef CCall = Void Function(Pointer<NativeFunction<Void Function()>> f);
 
-typedef _dart_add = int Function(int a, int b);
+typedef Call = void Function(Pointer<NativeFunction<Void Function()>> f);
 
 /// Astra bindings to C server.
 class AstraNative {
@@ -13,11 +13,16 @@ class AstraNative {
 
   /// The symbols are looked up with [lookup].
   AstraNative.fromLookup(Pointer<T> Function<T extends NativeType>(String symbol) lookup)
-      : _add = lookup<NativeFunction<_c_add>>('add').asFunction<_dart_add>();
+      : _call = lookup<NativeFunction<CCall>>('call').asFunction<Call>();
 
-  final _dart_add _add;
+  final Call _call;
 
-  int add(int a, int b) {
-    return _add(a, b);
+  void call() {
+    final pointer = Pointer.fromFunction<Void Function()>(log);
+    _call(pointer);
   }
+}
+
+void log() {
+  print('hello there!');
 }

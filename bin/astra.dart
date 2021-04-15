@@ -5,5 +5,5 @@ import 'native.dart';
 void main(List<String> arguments) {
   final library = DynamicLibrary.open('./bin/native.so');
   final native = AstraNative.fromLookup(library.lookup);
-  print(native.add(1, 2));
+  native.call();
 }
