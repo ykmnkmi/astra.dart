@@ -1,12 +1,8 @@
 import 'dart:async' show FutureOr;
 import 'dart:io' show File;
 
+import 'package:astra/astra.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
-
-import '../http.dart';
-import '../request.dart';
-import '../response.dart';
-import '../type.dart';
 
 class ServerErrorMiddleware implements ApplicationController {
   ServerErrorMiddleware(this.application, {this.debug = false, this.handler});
@@ -18,7 +14,7 @@ class ServerErrorMiddleware implements ApplicationController {
   final ExceptionHandler? handler;
 
   @override
-  FutureOr<void> call(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
+  FutureOr<void> call(Request request, Start start, Respond respond) {
     var responseStarted = false;
 
     void starter(int status, List<Header> headers) {
@@ -26,19 +22,17 @@ class ServerErrorMiddleware implements ApplicationController {
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(scope, receive, starter, respond))
+    return Future<void>.sync(() => application(request, starter, respond))
         .catchError((Object error, StackTrace stackTrace) {
       if (responseStarted) {
         throw error;
       }
 
-      final request = Request(scope);
-
       if (debug) {
         final accept = request.headers.get('accept');
 
         if (accept != null && accept.contains('text/html')) {
-          final html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
+          final html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
             switch (match[1]) {
               case 'type':
                 return error.toString();
@@ -52,19 +46,19 @@ class ServerErrorMiddleware implements ApplicationController {
             }
           });
 
-          return HTMLResponse(html, status: 500).call(scope, start, respond);
+          return HTMLResponse(html, status: 500)(request, start, respond);
         }
 
         final trace = Trace.format(stackTrace);
-        return TextResponse('$error\n\n$trace', status: 500).call(scope, start, respond);
+        return TextResponse('$error\n\n$trace', status: 500)(request, start, respond);
       }
 
       if (handler == null) {
-        return TextResponse('Internal Server Error', status: 500).call(scope, start, respond);
+        return TextResponse('Internal Server Error', status: 500)(request, start, respond);
       }
 
       return Future<Response>.sync(() => handler!(request, error, stackTrace))
-          .then<void>((response) => response(scope, start, respond));
+          .then<void>((Response response) => response(request, start, respond));
     });
   }
 }

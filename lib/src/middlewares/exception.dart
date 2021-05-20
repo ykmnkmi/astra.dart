@@ -1,9 +1,6 @@
 import 'dart:async';
 
-import '../http.dart';
-import '../request.dart';
-import '../response.dart';
-import '../type.dart';
+import 'package:astra/astra.dart';
 
 class HTTPException implements Exception {
   const HTTPException(this.status, [this.message]);
@@ -57,7 +54,7 @@ class ExceptionMiddleware implements ApplicationController {
   }
 
   @override
-  FutureOr<void> call(Map<String, Object?> scope, Receive receive, Start start, Respond respond) {
+  FutureOr<void> call(Request request, Start start, Respond respond) {
     var responseStarted = false;
 
     void starter(int status, List<Header> headers) {
@@ -65,7 +62,7 @@ class ExceptionMiddleware implements ApplicationController {
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(scope, receive, starter, respond))
+    return Future<void>.sync(() => application(request, starter, respond))
         .catchError((Object error, StackTrace stackTrace) {
       ExceptionHandler? handler;
 
@@ -73,9 +70,7 @@ class ExceptionMiddleware implements ApplicationController {
         handler = statusHandlers[error.status];
       }
 
-      if (handler == null) {
-        handler = exceptionHandlers[error.runtimeType];
-      }
+      handler ??= exceptionHandlers[error.runtimeType];
 
       if (handler == null) {
         throw error;
@@ -85,9 +80,8 @@ class ExceptionMiddleware implements ApplicationController {
         throw StateError('Caught handled exception, but response already started');
       }
 
-      final request = Request(scope, receive: receive);
       return Future<Response>.sync(() => handler!(request, error, stackTrace))
-          .then<void>((response) => response(scope, start, respond));
+          .then<void>((Response response) => response(request, start, respond));
     });
   }
 

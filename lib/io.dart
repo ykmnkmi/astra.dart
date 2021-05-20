@@ -6,10 +6,16 @@ import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
 
-import 'runner.dart';
+class IOServer implements Server<HttpServer> {
+  static Future<Server<HttpServer>> bind(Object address, int port,
+      {int backlog = 0, bool shared = false, SecurityContext? context}) {
+    final serverFuture = context != null
+        ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
+        : HttpServer.bind(address, port, backlog: backlog, shared: shared);
+    return serverFuture.then<Server<HttpServer>>((HttpServer server) => IOServer(server));
+  }
 
-class IORunner implements Runner<HttpServer> {
-  IORunner(this.server);
+  IOServer(this.server);
 
   final HttpServer server;
 
@@ -17,34 +23,17 @@ class IORunner implements Runner<HttpServer> {
   Future<void> close({bool force = false}) {
     return server.close(force: force);
   }
-}
 
-Future<Runner<HttpServer>> start(Application application, Object? address, int port,
-    {int backlog = 0, bool shared = false, SecurityContext? context}) {
-  final serverFuture = context != null
-      ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
-      : HttpServer.bind(address, port, backlog: backlog, shared: shared);
-  return serverFuture.then<Runner<HttpServer>>((HttpServer server) {
-    serve(server, application);
-    return IORunner(server);
-  });
-}
-
-void serve(Stream<HttpRequest> server, Application application) {
-  server.listen((HttpRequest request) {
-    handle(request, application);
-  });
-}
-
-void handle(HttpRequest request, Application application) {
-  final iterable = StreamIterator<List<int>>(request);
-
-  Future<DataStreamMessage> receive() {
-    return iterable.moveNext().then(
-        (hasNext) => hasNext ? DataStreamMessage(iterable.current) : DataStreamMessage(const <int>[], endStream: true));
+  @override
+  void mount(Application application) {
+    server.listen((HttpRequest request) {
+      handle(request, application);
+    });
   }
+}
 
-  final response = request.response;
+void handle(HttpRequest ioRequest, Application application) {
+  final response = ioRequest.response;
 
   void start(int status, List<Header> headers) {
     response.statusCode = status;
@@ -58,9 +47,8 @@ void handle(HttpRequest request, Application application) {
     response.add(bytes);
   }
 
-  final headers = IOHeaders(request.headers);
-  final scope = <String, Object?>{'headers': headers, 'type': 'http'};
-  Future<void>.sync(() => application(scope, receive, start, send)).then<void>((_) => response.close());
+  dynamic request;
+  Future<void>.sync(() => application(request, start, send)).then<void>((void _) => response.close());
 }
 
 class IOHeaders implements Headers {

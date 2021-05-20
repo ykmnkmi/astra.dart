@@ -5,7 +5,8 @@ import 'dart:io' show HttpStatus;
 import 'package:http2/http2.dart' show Header;
 
 import 'http.dart';
-import 'type.dart';
+import 'request.dart';
+import 'types.dart';
 
 class Response<T extends Object?> {
   Response({this.status = HttpStatus.ok, this.contentType, Map<String, String>? headers, T? content})
@@ -47,7 +48,7 @@ class Response<T extends Object?> {
     return MutableHeaders(raw: raw);
   }
 
-  FutureOr<void> call(Map<String, Object?> scope, Start start, Respond respond) {
+  FutureOr<void> call(Request request, Start start, Respond respond) {
     start(status, raw);
 
     if (body != null) {

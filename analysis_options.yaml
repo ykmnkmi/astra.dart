@@ -13,4 +13,3 @@ analyzer:
 linter:
   rules:
     avoid_print: true
-    prefer_conditional_assignment: false
