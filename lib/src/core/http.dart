@@ -1,8 +1,4 @@
-import 'dart:convert' show ascii;
-
-import 'package:http2/http2.dart' show Header;
-
-export 'package:http2/http2.dart' show DataStreamMessage, Header, HeadersStreamMessage, StreamMessage;
+// DataStreamMessage, HeadersStreamMessage, StreamMessage;
 
 abstract class ContentTypes {
   static const String text = 'text/plain; charset=utf-8';
@@ -12,22 +8,84 @@ abstract class ContentTypes {
   static const String json = 'application/json; charset=utf-8';
 }
 
+class Header {
+  const Header(this.name, this.value);
+
+  final String name;
+
+  final String value;
+
+  @override
+  String toString() {
+    return 'Header $name: $value';
+  }
+}
+
 class Headers {
-  Headers({List<Header>? raw}) : _raw = <Header>[] {
+  static const String accept = 'accept';
+  static const String acceptEncoding = 'accept-encoding';
+  static const String accessControlAllowCredentials =
+      'access-control-allow-credentials';
+  static const String accessControlAllowHeaders =
+      'access-control-allow-headers';
+  static const String accessControlAllowMethods =
+      'access-control-allow-methods';
+  static const String accessControlAllowOrigin = 'access-control-allow-origin';
+  static const String accessControlExposeHeaders =
+      'access-control-expose-headers';
+  static const String accessControlMaxAge = 'access-control-max-age';
+  static const String accessControlRequestHeaders =
+      'access-control-request-headers';
+  static const String accessControlRequestMethod =
+      'access-control-request-method';
+  static const String allow = 'allow';
+  static const String authorization = 'authorization';
+  static const String contentDisposition = 'content-disposition';
+  static const String contentEncoding = 'content-encoding';
+  static const String contentLength = 'content-length';
+  static const String contentSecurityPolicy = 'content-security-policy';
+  static const String contentSecurityPolicyReportOnly =
+      'content-security-policy-report-only';
+  static const String contentType = 'content-type';
+  static const String cookie = 'cookie';
+  static const String ifModifiedSince = 'if-modified-since';
+  static const String lastModified = 'last-modified';
+  static const String location = 'location';
+  static const String origin = 'origin';
+  static const String referrerPolicy = 'referrer-policy';
+  static const String server = 'server';
+  static const String setCookie = 'set-cookie';
+  static const String strictTransportSecurity = 'strict-transport-security';
+  static const String upgrade = 'upgrade';
+  static const String vary = 'vary';
+  static const String wwwAuthenticate = 'www-authenticate';
+  static const String xContentTypeOptions = 'x-content-type-options';
+  static const String xCSRFToken = 'x-csrf-token';
+  static const String xForwardedFor = 'x-forwarded-for';
+  static const String xForwardedProto = 'x-forwarded-proto';
+  static const String xForwardedProtocol = 'x-forwarded-protocol';
+  static const String xForwardedSsl = 'x-forwarded-ssl';
+  static const String xFrameOptions = 'x-frame-options';
+  static const String xHTTPMethodOverride = 'x-http-method-override';
+  static const String xRealIP = 'x-real-ip';
+  static const String xRequestedWith = 'x-requested-with';
+  static const String xRequestID = 'x-request-id';
+  static const String xURLScheme = 'x-url-scheme';
+  static const String xXSSProtection = 'x-xss-protection';
+
+  Headers({List<Header>? raw}) : raw = <Header>[] {
     if (raw != null) {
-      _raw.addAll(raw);
+      raw.addAll(raw);
     }
   }
 
-  final List<Header> _raw;
-
-  List<Header> get raw => _raw;
+  final List<Header> raw;
 
   bool contains(String name) {
-    final encodedName = ascii.encode(name.toLowerCase());
+    name = name.toLowerCase();
 
     for (final pair in raw) {
-      if (encodedName == pair.name) {
+      if (name == pair.name) {
         return true;
       }
     }
@@ -36,11 +94,11 @@ class Headers {
   }
 
   String? get(String name) {
-    final encodedName = ascii.encode(name.toLowerCase());
+    name = name.toLowerCase();
 
     for (final header in raw.reversed) {
-      if (equals(encodedName, header.name)) {
-        return ascii.decode(header.value);
+      if (name == header.name) {
+        return header.value;
       }
     }
 
@@ -48,11 +106,11 @@ class Headers {
   }
 
   List<String> getAll(String name) {
-    final encodedName = ascii.encode(name.toLowerCase());
+    name = name.toLowerCase();
 
     return <String>[
       for (final header in raw)
-        if (equals(encodedName, header.name)) ascii.decode(header.value)
+        if (name == header.name) header.value
     ];
   }
 
@@ -65,7 +123,7 @@ class MutableHeaders extends Headers {
   MutableHeaders({List<Header>? raw}) : super(raw: raw);
 
   void add(String name, String value) {
-    raw.add(Header.ascii(name, value));
+    raw.add(Header(name, value));
   }
 
   void clear() {
@@ -73,11 +131,12 @@ class MutableHeaders extends Headers {
   }
 
   void delete(String name) {
-    final encodedName = ascii.encode(name.toLowerCase());
     final indexes = <int>[];
 
+    name = name.toLowerCase();
+
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (equals(encodedName, raw[index].name)) {
+      if (name == raw[index].name) {
         indexes.add(index);
       }
     }
@@ -88,21 +147,21 @@ class MutableHeaders extends Headers {
   }
 
   void set(String name, String value) {
-    final encodedName = ascii.encode(name.toLowerCase());
-    final encodedValue = ascii.encode(value);
     final indexes = <int>[];
 
+    name = name.toLowerCase();
+
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (encodedName == raw[index].name) {
+      if (name == raw[index].name) {
         indexes.add(index);
       }
     }
 
     if (indexes.isEmpty) {
-      raw.add(Header(encodedName, encodedValue));
+      raw.add(Header(name, value));
     } else {
       final header = raw[indexes.removeLast()];
-      raw[indexes.removeLast()] = Header(header.name, encodedValue);
+      raw[indexes.removeLast()] = Header(header.name, value);
 
       for (final index in indexes) {
         raw.removeAt(index);
@@ -111,26 +170,18 @@ class MutableHeaders extends Headers {
   }
 }
 
-bool equals(List<int>? list1, List<int>? list2) {
-  if (identical(list1, list2)) {
-    return true;
-  }
+abstract class Message {
+  const Message();
+}
 
-  if (list1 == null || list2 == null) {
-    return false;
-  }
+class DataMessage extends Message {
+  static const DataMessage eos = DataMessage.empty(end: true);
 
-  final length = list1.length;
+  const DataMessage(this.bytes, {this.end = false});
 
-  if (length != list2.length) {
-    return false;
-  }
+  const DataMessage.empty({this.end = false}) : bytes = const <int>[];
 
-  for (var i = 0; i < length; i++) {
-    if (list1[i] != list2[i]) {
-      return false;
-    }
-  }
+  final List<int> bytes;
 
-  return true;
+  final bool end;
 }

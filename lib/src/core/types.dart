@@ -1,20 +1,23 @@
 import 'dart:async' show FutureOr;
 
-import 'package:http2/http2.dart' show Header;
-
+import 'http.dart';
 import 'request.dart';
 import 'response.dart';
 
-typedef Start = void Function(int status, List<Header> headers);
+typedef Start = void Function(int status, [List<Header> headers]);
 
 typedef Respond = void Function(List<int> body);
 
 typedef Handler = FutureOr<Response> Function(Request request);
 
-typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception, StackTrace stackTrace);
+typedef ExceptionHandler = FutureOr<Response> Function(
+    Request request, Object exception, StackTrace stackTrace);
 
-typedef Application = FutureOr<void> Function(Request request, Start start, Respond respond);
+typedef Application = FutureOr<void> Function(
+    Request request, Start start, Respond respond);
 
-abstract class ApplicationController {
+abstract class Controller {
   FutureOr<void> call(Request request, Start start, Respond respond);
+
+  FutureOr<Response> handle(Request request);
 }

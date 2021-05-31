@@ -3,9 +3,6 @@ include: package:pedantic/analysis_options.yaml
 analyzer:
   # exclude:
   #   - example/**
-  language:
-    strict-inference: true
-    strict-raw-types: true
   strong-mode:
     implicit-dynamic: false
     implicit-casts: false
@@ -13,3 +10,4 @@ analyzer:
 linter:
   rules:
     avoid_print: true
+    prefer_conditional_assignment: false

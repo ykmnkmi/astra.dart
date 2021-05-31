@@ -2,15 +2,17 @@ import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
 import 'dart:io' show HttpStatus;
 
-import 'package:http2/http2.dart' show Header;
-
 import 'http.dart';
 import 'request.dart';
 import 'types.dart';
 
 class Response<T extends Object?> {
-  Response({this.status = HttpStatus.ok, this.contentType, Map<String, String>? headers, T? content})
-      : raw = <Header>[] {
+  Response({
+    this.status = HttpStatus.ok,
+    this.contentType,
+    Map<String, String>? headers,
+    T? content,
+  }) : raw = <Header>[] {
     body = render(content);
 
     var populateContentLength = true;
@@ -21,18 +23,18 @@ class Response<T extends Object?> {
 
       for (final entry in headers.entries) {
         keys.add(entry.key);
-        raw.add(Header.ascii(entry.key.toLowerCase(), entry.value));
-        populateContentLength = !keys.contains('Content-Length');
-        populateContentType = !keys.contains('Content-Type');
+        raw.add(Header(entry.key.toLowerCase(), entry.value));
+        populateContentLength = !keys.contains(Headers.contentLength);
+        populateContentType = !keys.contains(Headers.contentType);
       }
     }
 
     if (body != null && body!.isNotEmpty && populateContentLength) {
-      raw.add(Header.ascii('Content-Length', body!.length.toString()));
+      raw.add(Header(Headers.contentLength, body!.length.toString()));
     }
 
     if (contentType != null && populateContentType) {
-      raw.add(Header.ascii('Content-Type', contentType!));
+      raw.add(Header(Headers.contentType, contentType!));
     }
   }
 
@@ -78,9 +80,17 @@ class Response<T extends Object?> {
 }
 
 class TextResponse extends Response<String> {
-  TextResponse(String? content,
-      {int status = HttpStatus.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
-      : super(status: status, contentType: contentType, headers: headers, content: content);
+  TextResponse(
+    String? content, {
+    int status = HttpStatus.ok,
+    String contentType = ContentTypes.text,
+    Map<String, String>? headers,
+  }) : super(
+          status: status,
+          contentType: contentType,
+          headers: headers,
+          content: content,
+        );
 
   @override
   List<int> render(String? content) {
@@ -93,13 +103,29 @@ class TextResponse extends Response<String> {
 }
 
 class HTMLResponse extends TextResponse {
-  HTMLResponse(String? content, {int status = HttpStatus.ok, Map<String, String>? headers})
-      : super(content, status: status, contentType: ContentTypes.html, headers: headers);
+  HTMLResponse(
+    String? content, {
+    int status = HttpStatus.ok,
+    Map<String, String>? headers,
+  }) : super(
+          content,
+          status: status,
+          contentType: ContentTypes.html,
+          headers: headers,
+        );
 }
 
 class JSONResponse extends Response<Object> {
-  JSONResponse(Object? content, {int status = HttpStatus.ok, Map<String, String>? headers})
-      : super(status: status, contentType: ContentTypes.json, headers: headers, content: content);
+  JSONResponse(
+    Object? content, {
+    int status = HttpStatus.ok,
+    Map<String, String>? headers,
+  }) : super(
+          status: status,
+          contentType: ContentTypes.json,
+          headers: headers,
+          content: content,
+        );
 
   @override
   List<int> render(Object? content) {

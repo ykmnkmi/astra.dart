@@ -1,11 +1,9 @@
 import 'dart:async' show StreamController;
 
-import 'package:http2/http2.dart' show DataStreamMessage;
-
 import 'http.dart';
 
-Future<DataStreamMessage> emptyReceive() {
-  return Future<DataStreamMessage>.value(DataStreamMessage(const <int>[], endStream: true));
+Future<DataMessage> emptyReceive() {
+  return Future<DataMessage>.value(DataMessage.eos);
 }
 
 abstract class Request {
@@ -15,20 +13,18 @@ abstract class Request {
 
   List<int>? receivedBody;
 
-  Headers get headers {
-    throw UnimplementedError();
-  }
+  String get method;
 
   Future<List<int>> get body {
     if (receivedBody == null) {
-      List<int> fold(List<int> chunks, List<int> chunk) {
-        chunks.addAll(chunk);
-        return chunks;
+      List<int> fold(List<int> body, List<int> chunk) {
+        body.addAll(chunk);
+        return body;
       }
 
-      List<int> store(List<int> chunks) {
-        receivedBody = chunks;
-        return chunks;
+      List<int> store(List<int> body) {
+        receivedBody = body;
+        return body;
       }
 
       return stream.fold<List<int>>(<int>[], fold).then<List<int>>(store);
@@ -36,6 +32,8 @@ abstract class Request {
 
     return Future<List<int>>.value(receivedBody!);
   }
+
+  Headers get headers;
 
   Stream<List<int>> get stream {
     if (receivedBody != null) {
@@ -50,12 +48,12 @@ abstract class Request {
 
     final controller = StreamController<List<int>>();
 
-    void get(DataStreamMessage message) {
+    void get(DataMessage message) {
       if (message.bytes.isNotEmpty) {
         controller.add(message.bytes);
       }
 
-      if (!message.endStream) {
+      if (!message.end) {
         receive().then<void>(get);
       } else {
         controller.close();
@@ -66,5 +64,7 @@ abstract class Request {
     return controller.stream;
   }
 
-  Future<DataStreamMessage> receive();
+  Uri get url;
+
+  Future<DataMessage> receive();
 }

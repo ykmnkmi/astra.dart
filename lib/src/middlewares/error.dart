@@ -4,8 +4,12 @@ import 'dart:io' show File;
 import 'package:astra/astra.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
-class ServerErrorMiddleware implements ApplicationController {
-  ServerErrorMiddleware(this.application, {this.debug = false, this.handler});
+class ServerErrorMiddleware {
+  ServerErrorMiddleware(
+    this.application, {
+    this.debug = false,
+    this.handler,
+  });
 
   final Application application;
 
@@ -13,17 +17,19 @@ class ServerErrorMiddleware implements ApplicationController {
 
   final ExceptionHandler? handler;
 
-  @override
-  FutureOr<void> call(Request request, Start start, Respond respond) {
+  Future<void> call(Request request, Start start, Respond respond) {
     var responseStarted = false;
 
-    void starter(int status, List<Header> headers) {
+    void starter(int status, [List<Header> headers = const <Header>[]]) {
       responseStarted = true;
       start(status, headers);
     }
 
-    return Future<void>.sync(() => application(request, starter, respond))
-        .catchError((Object error, StackTrace stackTrace) {
+    FutureOr<void> run() {
+      return application(request, starter, respond);
+    }
+
+    FutureOr<void> catchError(Object error, StackTrace stackTrace) {
       if (responseStarted) {
         throw error;
       }
@@ -32,7 +38,7 @@ class ServerErrorMiddleware implements ApplicationController {
         final accept = request.headers.get('accept');
 
         if (accept != null && accept.contains('text/html')) {
-          final html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
+          final html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
             switch (match[1]) {
               case 'type':
                 return error.toString();
@@ -50,16 +56,27 @@ class ServerErrorMiddleware implements ApplicationController {
         }
 
         final trace = Trace.format(stackTrace);
-        return TextResponse('$error\n\n$trace', status: 500)(request, start, respond);
+        final response = TextResponse('$error\n\n$trace', status: 500);
+        return response(request, start, respond);
       }
 
       if (handler == null) {
-        return TextResponse('Internal Server Error', status: 500)(request, start, respond);
+        final response = TextResponse('Internal Server Error', status: 500);
+        return response(request, start, respond);
       }
 
-      return Future<Response>.sync(() => handler!(request, error, stackTrace))
-          .then<void>((Response response) => response(request, start, respond));
-    });
+      FutureOr<Response> handle() {
+        return handler!(request, error, stackTrace);
+      }
+
+      FutureOr<void> send(Response response) {
+        return response(request, start, respond);
+      }
+
+      return Future<Response>.sync(handle).then<void>(send);
+    }
+
+    return Future<void>.sync(run).catchError(catchError);
   }
 }
 
@@ -100,7 +117,9 @@ String renderFrames(List<Frame> frames) {
       ..write('<div class="frame">')
       ..write(scheme == 'file' ? 'File' : 'Package')
       ..write('&nbsp;<span class="library">')
-      ..write(scheme == 'package' ? frame.library.replaceFirst('package:', '') : frame.library)
+      ..write(scheme == 'package'
+          ? frame.library.replaceFirst('package:', '')
+          : frame.library)
       ..write('</span>, line&nbsp;<i>')
       ..write(frame.line)
       ..write('</i>,&nbsp;column&nbsp;<i>')
