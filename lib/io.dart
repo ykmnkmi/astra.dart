@@ -14,8 +14,7 @@ class IOServer implements Server<HttpServer> {
     SecurityContext? context,
   }) {
     final serverFuture = context != null
-        ? HttpServer.bindSecure(address, port, context,
-            backlog: backlog, shared: shared)
+        ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
         : HttpServer.bind(address, port, backlog: backlog, shared: shared);
     return serverFuture.then<Server<HttpServer>>((server) => IOServer(server));
   }
@@ -30,8 +29,8 @@ class IOServer implements Server<HttpServer> {
   }
 
   @override
-  void mount(Application application) {
-    server.listen((request) {
+  void call(Application application) {
+    server.listen((HttpRequest request) {
       handle(request, application);
     });
   }
@@ -52,10 +51,7 @@ void handle(HttpRequest ioRequest, Application application) {
     response.add(bytes);
   }
 
-  final request = IORequest(ioRequest);
-
-  Future<void>.sync(() => application(request, start, send))
-      .then<void>((_) => response.close());
+  Future<void>.sync(() => application(IORequest(ioRequest), start, send)).then<void>((_) => response.close());
 }
 
 class IOHeaders implements Headers {
@@ -67,7 +63,7 @@ class IOHeaders implements Headers {
   List<Header> get raw {
     final raw = <Header>[];
 
-    headers.forEach((name, values) {
+    headers.forEach((String name, List<String> values) {
       for (final value in values) {
         raw.add(Header(name, value));
       }
@@ -145,7 +141,8 @@ class IORequest extends Request {
 
   @override
   Future<DataMessage> receive() {
-    return iterable.moveNext().then<DataMessage>((hasNext) =>
-        hasNext ? DataMessage(iterable.current) : DataMessage.empty(end: true));
+    return iterable
+        .moveNext()
+        .then<DataMessage>((hasNext) => hasNext ? DataMessage(iterable.current) : DataMessage.empty(end: true));
   }
 }

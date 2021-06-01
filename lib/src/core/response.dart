@@ -12,8 +12,10 @@ class Response<T extends Object?> {
     this.contentType,
     Map<String, String>? headers,
     T? content,
-  }) : raw = <Header>[] {
+  }) : headers = MutableHeaders() {
     body = render(content);
+
+    final raw = this.headers.raw;
 
     var populateContentLength = true;
     var populateContentType = true;
@@ -40,18 +42,14 @@ class Response<T extends Object?> {
 
   int status;
 
-  List<Header> raw;
+  MutableHeaders headers;
 
   String? contentType;
 
   List<int>? body;
 
-  MutableHeaders get headers {
-    return MutableHeaders(raw: raw);
-  }
-
   FutureOr<void> call(Request request, Start start, Respond respond) {
-    start(status, raw);
+    start(status, headers.raw);
 
     if (body != null) {
       respond(body!);
@@ -130,5 +128,18 @@ class JSONResponse extends Response<Object> {
   @override
   List<int> render(Object? content) {
     return utf8.encode(json.encode(content));
+  }
+}
+
+class RedirectResponse extends Response {
+  RedirectResponse(
+    Uri url, {
+    int status = HttpStatus.temporaryRedirect,
+    Map<String, String>? headers,
+  }) : super(
+          status: status,
+          headers: headers,
+        ) {
+    this.headers.set(Headers.location, '$url');
   }
 }

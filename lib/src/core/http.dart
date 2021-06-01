@@ -24,28 +24,21 @@ class Header {
 class Headers {
   static const String accept = 'accept';
   static const String acceptEncoding = 'accept-encoding';
-  static const String accessControlAllowCredentials =
-      'access-control-allow-credentials';
-  static const String accessControlAllowHeaders =
-      'access-control-allow-headers';
-  static const String accessControlAllowMethods =
-      'access-control-allow-methods';
+  static const String accessControlAllowCredentials = 'access-control-allow-credentials';
+  static const String accessControlAllowHeaders = 'access-control-allow-headers';
+  static const String accessControlAllowMethods = 'access-control-allow-methods';
   static const String accessControlAllowOrigin = 'access-control-allow-origin';
-  static const String accessControlExposeHeaders =
-      'access-control-expose-headers';
+  static const String accessControlExposeHeaders = 'access-control-expose-headers';
   static const String accessControlMaxAge = 'access-control-max-age';
-  static const String accessControlRequestHeaders =
-      'access-control-request-headers';
-  static const String accessControlRequestMethod =
-      'access-control-request-method';
+  static const String accessControlRequestHeaders = 'access-control-request-headers';
+  static const String accessControlRequestMethod = 'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
   static const String contentDisposition = 'content-disposition';
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';
   static const String contentSecurityPolicy = 'content-security-policy';
-  static const String contentSecurityPolicyReportOnly =
-      'content-security-policy-report-only';
+  static const String contentSecurityPolicyReportOnly = 'content-security-policy-report-only';
   static const String contentType = 'content-type';
   static const String cookie = 'cookie';
   static const String ifModifiedSince = 'if-modified-since';

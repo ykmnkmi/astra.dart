@@ -8,16 +8,30 @@ typedef Start = void Function(int status, [List<Header> headers]);
 
 typedef Respond = void Function(List<int> body);
 
+typedef Application = FutureOr<void> Function(Request request, Start start, Respond respond);
+
 typedef Handler = FutureOr<Response> Function(Request request);
 
-typedef ExceptionHandler = FutureOr<Response> Function(
-    Request request, Object exception, StackTrace stackTrace);
+extension HandlerPipeline on Handler {
+  Handler use(Middleware middleware) {
+    return middleware(this);
+  }
+}
 
-typedef Application = FutureOr<void> Function(
-    Request request, Start start, Respond respond);
+typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception, StackTrace stackTrace);
 
-abstract class Controller {
-  FutureOr<void> call(Request request, Start start, Respond respond);
+typedef Middleware = Handler Function(Handler handler);
 
-  FutureOr<Response> handle(Request request);
+extension MiddlewarePipeline on Middleware {
+  Middleware link(Middleware next) {
+    return (Handler handler) {
+      return this(handler);
+    };
+  }
+
+  Handler handle(Handler handler) {
+    return (Request request) {
+      return handler(request);
+    };
+  }
 }

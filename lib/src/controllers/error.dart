@@ -4,7 +4,7 @@ import 'dart:io' show File;
 import 'package:astra/astra.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
-class ServerErrorMiddleware {
+class ServerErrorMiddleware extends Controller {
   ServerErrorMiddleware(
     this.application, {
     this.debug = false,
@@ -17,6 +17,7 @@ class ServerErrorMiddleware {
 
   final ExceptionHandler? handler;
 
+  @override
   Future<void> call(Request request, Start start, Respond respond) {
     var responseStarted = false;
 
@@ -117,9 +118,7 @@ String renderFrames(List<Frame> frames) {
       ..write('<div class="frame">')
       ..write(scheme == 'file' ? 'File' : 'Package')
       ..write('&nbsp;<span class="library">')
-      ..write(scheme == 'package'
-          ? frame.library.replaceFirst('package:', '')
-          : frame.library)
+      ..write(scheme == 'package' ? frame.library.replaceFirst('package:', '') : frame.library)
       ..write('</span>, line&nbsp;<i>')
       ..write(frame.line)
       ..write('</i>,&nbsp;column&nbsp;<i>')

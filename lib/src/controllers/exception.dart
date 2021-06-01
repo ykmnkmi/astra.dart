@@ -1,9 +1,6 @@
-import 'dart:async' show FutureOr;
+import 'dart:async' show FutureOr, runZonedGuarded;
 
-import 'http.dart';
-import 'request.dart';
-import 'response.dart';
-import 'types.dart';
+import 'package:astra/astra.dart';
 
 class HTTPException implements Exception {
   const HTTPException(this.status, [this.message]);
@@ -25,7 +22,7 @@ class HTTPException implements Exception {
   }
 }
 
-class ExceptionMiddleware {
+class ExceptionMiddleware extends Controller {
   ExceptionMiddleware(
     this.application, {
     Map<Object, ExceptionHandler>? handlers,
@@ -59,6 +56,7 @@ class ExceptionMiddleware {
     }
   }
 
+  @override
   FutureOr<void> call(Request request, Start start, Respond respond) {
     var responseStarted = false;
 
@@ -87,8 +85,7 @@ class ExceptionMiddleware {
       }
 
       if (responseStarted) {
-        throw StateError(
-            'Caught handled exception, but response already started');
+        throw StateError('Caught handled exception, but response already started');
       }
 
       FutureOr<Response> handle() {
@@ -102,6 +99,7 @@ class ExceptionMiddleware {
       return Future<Response>.sync(handle).then<void>(send);
     }
 
+    // return runZonedGuarded<Future<void>>(() => Future<void>.sync(run).catchError(catchError), catchError);
     return Future<void>.sync(run).catchError(catchError);
   }
 
