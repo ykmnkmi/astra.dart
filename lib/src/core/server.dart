@@ -1,7 +1,7 @@
 import 'types.dart';
 
 abstract class Server<T> {
-  void call(Application application);
+  void mount(Application application);
 
   Future<void> close({bool force = false});
 }

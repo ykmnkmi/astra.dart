@@ -1,6 +1,6 @@
 library astra.io;
 
-import 'dart:async' show StreamIterator;
+import 'dart:async' show FutureOr, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
@@ -16,7 +16,7 @@ class IOServer implements Server<HttpServer> {
     final serverFuture = context != null
         ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
         : HttpServer.bind(address, port, backlog: backlog, shared: shared);
-    return serverFuture.then<Server<HttpServer>>((server) => IOServer(server));
+    return serverFuture.then<Server<HttpServer>>((HttpServer server) => IOServer(server));
   }
 
   IOServer(this.server);
@@ -29,7 +29,7 @@ class IOServer implements Server<HttpServer> {
   }
 
   @override
-  void call(Application application) {
+  void mount(Application application) {
     server.listen((HttpRequest request) {
       handle(request, application);
     });
@@ -39,12 +39,14 @@ class IOServer implements Server<HttpServer> {
 void handle(HttpRequest ioRequest, Application application) {
   final response = ioRequest.response;
 
-  void start(int status, [List<Header> headers = const <Header>[]]) {
+  void start(int status, {List<Header> headers = const <Header>[], bool buffer = false}) {
     response.statusCode = status;
 
     for (final header in headers) {
       response.headers.set(header.name, header.value);
     }
+
+    response.bufferOutput = buffer;
   }
 
   void send(List<int> bytes) {
@@ -143,6 +145,6 @@ class IORequest extends Request {
   Future<DataMessage> receive() {
     return iterable
         .moveNext()
-        .then<DataMessage>((hasNext) => hasNext ? DataMessage(iterable.current) : DataMessage.empty(end: true));
+        .then<DataMessage>((bool hasNext) => hasNext ? DataMessage(iterable.current) : DataMessage.empty(end: true));
   }
 }

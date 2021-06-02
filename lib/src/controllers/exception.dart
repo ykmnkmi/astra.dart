@@ -1,4 +1,4 @@
-import 'dart:async' show FutureOr, runZonedGuarded;
+import 'dart:async' show FutureOr;
 
 import 'package:astra/astra.dart';
 
@@ -57,16 +57,16 @@ class ExceptionMiddleware extends Controller {
   }
 
   @override
-  FutureOr<void> call(Request request, Start start, Respond respond) {
+  FutureOr<void> call(Request request, Start start, Send send) {
     var responseStarted = false;
 
-    void starter(int status, [List<Header> headers = const <Header>[]]) {
+    void starter(int status, {List<Header> headers = const <Header>[], bool buffer = true}) {
       responseStarted = true;
-      start(status, headers);
+      start(status, headers: headers, buffer: buffer);
     }
 
     FutureOr<void> run() {
-      return application(request, starter, respond);
+      return application(request, starter, send);
     }
 
     FutureOr<void> catchError(Object error, StackTrace stackTrace) {
@@ -85,29 +85,24 @@ class ExceptionMiddleware extends Controller {
       }
 
       if (responseStarted) {
-        throw StateError('Caught handled exception, but response already started');
+        throw StateError('caught handled exception, but response already started');
       }
 
       FutureOr<Response> handle() {
         return handler!(request, error, stackTrace);
       }
 
-      FutureOr<void> send(Response response) {
-        return response(request, start, respond);
+      FutureOr<void> sender(Response response) {
+        return response(request, start, send);
       }
 
-      return Future<Response>.sync(handle).then<void>(send);
+      return Future<Response>.sync(handle).then<void>(sender);
     }
 
-    // return runZonedGuarded<Future<void>>(() => Future<void>.sync(run).catchError(catchError), catchError);
     return Future<void>.sync(run).catchError(catchError);
   }
 
-  static Response httpException(
-    Request request,
-    Object exception,
-    StackTrace stackTrace,
-  ) {
+  static Response httpException(Request request, Object exception, StackTrace stackTrace) {
     final typedException = exception as HTTPException;
 
     if (typedException.status == 204 || typedException.status == 304) {

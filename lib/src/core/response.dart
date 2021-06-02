@@ -15,8 +15,6 @@ class Response<T extends Object?> {
   }) : headers = MutableHeaders() {
     body = render(content);
 
-    final raw = this.headers.raw;
-
     var populateContentLength = true;
     var populateContentType = true;
 
@@ -25,18 +23,18 @@ class Response<T extends Object?> {
 
       for (final entry in headers.entries) {
         keys.add(entry.key);
-        raw.add(Header(entry.key.toLowerCase(), entry.value));
+        this.headers.add(entry.key.toLowerCase(), entry.value);
         populateContentLength = !keys.contains(Headers.contentLength);
         populateContentType = !keys.contains(Headers.contentType);
       }
     }
 
     if (body != null && body!.isNotEmpty && populateContentLength) {
-      raw.add(Header(Headers.contentLength, body!.length.toString()));
+      this.headers.add(Headers.contentLength, body!.length.toString());
     }
 
     if (contentType != null && populateContentType) {
-      raw.add(Header(Headers.contentType, contentType!));
+      this.headers.add(Headers.contentType, contentType!);
     }
   }
 
@@ -48,17 +46,17 @@ class Response<T extends Object?> {
 
   List<int>? body;
 
-  FutureOr<void> call(Request request, Start start, Respond respond) {
-    start(status, headers.raw);
+  FutureOr<void> call(Request request, Start start, Send respond) {
+    start(status, headers: headers.raw);
 
     if (body != null) {
       respond(body!);
     }
   }
 
-  List<int> render(T? content) {
+  List<int>? render(T? content) {
     if (content == null) {
-      return const <int>[];
+      return null;
     }
 
     if (content is List<int>) {
@@ -141,5 +139,29 @@ class RedirectResponse extends Response {
           headers: headers,
         ) {
     this.headers.set(Headers.location, '$url');
+  }
+}
+
+class StreamResponse extends Response {
+  StreamResponse(
+    this.stream, {
+    this.buffer = true,
+    int status = HttpStatus.ok,
+    String? contentType,
+    Map<String, String>? headers,
+  }) : super(
+          status: status,
+          contentType: contentType,
+          headers: headers,
+        );
+
+  final Stream<List<int>> stream;
+
+  final bool buffer;
+
+  @override
+  Future<void> call(Request request, Start start, Send send) {
+    start(status, headers: headers.raw, buffer: buffer);
+    return stream.forEach(send);
   }
 }

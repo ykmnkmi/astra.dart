@@ -1,5 +1,5 @@
 import 'dart:async' show FutureOr;
-import 'dart:io' show File;
+import 'dart:io' show File, HttpStatus;
 
 import 'package:astra/astra.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
@@ -18,16 +18,16 @@ class ServerErrorMiddleware extends Controller {
   final ExceptionHandler? handler;
 
   @override
-  Future<void> call(Request request, Start start, Respond respond) {
+  Future<void> call(Request request, Start start, Send send) {
     var responseStarted = false;
 
-    void starter(int status, [List<Header> headers = const <Header>[]]) {
+    void starter(int status, {List<Header> headers = const <Header>[], bool buffer = true}) {
       responseStarted = true;
-      start(status, headers);
+      start(status, headers: headers, buffer: buffer);
     }
 
     FutureOr<void> run() {
-      return application(request, starter, respond);
+      return application(request, starter, send);
     }
 
     FutureOr<void> catchError(Object error, StackTrace stackTrace) {
@@ -53,28 +53,28 @@ class ServerErrorMiddleware extends Controller {
             }
           });
 
-          return HTMLResponse(html, status: 500)(request, start, respond);
+          return HTMLResponse(html, status: 500)(request, start, send);
         }
 
         final trace = Trace.format(stackTrace);
-        final response = TextResponse('$error\n\n$trace', status: 500);
-        return response(request, start, respond);
+        final response = TextResponse('$error\n\n$trace', status: HttpStatus.internalServerError);
+        return response(request, start, send);
       }
 
       if (handler == null) {
-        final response = TextResponse('Internal Server Error', status: 500);
-        return response(request, start, respond);
+        final response = TextResponse('Internal Server Error', status: HttpStatus.internalServerError);
+        return response(request, start, send);
       }
 
       FutureOr<Response> handle() {
         return handler!(request, error, stackTrace);
       }
 
-      FutureOr<void> send(Response response) {
-        return response(request, start, respond);
+      FutureOr<void> sender(Response response) {
+        return response(request, start, send);
       }
 
-      return Future<Response>.sync(handle).then<void>(send);
+      return Future<Response>.sync(handle).then<void>(sender);
     }
 
     return Future<void>.sync(run).catchError(catchError);

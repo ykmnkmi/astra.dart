@@ -4,13 +4,20 @@ import 'package:astra/astra.dart';
 import 'package:astra/controllers.dart';
 import 'package:astra/io.dart';
 
-FutureOr<void> application(Request request, Start start, Respond respond) {
-  final response = TextResponse(request.url.path);
-  return response(request, start, respond);
+FutureOr<void> exmaple(Request request, Start start, Send send) {
+  if (request.url.path != '/') {
+    start(404);
+    return null;
+  }
+
+  final response = TextResponse('hello');
+  throw Exception('rieee!');
+  return response(request, start, send);
 }
 
 Future<void> main() async {
   final server = await IOServer.bind('localhost', 3000);
-  server(ExceptionMiddleware(ServerErrorMiddleware(application, debug: true)));
+  final application = ServerErrorMiddleware(exmaple);
+  server.mount(application);
   print('serving at http://localhost:3000');
 }

@@ -4,11 +4,11 @@ import 'http.dart';
 import 'request.dart';
 import 'response.dart';
 
-typedef Start = void Function(int status, [List<Header> headers]);
+typedef Start = void Function(int status, {List<Header> headers, bool buffer});
 
-typedef Respond = void Function(List<int> body);
+typedef Send = FutureOr<void> Function(List<int> body);
 
-typedef Application = FutureOr<void> Function(Request request, Start start, Respond respond);
+typedef Application = FutureOr<void> Function(Request request, Start start, Send send);
 
 typedef Handler = FutureOr<Response> Function(Request request);
 
