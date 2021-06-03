@@ -29,8 +29,8 @@ class Response<T extends Object?> {
       }
     }
 
-    if (body != null && body!.isNotEmpty && populateContentLength) {
-      this.headers.add(Headers.contentLength, body!.length.toString());
+    if (body.isNotEmpty && populateContentLength) {
+      this.headers.add(Headers.contentLength, '${body.length}');
     }
 
     if (contentType != null && populateContentType) {
@@ -44,16 +44,16 @@ class Response<T extends Object?> {
 
   String? contentType;
 
-  List<int>? body;
+  late List<int> body;
 
   FutureOr<void> call(Request request, Start start, Send send) {
     start(status: status, headers: headers.raw);
-    return send(bytes: body ?? const <int>[], end: true);
+    return send(bytes: body, end: true);
   }
 
-  List<int>? render(T? content) {
+  List<int> render(T? content) {
     if (content == null) {
-      return null;
+      return const <int>[];
     }
 
     if (content is List<int>) {
