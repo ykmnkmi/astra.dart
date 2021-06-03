@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 
 import 'package:astra/astra.dart';
@@ -6,18 +8,18 @@ import 'package:astra/io.dart';
 
 FutureOr<void> exmaple(Request request, Start start, Send send) {
   if (request.url.path != '/') {
-    start(404);
+    start(status: 404);
     return null;
   }
 
-  final response = TextResponse('hello');
+  // final response = TextResponse('hello');
+  // return response(request, start, send);
   throw Exception('rieee!');
-  return response(request, start, send);
 }
 
 Future<void> main() async {
   final server = await IOServer.bind('localhost', 3000);
-  final application = ServerErrorMiddleware(exmaple);
+  final application = ServerErrorMiddleware(exmaple, debug: true);
   server.mount(application);
   print('serving at http://localhost:3000');
 }

@@ -1,4 +1,5 @@
 import 'dart:async' show FutureOr;
+import 'dart:io' show HttpStatus;
 
 import 'package:astra/astra.dart';
 
@@ -60,9 +61,9 @@ class ExceptionMiddleware extends Controller {
   FutureOr<void> call(Request request, Start start, Send send) {
     var responseStarted = false;
 
-    void starter(int status, {List<Header> headers = const <Header>[], bool buffer = true}) {
+    void starter({int status = HttpStatus.ok, List<Header> headers = const <Header>[], bool buffer = true}) {
       responseStarted = true;
-      start(status, headers: headers, buffer: buffer);
+      start(status: status, headers: headers, buffer: buffer);
     }
 
     FutureOr<void> run() {
@@ -76,9 +77,7 @@ class ExceptionMiddleware extends Controller {
         handler = statusHandlers[error.status];
       }
 
-      if (handler == null) {
-        handler = exceptionHandlers[error.runtimeType];
-      }
+      handler ??= exceptionHandlers[error.runtimeType];
 
       if (handler == null) {
         throw error;

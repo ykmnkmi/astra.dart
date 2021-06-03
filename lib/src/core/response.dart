@@ -46,12 +46,9 @@ class Response<T extends Object?> {
 
   List<int>? body;
 
-  FutureOr<void> call(Request request, Start start, Send respond) {
-    start(status, headers: headers.raw);
-
-    if (body != null) {
-      respond(body!);
-    }
+  FutureOr<void> call(Request request, Start start, Send send) {
+    start(status: status, headers: headers.raw);
+    return send(bytes: body ?? const <int>[], end: true);
   }
 
   List<int>? render(T? content) {
@@ -161,7 +158,7 @@ class StreamResponse extends Response {
 
   @override
   Future<void> call(Request request, Start start, Send send) {
-    start(status, headers: headers.raw, buffer: buffer);
-    return stream.forEach(send);
+    start(status: status, headers: headers.raw, buffer: buffer);
+    return stream.forEach((bytes) => send(bytes: bytes)).then((_) => send(end: true));
   }
 }

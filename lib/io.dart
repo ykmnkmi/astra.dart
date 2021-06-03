@@ -1,7 +1,7 @@
 library astra.io;
 
 import 'dart:async' show FutureOr, StreamIterator;
-import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
+import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus, SecurityContext;
 
 import 'package:astra/astra.dart';
 
@@ -39,7 +39,7 @@ class IOServer implements Server<HttpServer> {
 void handle(HttpRequest ioRequest, Application application) {
   final response = ioRequest.response;
 
-  void start(int status, {List<Header> headers = const <Header>[], bool buffer = false}) {
+  void start({int status = HttpStatus.ok, List<Header> headers = const <Header>[], bool buffer = false}) {
     response.statusCode = status;
 
     for (final header in headers) {
@@ -49,8 +49,16 @@ void handle(HttpRequest ioRequest, Application application) {
     response.bufferOutput = buffer;
   }
 
-  void send(List<int> bytes) {
+  FutureOr<void> send({List<int> bytes = const <int>[], bool end = false}) {
     response.add(bytes);
+
+    if (end) {
+      if (response.bufferOutput) {
+        return response.flush().then<void>((_) => response.close());
+      }
+
+      return response.close();
+    }
   }
 
   Future<void>.sync(() => application(IORequest(ioRequest), start, send)).then<void>((_) => response.close());
