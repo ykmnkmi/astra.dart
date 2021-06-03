@@ -1,9 +1,7 @@
-import 'dart:async' show StreamController;
-
 import 'http.dart';
 
-Future<DataMessage> emptyReceive() {
-  return Future<DataMessage>.value(DataMessage.eos);
+Future<DataMessage> emptyReceive() async {
+  return DataMessage.eos;
 }
 
 abstract class Request {
@@ -15,53 +13,37 @@ abstract class Request {
 
   String get method;
 
-  Future<List<int>> get body {
+  Future<List<int>> get body async {
     if (receivedBody == null) {
-      List<int> fold(List<int> body, List<int> chunk) {
-        body.addAll(chunk);
-        return body;
-      }
+      receivedBody = <int>[];
 
-      List<int> store(List<int> body) {
-        receivedBody = body;
-        return body;
+      await for (var bytes in stream) {
+        receivedBody!.addAll(bytes);
       }
-
-      return stream.fold<List<int>>(<int>[], fold).then<List<int>>(store);
     }
 
-    return Future<List<int>>.value(receivedBody!);
+    return receivedBody!;
   }
 
   Headers get headers;
 
-  Stream<List<int>> get stream {
+  Stream<List<int>> get stream async* {
     if (receivedBody != null) {
-      return Stream<List<int>>.value(receivedBody!);
+      yield receivedBody!;
     }
 
     if (streamConsumed) {
-      return Stream<List<int>>.error(StateError('Stream consumed'));
+      throw StateError('Stream consumed');
     }
 
+    var message = await receive();
     streamConsumed = true;
 
-    final controller = StreamController<List<int>>();
-
-    void get(DataMessage message) {
-      if (message.bytes.isNotEmpty) {
-        controller.add(message.bytes);
-      }
-
-      if (!message.end) {
-        receive().then<void>(get);
-      } else {
-        controller.close();
-      }
+    while (!message.end) {
+      yield message.bytes;
     }
 
-    receive().then<void>(get);
-    return controller.stream;
+    yield message.bytes;
   }
 
   Uri get url;

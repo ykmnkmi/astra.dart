@@ -1,6 +1,3 @@
-import 'dart:async' show FutureOr;
-import 'dart:io' show HttpStatus;
-
 import 'package:astra/astra.dart';
 
 class HTTPException implements Exception {
@@ -58,19 +55,17 @@ class ExceptionMiddleware extends Controller {
   }
 
   @override
-  FutureOr<void> call(Request request, Start start, Send send) {
+  Future<void> call(Request request, Start start, Send send) async {
     var responseStarted = false;
 
-    void starter({int status = HttpStatus.ok, List<Header> headers = const <Header>[], bool buffer = true}) {
+    void starter({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = true}) {
       responseStarted = true;
       start(status: status, headers: headers, buffer: buffer);
     }
 
-    FutureOr<void> run() {
-      return application(request, starter, send);
-    }
-
-    FutureOr<void> catchError(Object error, StackTrace stackTrace) {
+    try {
+      await application(request, starter, send);
+    } catch (error, stackTrace) {
       ExceptionHandler? handler;
 
       if (error is HTTPException) {
@@ -80,25 +75,16 @@ class ExceptionMiddleware extends Controller {
       handler ??= exceptionHandlers[error.runtimeType];
 
       if (handler == null) {
-        throw error;
+        rethrow;
       }
 
       if (responseStarted) {
         throw StateError('caught handled exception, but response already started');
       }
 
-      FutureOr<Response> handle() {
-        return handler!(request, error, stackTrace);
-      }
-
-      FutureOr<void> sender(Response response) {
-        return response(request, start, send);
-      }
-
-      return Future<Response>.sync(handle).then<void>(sender);
+      final response = await handler(request, error, stackTrace);
+      await response(request, start, send);
     }
-
-    return Future<void>.sync(run).catchError(catchError);
   }
 
   static Response httpException(Request request, Object exception, StackTrace stackTrace) {

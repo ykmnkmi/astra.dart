@@ -1,6 +1,6 @@
 name: astra
 description: A simple web server framework based on starlette.
-version: 1.0.0-dev.24
+version: 1.0.0-dev.25
 # homepage: https://www.example.com
 
 environment:

@@ -1,5 +1,5 @@
-import 'dart:async' show FutureOr, StreamIterator;
-import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus, SecurityContext;
+import 'dart:async' show StreamIterator;
+import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
 
@@ -34,32 +34,36 @@ class IOServer implements Server<HttpServer> {
   }
 }
 
-void handle(HttpRequest ioRequest, Application application) {
+Future<void> handle(HttpRequest ioRequest, Application application) async {
   final response = ioRequest.response;
 
-  void start({int status = HttpStatus.ok, List<Header> headers = const <Header>[], bool buffer = false}) {
+  void start({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = false}) {
     response.statusCode = status;
+    response.reasonPhrase = reason ?? ReasonPhrases.from(status);
 
-    for (final header in headers) {
-      response.headers.set(header.name, header.value);
+    if (headers != null) {
+      for (final header in headers) {
+        response.headers.set(header.name, header.value);
+      }
     }
 
     response.bufferOutput = buffer;
   }
 
-  FutureOr<void> send({List<int> bytes = const <int>[], bool end = false}) {
+  Future<void> send({List<int> bytes = const <int>[], bool end = false}) async {
     response.add(bytes);
 
     if (end) {
       if (response.bufferOutput) {
-        return response.flush().then<void>((_) => response.close());
+        await response.flush();
       }
 
       return response.close();
     }
   }
 
-  Future<void>.sync(() => application(IORequest(ioRequest), start, send)).then<void>((_) => response.close());
+  await application(IORequest(ioRequest), start, send);
+  response.close();
 }
 
 class IOHeaders implements Headers {
@@ -148,9 +152,11 @@ class IORequest extends Request {
   }
 
   @override
-  Future<DataMessage> receive() {
-    return iterable
-        .moveNext()
-        .then<DataMessage>((bool hasNext) => hasNext ? DataMessage(iterable.current) : DataMessage.empty(end: true));
+  Future<DataMessage> receive() async {
+    if (await iterable.moveNext()) {
+      return DataMessage(iterable.current);
+    }
+
+    return DataMessage.empty(end: true);
   }
 }

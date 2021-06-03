@@ -1,4 +1,3 @@
-import 'dart:async' show FutureOr;
 import 'dart:io' show File, HttpStatus;
 
 import 'package:astra/astra.dart';
@@ -18,66 +17,54 @@ class ServerErrorMiddleware extends Controller {
   final ExceptionHandler? handler;
 
   @override
-  Future<void> call(Request request, Start start, Send send) {
+  Future<void> call(Request request, Start start, Send send) async {
     var responseStarted = false;
 
-    void starter({int status = HttpStatus.ok, List<Header> headers = const <Header>[], bool buffer = true}) {
+    void starter({int status = HttpStatus.ok, String? reason, List<Header>? headers, bool buffer = true}) {
       responseStarted = true;
       start(status: status, headers: headers, buffer: buffer);
     }
 
-    FutureOr<void> run() {
-      return application(request, starter, send);
-    }
-
-    FutureOr<void> catchError(Object error, StackTrace stackTrace) {
+    try {
+      await application(request, starter, send);
+    } catch (error, stackTrace) {
       if (responseStarted) {
-        throw error;
+        rethrow;
       }
 
       if (debug) {
-        final accept = request.headers.get('accept');
+        var accept = request.headers.get('accept');
 
         if (accept != null && accept.contains('text/html')) {
-          final html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
+          var html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
             switch (match[1]) {
               case 'type':
                 return error.toString();
               case 'error':
                 return error.toString();
               case 'trace':
-                final trace = Trace.from(stackTrace);
-                return renderFrames(trace.frames);
+                return renderFrames(Trace.from(stackTrace));
               default:
                 return '';
             }
           });
 
-          return HTMLResponse(html, status: 500)(request, start, send);
+          return TextResponse.html(html, status: 500)(request, start, send);
         }
 
-        final trace = Trace.format(stackTrace);
-        final response = TextResponse('$error\n\n$trace', status: HttpStatus.internalServerError);
+        var trace = Trace.format(stackTrace);
+        var response = TextResponse('$error\n\n$trace', status: HttpStatus.internalServerError);
         return response(request, start, send);
       }
 
       if (handler == null) {
-        final response = TextResponse('Internal Server Error', status: HttpStatus.internalServerError);
+        var response = TextResponse('Internal Server Error', status: HttpStatus.internalServerError);
         return response(request, start, send);
       }
 
-      FutureOr<Response> handle() {
-        return handler!(request, error, stackTrace);
-      }
-
-      FutureOr<void> sender(Response response) {
-        return response(request, start, send);
-      }
-
-      return Future<Response>.sync(handle).then<void>(sender);
+      var response = await handler!(request, error, stackTrace);
+      await response(request, start, send);
     }
-
-    return Future<void>.sync(run).catchError(catchError);
   }
 }
 
@@ -105,15 +92,15 @@ const String template = '<html>'
     '</body>'
     '</html>';
 
-String renderFrames(List<Frame> frames) {
-  final buffer = StringBuffer();
+String renderFrames(Trace trace) {
+  var buffer = StringBuffer();
 
-  for (final frame in frames) {
+  for (var frame in trace.frames) {
     if (frame.isCore) {
       continue;
     }
 
-    final scheme = frame.uri.scheme;
+    var scheme = frame.uri.scheme;
     buffer
       ..write('<div class="frame">')
       ..write(scheme == 'file' ? 'File' : 'Package')
@@ -134,11 +121,11 @@ String renderFrames(List<Frame> frames) {
     buffer..write(member)..write('</span>');
 
     if (scheme == 'file' && frame.line != null) {
-      final lines = File.fromUri(frame.uri).readAsLinesSync();
-      final line = lines[frame.line! - 1];
-      final leftTrimmed = line.trimLeft();
-      final column = (frame.column ?? 0) - line.length + leftTrimmed.length - 1;
-      final code = leftTrimmed.trimRight();
+      var lines = File.fromUri(frame.uri).readAsLinesSync();
+      var line = lines[frame.line! - 1];
+      var leftTrimmed = line.trimLeft();
+      var column = (frame.column ?? 0) - line.length + leftTrimmed.length - 1;
+      var code = leftTrimmed.trimRight();
 
       buffer.write('<br><pre style="">');
 

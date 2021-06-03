@@ -1,18 +1,13 @@
 import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
-import 'dart:io' show HttpStatus;
 
 import 'http.dart';
 import 'request.dart';
 import 'types.dart';
 
 class Response<T extends Object?> {
-  Response({
-    this.status = HttpStatus.ok,
-    this.contentType,
-    Map<String, String>? headers,
-    T? content,
-  }) : headers = MutableHeaders() {
+  Response({this.status = StatusCodes.ok, this.contentType, Map<String, String>? headers, T? content})
+      : headers = MutableHeaders() {
     body = render(content);
 
     var populateContentLength = true;
@@ -73,17 +68,14 @@ class Response<T extends Object?> {
 }
 
 class TextResponse extends Response<String> {
-  TextResponse(
-    String? content, {
-    int status = HttpStatus.ok,
-    String contentType = ContentTypes.text,
-    Map<String, String>? headers,
-  }) : super(
-          status: status,
-          contentType: contentType,
-          headers: headers,
-          content: content,
-        );
+  factory TextResponse.html(String? content,
+      {int status = StatusCodes.ok, String contentType = ContentTypes.html, Map<String, String>? headers}) {
+    return TextResponse(content, status: status, contentType: contentType, headers: headers);
+  }
+
+  TextResponse(String? content,
+      {int status = StatusCodes.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
+      : super(status: status, contentType: contentType, headers: headers, content: content);
 
   @override
   List<int> render(String? content) {
@@ -95,30 +87,9 @@ class TextResponse extends Response<String> {
   }
 }
 
-class HTMLResponse extends TextResponse {
-  HTMLResponse(
-    String? content, {
-    int status = HttpStatus.ok,
-    Map<String, String>? headers,
-  }) : super(
-          content,
-          status: status,
-          contentType: ContentTypes.html,
-          headers: headers,
-        );
-}
-
 class JSONResponse extends Response<Object> {
-  JSONResponse(
-    Object? content, {
-    int status = HttpStatus.ok,
-    Map<String, String>? headers,
-  }) : super(
-          status: status,
-          contentType: ContentTypes.json,
-          headers: headers,
-          content: content,
-        );
+  JSONResponse(Object? content, {int status = StatusCodes.ok, Map<String, String>? headers})
+      : super(status: status, contentType: ContentTypes.json, headers: headers, content: content);
 
   @override
   List<int> render(Object? content) {
@@ -127,38 +98,59 @@ class JSONResponse extends Response<Object> {
 }
 
 class RedirectResponse extends Response {
-  RedirectResponse(
-    Uri url, {
-    int status = HttpStatus.temporaryRedirect,
-    Map<String, String>? headers,
-  }) : super(
-          status: status,
-          headers: headers,
-        ) {
+  RedirectResponse(Uri url, {int status = StatusCodes.temporaryRedirect, Map<String, String>? headers})
+      : super(status: status, headers: headers) {
     this.headers.set(Headers.location, '$url');
   }
 }
 
 class StreamResponse extends Response {
-  StreamResponse(
-    this.stream, {
-    this.buffer = true,
-    int status = HttpStatus.ok,
-    String? contentType,
-    Map<String, String>? headers,
-  }) : super(
-          status: status,
-          contentType: contentType,
-          headers: headers,
-        );
+  factory StreamResponse.text(Stream<String> stream,
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      String contentType = ContentTypes.text,
+      Map<String, String>? headers}) {
+    return StreamResponse(utf8.encoder.bind(stream),
+        buffer: buffer, status: status, contentType: contentType, headers: headers);
+  }
+
+  factory StreamResponse.html(Stream<String> stream,
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      String contentType = ContentTypes.html,
+      Map<String, String>? headers}) {
+    return StreamResponse(utf8.encoder.bind(stream),
+        buffer: buffer, status: status, contentType: contentType, headers: headers);
+  }
+
+  factory StreamResponse.json(Stream<String> stream,
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      String contentType = ContentTypes.json,
+      Map<String, String>? headers}) {
+    return StreamResponse(utf8.encoder.bind(stream),
+        buffer: buffer, status: status, contentType: contentType, headers: headers);
+  }
+
+  StreamResponse(this.stream,
+      {this.buffer = true,
+      int status = StatusCodes.ok,
+      String contentType = ContentTypes.stream,
+      Map<String, String>? headers})
+      : super(status: status, contentType: contentType, headers: headers);
 
   final Stream<List<int>> stream;
 
   final bool buffer;
 
   @override
-  Future<void> call(Request request, Start start, Send send) {
+  Future<void> call(Request request, Start start, Send send) async {
     start(status: status, headers: headers.raw, buffer: buffer);
-    return stream.forEach((bytes) => send(bytes: bytes)).then((_) => send(end: true));
+
+    await for (var bytes in stream) {
+      send(bytes: bytes);
+    }
+
+    return send(end: true);
   }
 }
