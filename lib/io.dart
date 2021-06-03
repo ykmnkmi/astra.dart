@@ -1,5 +1,3 @@
-library astra.io;
-
 import 'dart:async' show FutureOr, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus, SecurityContext;
 
