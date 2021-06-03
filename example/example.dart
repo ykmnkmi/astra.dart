@@ -12,8 +12,8 @@ FutureOr<void> example(Request request, Start start, Send send) {
 }
 
 Future<void> main() async {
-  final server = await IOServer.bind('localhost', 3000);
-  final application = ServerErrorMiddleware(example, debug: true);
+  var server = await IOServer.bind('localhost', 3000);
+  var application = ServerErrorMiddleware(example, debug: true);
   server.mount(application);
   print('serving at http://localhost:3000');
 }
