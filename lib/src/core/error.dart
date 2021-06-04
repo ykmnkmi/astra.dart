@@ -1,14 +1,14 @@
 import 'dart:io' show File, HttpStatus;
 
-import 'package:astra/astra.dart';
-import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
+import 'package:stack_trace/stack_trace.dart' show Trace;
 
-class ServerErrorMiddleware extends Controller {
-  ServerErrorMiddleware(
-    this.application, {
-    this.debug = false,
-    this.handler,
-  });
+import 'http.dart';
+import 'request.dart';
+import 'response.dart';
+import 'types.dart';
+
+class ServerErrorMiddleware {
+  ServerErrorMiddleware(this.application, {this.debug = false, this.handler});
 
   final Application application;
 
@@ -16,7 +16,6 @@ class ServerErrorMiddleware extends Controller {
 
   final ExceptionHandler? handler;
 
-  @override
   Future<void> call(Request request, Start start, Send send) async {
     var responseStarted = false;
 
@@ -63,7 +62,7 @@ class ServerErrorMiddleware extends Controller {
       }
 
       var response = await handler!(request, error, stackTrace);
-      await response(request, start, send);
+      response(request, start, send);
     }
   }
 }

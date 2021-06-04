@@ -1,4 +1,7 @@
-import 'package:astra/astra.dart';
+import 'http.dart';
+import 'request.dart';
+import 'response.dart';
+import 'types.dart';
 
 class HTTPException implements Exception {
   const HTTPException(this.status, [this.message]);
@@ -9,7 +12,7 @@ class HTTPException implements Exception {
 
   @override
   String toString() {
-    final buffer = StringBuffer(runtimeType)..write('(')..write(status);
+    var buffer = StringBuffer(runtimeType)..write('(')..write(status);
 
     if (message != null) {
       buffer..write(', ')..write(message);
@@ -20,19 +23,14 @@ class HTTPException implements Exception {
   }
 }
 
-class ExceptionMiddleware extends Controller {
-  ExceptionMiddleware(
-    this.application, {
-    Map<Object, ExceptionHandler>? handlers,
-    this.debug = false,
-  })  : statusHandlers = <int, ExceptionHandler>{},
+class ExceptionMiddleware {
+  ExceptionMiddleware(this.application, Map<Object, ExceptionHandler> handlers)
+      : statusHandlers = <int, ExceptionHandler>{},
         exceptionHandlers = <Type, ExceptionHandler>{} {
     exceptionHandlers[HTTPException] = httpException;
 
-    if (handlers != null) {
-      for (final statusOrException in handlers.keys) {
-        addExceptionHandler(statusOrException, handlers[statusOrException]!);
-      }
+    for (var statusOrException in handlers.keys) {
+      addExceptionHandler(statusOrException, handlers[statusOrException]!);
     }
   }
 
@@ -41,8 +39,6 @@ class ExceptionMiddleware extends Controller {
   final Map<int, ExceptionHandler> statusHandlers;
 
   final Map<Type, ExceptionHandler> exceptionHandlers;
-
-  final bool debug;
 
   void addExceptionHandler(Object statusOrException, ExceptionHandler handler) {
     if (statusOrException is int) {
@@ -54,7 +50,6 @@ class ExceptionMiddleware extends Controller {
     }
   }
 
-  @override
   Future<void> call(Request request, Start start, Send send) async {
     var responseStarted = false;
 
@@ -82,13 +77,13 @@ class ExceptionMiddleware extends Controller {
         throw StateError('caught handled exception, but response already started');
       }
 
-      final response = await handler(request, error, stackTrace);
-      await response(request, start, send);
+      var response = await handler(request, error, stackTrace);
+      response(request, start, send);
     }
   }
 
   static Response httpException(Request request, Object exception, StackTrace stackTrace) {
-    final typedException = exception as HTTPException;
+    var typedException = exception as HTTPException;
 
     if (typedException.status == 204 || typedException.status == 304) {
       return Response(status: typedException.status);

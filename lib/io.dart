@@ -1,20 +1,15 @@
-import 'dart:async' show StreamIterator;
+import 'dart:async' show StreamIterator, StreamSubscription;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
 
-class IOServer implements Server<HttpServer> {
-  static Future<Server<HttpServer>> bind(
-    Object address,
-    int port, {
-    int backlog = 0,
-    bool shared = false,
-    SecurityContext? context,
-  }) {
+class IOServer implements Server {
+  static Future<Server> bind(Object address, int port,
+      {int backlog = 0, bool shared = false, SecurityContext? context}) {
     final serverFuture = context != null
         ? HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared)
         : HttpServer.bind(address, port, backlog: backlog, shared: shared);
-    return serverFuture.then<Server<HttpServer>>((HttpServer server) => IOServer(server));
+    return serverFuture.then<Server>((HttpServer server) => IOServer(server));
   }
 
   IOServer(this.server);
@@ -26,44 +21,56 @@ class IOServer implements Server<HttpServer> {
     return server.close(force: force);
   }
 
+  StreamSubscription<HttpRequest>? subscription;
+
+  @override
+  void handle(Handler handler) {}
+
   @override
   void mount(Application application) {
-    server.listen((HttpRequest request) {
-      handle(request, application);
+    if (subscription == null) {
+      subscription = server.listen((HttpRequest ioRequest) {
+        handleApplication(ioRequest, application);
+      });
+
+      return;
+    }
+
+    subscription!.onData((HttpRequest ioRequest) {
+      handleApplication(ioRequest, application);
     });
   }
 }
 
-Future<void> handle(HttpRequest ioRequest, Application application) async {
-  final response = ioRequest.response;
+void handleApplication(HttpRequest ioRequest, Application application) {
+  final ioResponse = ioRequest.response;
 
   void start({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = false}) {
-    response.statusCode = status;
-    response.reasonPhrase = reason ?? ReasonPhrases.from(status);
+    ioResponse.statusCode = status;
+    ioResponse.reasonPhrase = reason ?? ReasonPhrases.from(status);
 
     if (headers != null) {
       for (final header in headers) {
-        response.headers.set(header.name, header.value);
+        ioResponse.headers.set(header.name, header.value);
       }
     }
 
-    response.bufferOutput = buffer;
+    ioResponse.bufferOutput = buffer;
   }
 
   Future<void> send({List<int> bytes = const <int>[], bool end = false}) async {
-    response.add(bytes);
+    ioResponse.add(bytes);
 
     if (end) {
-      if (response.bufferOutput) {
-        await response.flush();
+      if (ioResponse.bufferOutput) {
+        await ioResponse.flush();
       }
 
-      return response.close();
+      return ioResponse.close();
     }
   }
 
-  await application(IORequest(ioRequest), start, send);
-  response.close();
+  application(IORequest(ioRequest), start, send);
 }
 
 class IOHeaders implements Headers {
@@ -82,6 +89,12 @@ class IOHeaders implements Headers {
     });
 
     return raw;
+  }
+
+  @override
+  @pragma('vm:prefer-inline')
+  String? operator [](String name) {
+    return get(name);
   }
 
   @override
@@ -107,6 +120,12 @@ class IOHeaders implements Headers {
 
 class IOMutableHeaders extends IOHeaders implements MutableHeaders {
   IOMutableHeaders(HttpHeaders headers) : super(headers);
+
+  @override
+  @pragma('vm:prefer-inline')
+  void operator []=(String name, String value) {
+    set(name, value);
+  }
 
   @override
   void add(String name, String value) {

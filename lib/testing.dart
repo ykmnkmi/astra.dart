@@ -1,5 +1,5 @@
-import 'dart:async' show Completer, FutureOr, StreamSubscription;
-import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus;
+import 'dart:async' show Completer;
+import 'dart:io' show HttpHeaders, HttpRequest, HttpStatus;
 
 import 'package:astra/astra.dart' show Application, Header;
 import 'package:astra/io.dart' show IORequest;
@@ -7,11 +7,13 @@ import 'package:http/http.dart' show Client, Response;
 import 'package:http_multi_server/http_multi_server.dart' show HttpMultiServer;
 
 class TestClient {
-  TestClient(this.application, {this.port = 3000});
+  TestClient(this.application, {this.port = 3000}) : client = Client();
 
   final Application application;
 
   final int port;
+
+  final Client client;
 
   Future<Response> head(String url) {
     return request(url, (Client client, Uri url) => client.head(url));
@@ -26,56 +28,55 @@ class TestClient {
   }
 
   Future<Response> request(String path, Future<Response> Function(Client client, Uri url) callback) async {
-    var server = await HttpMultiServer.loopback(port);
-    var client = Client();
-    var future = callback(client, Uri.http('localhost:$port', path));
-    var completer = Completer<Response>();
-    var subscription = server.listen(null);
+    var server = await HttpMultiServer.loopback(port, shared: true);
+    var responseFuture = callback(client, Uri.http('localhost:$port', path));
+    var responseCompleter = Completer<Response>();
+    var serverSubscription = server.listen(null);
 
-    subscription.onData((HttpRequest request) async {
-      var response = request.response;
-      var location = false;
+    serverSubscription.onData((HttpRequest ioRequest) async {
+      var ioResponse = ioRequest.response;
+      var isRedirectResponse = false;
 
       void start({int status = HttpStatus.ok, String? reason, List<Header>? headers, bool buffer = false}) {
-        response.statusCode = status;
+        ioResponse.statusCode = status;
 
         if (headers != null) {
           for (final header in headers) {
-            response.headers.set(header.name, header.value);
+            ioResponse.headers.set(header.name, header.value);
 
             if (header.name == HttpHeaders.locationHeader) {
-              location = true;
+              isRedirectResponse = true;
             }
           }
         }
 
-        response.bufferOutput = buffer;
+        ioResponse.bufferOutput = buffer;
       }
 
       Future<void> send({List<int> bytes = const <int>[], bool end = false}) async {
-        response.add(bytes);
+        ioResponse.add(bytes);
 
         if (end) {
-          if (!response.bufferOutput) {
-            await response.flush();
+          if (!ioResponse.bufferOutput) {
+            await ioResponse.flush();
           }
 
-          response.close();
+          ioResponse.close();
         }
       }
 
-      await application(IORequest(request), start, send);
+      await application(IORequest(ioRequest), start, send);
 
-      if (location) {
+      if (isRedirectResponse) {
         return;
       }
 
-      completer.complete(future);
+      responseCompleter.complete(responseFuture);
     });
 
-    final response = await completer.future;
+    final response = await responseCompleter.future;
     client.close();
-    await subscription.cancel();
+    await serverSubscription.cancel();
     await server.close();
     return response;
   }

@@ -18,7 +18,7 @@ extension HandlerPipeline on Handler {
   }
 }
 
-typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object exception, StackTrace stackTrace);
+typedef ExceptionHandler = FutureOr<Response> Function(Request request, Object error, StackTrace stackTrace);
 
 typedef Middleware = Handler Function(Handler handler);
 

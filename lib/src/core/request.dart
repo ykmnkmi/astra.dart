@@ -1,3 +1,5 @@
+import 'package:http_parser/http_parser.dart' show parseHttpDate;
+
 import 'http.dart';
 
 Future<DataMessage> emptyReceive() async {
@@ -49,4 +51,16 @@ abstract class Request {
   Uri get url;
 
   Future<DataMessage> receive();
+}
+
+extension RequestUtils on Request {
+  DateTime? get ifModifiedSince {
+    final date = headers.get(Headers.ifModifiedSince);
+
+    if (date == null) {
+      return null;
+    } else {
+      return parseHttpDate(date);
+    }
+  }
 }

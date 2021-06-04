@@ -74,6 +74,11 @@ class Headers {
 
   final List<Header> raw;
 
+  @pragma('vm:prefer-inline')
+  String? operator [](String name) {
+    return get(name);
+  }
+
   bool contains(String name) {
     name = name.toLowerCase();
 
@@ -114,6 +119,11 @@ class Headers {
 
 class MutableHeaders extends Headers {
   MutableHeaders({List<Header>? raw}) : super(raw: raw);
+
+  @pragma('vm:prefer-inline')
+  void operator []=(String name, String value) {
+    set(name, value);
+  }
 
   void add(String name, String value) {
     raw.add(Header(name, value));

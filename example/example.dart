@@ -3,17 +3,24 @@
 import 'dart:async';
 
 import 'package:astra/astra.dart';
-import 'package:astra/controllers.dart';
 import 'package:astra/io.dart';
 
 FutureOr<void> example(Request request, Start start, Send send) {
-  var response = Response(status: 404);
+  Response response;
+
+  if (request.url.path == '/') {
+    response = FileResponse('tmp');
+  } else {
+    response = Response.notFound();
+  }
+
   return response(request, start, send);
 }
 
 Future<void> main() async {
   var server = await IOServer.bind('localhost', 3000);
-  var application = ServerErrorMiddleware(example, debug: true);
-  server.mount(application);
+
+  server.mount(ServerErrorMiddleware(example));
+
   print('serving at http://localhost:3000');
 }
