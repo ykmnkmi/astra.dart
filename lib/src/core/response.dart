@@ -177,7 +177,7 @@ class StreamResponse extends Response {
 
   @override
   Future<void> call(Request request, Start start, Send send) async {
-    start(status: status, headers: headers.raw, buffer: buffer);
+    start(status: status, headers: headers.raw);
 
     await for (var bytes in stream) {
       send(bytes: bytes);

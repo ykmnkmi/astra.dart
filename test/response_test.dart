@@ -16,6 +16,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(response.body, equals('hello world!'));
   });
 
@@ -29,6 +30,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(response.bodyBytes, orderedEquals(bytes));
   });
 
@@ -40,6 +42,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(json.decode(response.body), isNull);
   });
 
@@ -58,6 +61,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/redirect');
+    client.close();
     expect(response.body, equals('hello world!'));
   });
 
@@ -76,6 +80,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/redirect');
+    client.close();
     expect(response.body, equals('hello world!'));
   });
 
@@ -100,6 +105,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(response.body, equals('1, 2, 3, 4, 5'));
   });
 
@@ -122,6 +128,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(response.body, equals('1, 2, 3, 4, 5'));
   });
 
@@ -135,6 +142,7 @@ void main() {
 
     var client = TestClient(application);
     var response = await client.get('/');
+    client.close();
     expect(response.headers['x-header-1'], equals('123'));
     expect(response.headers['x-header-2'], equals('789'));
   });
@@ -146,6 +154,7 @@ void main() {
 
     client = TestClient(Response(status: 123));
     response = await client.get('/');
+    client.close();
     // TODO: replace 'Status 123' with ''
     expect(response.reasonPhrase, equals('Status 123'));
   });
@@ -156,6 +165,7 @@ void main() {
     await File(filePath).writeAsBytes(content);
     var client = TestClient(FileResponse(filePath, fileName: 'example.png'));
     var response = await client.get('/');
+    client.close();
     var contentDisposition = 'attachment; filename="example.png"';
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
@@ -166,20 +176,23 @@ void main() {
   });
 
   test('file response with directory raises error', () async {
+    var client = TestClient(FileResponse(Directory.systemTemp.path, fileName: 'example.png'));
+
     try {
-      var application = FileResponse(Directory.systemTemp.path, fileName: 'example.png');
-      var client = TestClient(application);
       await client.get('/');
+      client.close();
     } catch (error) {
       expect(error, isA<StateError>().having((error) => error.message, 'message', contains('is not a file')));
     }
   });
 
   test('file response with missing file raises error', () async {
+    var filePath = path.join(Directory.systemTemp.path, '404.txt');
+    var client = TestClient(FileResponse(filePath, fileName: '404.txt'));
+
     try {
-      var filePath = path.join(Directory.systemTemp.path, '404.txt');
-      var client = TestClient(FileResponse(filePath, fileName: '404.txt'));
       await client.get('/');
+      client.close();
     } catch (error) {
       expect(error, isA<StateError>().having((error) => error.message, 'message', contains('does not exist')));
     }
@@ -192,6 +205,7 @@ void main() {
     await File(filePath).writeAsBytes(content);
     var client = TestClient(FileResponse(filePath, fileName: fileName));
     var response = await client.get('/');
+    client.close();
     var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
@@ -201,6 +215,7 @@ void main() {
   test('populate headers', () async {
     var client = TestClient(TextResponse('hi'));
     var response = await client.get('/');
+    client.close();
     expect(response.body, equals('hi'));
     expect(response.headers[Headers.contentLength], equals('2'));
     expect(response.headers[Headers.contentType], equals(ContentTypes.text));
@@ -210,6 +225,7 @@ void main() {
     var application = Response(content: 'hello world!', contentType: ContentTypes.text);
     var client = TestClient(application);
     var response = await client.head('/');
+    client.close();
     expect(response.body, equals(''));
   });
 }

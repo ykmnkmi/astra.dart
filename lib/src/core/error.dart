@@ -19,9 +19,9 @@ class ServerErrorMiddleware {
   Future<void> call(Request request, Start start, Send send) async {
     var responseStarted = false;
 
-    void starter({int status = HttpStatus.ok, String? reason, List<Header>? headers, bool buffer = true}) {
+    void starter({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
       responseStarted = true;
-      start(status: status, headers: headers, buffer: buffer);
+      start(status: status, headers: headers);
     }
 
     try {
