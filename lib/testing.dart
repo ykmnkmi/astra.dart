@@ -30,7 +30,7 @@ class TestClient {
   Future<Response> request(String path, Future<Response> Function(Client client, Uri url) callback) async {
     var server = await HttpMultiServer.loopback(port, shared: true);
     var responseFuture = callback(client, Uri.http('localhost:$port', path));
-    var responseCompleter = Completer<Response>();
+    var responseCompleter = Completer<Response>.sync();
     var serverSubscription = server.listen(null);
 
     serverSubscription.onData((HttpRequest ioRequest) async {
@@ -65,7 +65,12 @@ class TestClient {
         }
       }
 
-      await application(IORequest(ioRequest), start, send);
+      try {
+        await application(IORequest(ioRequest), start, send);
+      } catch (error, stackTrace) {
+        responseCompleter.completeError(error, stackTrace);
+        return;
+      }
 
       if (isRedirectResponse) {
         return;
@@ -74,10 +79,16 @@ class TestClient {
       responseCompleter.complete(responseFuture);
     });
 
-    final response = await responseCompleter.future;
+    Response response;
+
+    try {
+      response = await responseCompleter.future;
+    } finally {
+      await serverSubscription.cancel();
+      await server.close();
+    }
+
     client.close();
-    await serverSubscription.cancel();
-    await server.close();
     return response;
   }
 }

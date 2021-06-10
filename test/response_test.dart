@@ -154,7 +154,6 @@ void main() {
     var filePath = path.join(Directory.systemTemp.path, 'xyz');
     var content = utf8.encode('<file content>' * 1000);
     await File(filePath).writeAsBytes(content);
-
     var client = TestClient(FileResponse(filePath, fileName: 'example.png'));
     var response = await client.get('/');
     var contentDisposition = 'attachment; filename="example.png"';
@@ -179,8 +178,7 @@ void main() {
   test('file response with missing file raises error', () async {
     try {
       var filePath = path.join(Directory.systemTemp.path, '404.txt');
-      var application = FileResponse(filePath, fileName: '404.txt');
-      var client = TestClient(application);
+      var client = TestClient(FileResponse(filePath, fileName: '404.txt'));
       await client.get('/');
     } catch (error) {
       expect(error, isA<StateError>().having((error) => error.message, 'message', contains('does not exist')));
@@ -192,7 +190,6 @@ void main() {
     var content = utf8.encode('file content');
     var filePath = path.join(Directory.systemTemp.path, fileName);
     await File(filePath).writeAsBytes(content);
-
     var client = TestClient(FileResponse(filePath, fileName: fileName));
     var response = await client.get('/');
     var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
