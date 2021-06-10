@@ -53,15 +53,15 @@ class TestClient {
         ioResponse.bufferOutput = buffer;
       }
 
-      Future<void> send({List<int> bytes = const <int>[], bool end = false}) async {
+      Future<void> send({List<int> bytes = const <int>[], bool flush = false, bool end = false}) async {
         ioResponse.add(bytes);
 
-        if (end) {
-          if (!ioResponse.bufferOutput) {
-            await ioResponse.flush();
-          }
+        if (flush) {
+          await ioResponse.flush();
+        }
 
-          ioResponse.close();
+        if (end) {
+          await ioResponse.close();
         }
       }
 

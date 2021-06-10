@@ -6,7 +6,7 @@ import 'response.dart';
 
 typedef Start = void Function({int status, String? reason, List<Header>? headers, bool buffer});
 
-typedef Send = FutureOr<void> Function({List<int> bytes, bool end});
+typedef Send = FutureOr<void> Function({List<int> bytes, bool flush, bool end});
 
 typedef Application = FutureOr<void> Function(Request request, Start start, Send send);
 

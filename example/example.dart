@@ -9,7 +9,7 @@ FutureOr<void> example(Request request, Start start, Send send) {
   Response response;
 
   if (request.url.path == '/') {
-    response = FileResponse('tmp');
+    response = TextResponse(' ');
   } else {
     response = Response.notFound();
   }
@@ -19,8 +19,6 @@ FutureOr<void> example(Request request, Start start, Send send) {
 
 Future<void> main() async {
   var server = await IOServer.bind('localhost', 3000);
-
-  server.mount(ServerErrorMiddleware(example));
-
+  server.mount(log(ServerErrorMiddleware(example)));
   print('serving at http://localhost:3000');
 }

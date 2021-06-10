@@ -1,20 +1,29 @@
 // ignore_for_file: avoid_print
 
 import 'dart:async';
+import 'dart:convert';
+
+import 'dart:io';
 
 Future<void> main() async {
-  final controller = StreamController<int>();
-  late final StreamSubscription<int> subscription;
-  subscription = controller.stream.listen((data) {
-    print('scr: $data');
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 3000);
+  final bytes = utf8.encode('hello world!');
 
-    if (data == 2) {
-      subscription.cancel();
+  await for (final request in server) {
+    print(request.uri);
+
+    final response = request.response;
+
+    if (request.uri.path != '/') {
+      response
+        ..statusCode = 404
+        ..close();
+      continue;
     }
-  });
 
-  // subscription.onData();
-
-  <int>[0, 1, 2, 3, 4, 5].forEach(controller.add);
-  await controller.done;
+    response
+      ..contentLength = bytes.length
+      ..add(bytes)
+      ..close();
+  }
 }
