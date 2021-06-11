@@ -1,14 +1,20 @@
 import 'package:http_parser/http_parser.dart' show parseHttpDate;
-import 'package:meta/meta.dart';
 
 import 'http.dart';
-import 'response.dart';
 
 Future<DataMessage> emptyReceive() async {
   return DataMessage.eos;
 }
 
-abstract class Request {
+abstract class Connection {
+  Headers get headers;
+
+  Uri get url;
+
+  Future<DataMessage> receive();
+}
+
+abstract class Request extends Connection {
   Request() : streamConsumed = false;
 
   bool streamConsumed;
@@ -29,7 +35,15 @@ abstract class Request {
     return receivedBody!;
   }
 
-  Headers get headers;
+  DateTime? get ifModifiedSince {
+    final date = headers.get(Headers.ifModifiedSince);
+
+    if (date == null) {
+      return null;
+    } else {
+      return parseHttpDate(date);
+    }
+  }
 
   Stream<List<int>> get stream async* {
     if (receivedBody != null) {
@@ -48,21 +62,5 @@ abstract class Request {
     }
 
     yield message.bytes;
-  }
-
-  Uri get url;
-
-  Future<DataMessage> receive();
-}
-
-extension RequestUtils on Request {
-  DateTime? get ifModifiedSince {
-    final date = headers.get(Headers.ifModifiedSince);
-
-    if (date == null) {
-      return null;
-    } else {
-      return parseHttpDate(date);
-    }
   }
 }

@@ -19,6 +19,6 @@ FutureOr<void> example(Request request, Start start, Send send) {
 
 Future<void> main() async {
   var server = await IOServer.bind('localhost', 3000);
-  server.mount(log(ServerErrorMiddleware(example)));
+  server.mount(log(error(example)));
   print('serving at http://localhost:3000');
 }

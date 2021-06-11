@@ -49,6 +49,7 @@ class Headers {
   static const String server = 'server';
   static const String setCookie = 'set-cookie';
   static const String strictTransportSecurity = 'strict-transport-security';
+  static const String transferEncoding = 'transfer-encoding';
   static const String upgrade = 'upgrade';
   static const String vary = 'vary';
   static const String wwwAuthenticate = 'www-authenticate';
@@ -190,7 +191,7 @@ class DataMessage extends Message {
   final bool end;
 }
 
-abstract class StatusCodes {
+abstract class StatusCode {
   static const int kontinue = 100;
   static const int switchingProtocols = 101;
   static const int ok = 200;
@@ -233,7 +234,7 @@ abstract class StatusCodes {
   static const int httpVersionNotSupported = 505;
 }
 
-abstract class ReasonPhrases {
+abstract class ReasonPhrase {
   static const String kontinue = 'Continue';
   static const String switchingProtocols = 'Switching Protocols';
   static const String ok = 'OK';
@@ -277,85 +278,85 @@ abstract class ReasonPhrases {
 
   static String from(int status) {
     switch (status) {
-      case StatusCodes.kontinue:
+      case StatusCode.kontinue:
         return kontinue;
-      case StatusCodes.switchingProtocols:
+      case StatusCode.switchingProtocols:
         return switchingProtocols;
-      case StatusCodes.ok:
+      case StatusCode.ok:
         return ok;
-      case StatusCodes.created:
+      case StatusCode.created:
         return created;
-      case StatusCodes.accepted:
+      case StatusCode.accepted:
         return accepted;
-      case StatusCodes.nonAuthoritativeInformation:
+      case StatusCode.nonAuthoritativeInformation:
         return nonAuthoritativeInformation;
-      case StatusCodes.noContent:
+      case StatusCode.noContent:
         return noContent;
-      case StatusCodes.resetContent:
+      case StatusCode.resetContent:
         return resetContent;
-      case StatusCodes.partialContent:
+      case StatusCode.partialContent:
         return partialContent;
-      case StatusCodes.multipleChoices:
+      case StatusCode.multipleChoices:
         return multipleChoices;
-      case StatusCodes.movedPermanently:
+      case StatusCode.movedPermanently:
         return movedPermanently;
-      case StatusCodes.found:
+      case StatusCode.found:
         return found;
-      case StatusCodes.seeOther:
+      case StatusCode.seeOther:
         return seeOther;
-      case StatusCodes.notModified:
+      case StatusCode.notModified:
         return notModified;
-      case StatusCodes.useProxy:
+      case StatusCode.useProxy:
         return useProxy;
-      case StatusCodes.temporaryRedirect:
+      case StatusCode.temporaryRedirect:
         return temporaryRedirect;
-      case StatusCodes.badRequest:
+      case StatusCode.badRequest:
         return badRequest;
-      case StatusCodes.unauthorized:
+      case StatusCode.unauthorized:
         return unauthorized;
-      case StatusCodes.paymentRequired:
+      case StatusCode.paymentRequired:
         return paymentRequired;
-      case StatusCodes.forbidden:
+      case StatusCode.forbidden:
         return forbidden;
-      case StatusCodes.notFound:
+      case StatusCode.notFound:
         return notFound;
-      case StatusCodes.methodNotAllowed:
+      case StatusCode.methodNotAllowed:
         return methodNotAllowed;
-      case StatusCodes.notAcceptable:
+      case StatusCode.notAcceptable:
         return notAcceptable;
-      case StatusCodes.proxyAuthenticationRequired:
+      case StatusCode.proxyAuthenticationRequired:
         return proxyAuthenticationRequired;
-      case StatusCodes.requestTimeOut:
+      case StatusCode.requestTimeOut:
         return requestTimeOut;
-      case StatusCodes.conflict:
+      case StatusCode.conflict:
         return conflict;
-      case StatusCodes.gone:
+      case StatusCode.gone:
         return gone;
-      case StatusCodes.lengthRequired:
+      case StatusCode.lengthRequired:
         return lengthRequired;
-      case StatusCodes.preconditionFailed:
+      case StatusCode.preconditionFailed:
         return preconditionFailed;
-      case StatusCodes.requestEntityTooLarge:
+      case StatusCode.requestEntityTooLarge:
         return requestEntityTooLarge;
-      case StatusCodes.requestURITooLarge:
+      case StatusCode.requestURITooLarge:
         return requestURITooLarge;
-      case StatusCodes.unsupportedMediaType:
+      case StatusCode.unsupportedMediaType:
         return unsupportedMediaType;
-      case StatusCodes.requestedRangeNotSatisfiable:
+      case StatusCode.requestedRangeNotSatisfiable:
         return requestedRangeNotSatisfiable;
-      case StatusCodes.expectationFailed:
+      case StatusCode.expectationFailed:
         return expectationFailed;
-      case StatusCodes.internalServerError:
+      case StatusCode.internalServerError:
         return internalServerError;
-      case StatusCodes.notImplemented:
+      case StatusCode.notImplemented:
         return notImplemented;
-      case StatusCodes.badGateway:
+      case StatusCode.badGateway:
         return badGateway;
-      case StatusCodes.serviceUnavailable:
+      case StatusCode.serviceUnavailable:
         return serviceUnavailable;
-      case StatusCodes.gatewayTimeOut:
+      case StatusCode.gatewayTimeOut:
         return gatewayTimeOut;
-      case StatusCodes.httpVersionNotSupported:
+      case StatusCode.httpVersionNotSupported:
         return httpVersionNotSupported;
       default:
         return '';

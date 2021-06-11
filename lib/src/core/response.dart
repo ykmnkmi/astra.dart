@@ -13,42 +13,42 @@ import 'types.dart';
 
 class Response<T extends Object?> {
   Response.ok({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.ok, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.ok, contentType: contentType, headers: headers, content: content);
 
   Response.created({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.created, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.created, contentType: contentType, headers: headers, content: content);
 
   Response.accepted({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.accepted, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.accepted, contentType: contentType, headers: headers, content: content);
 
   Response.noContent({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.noContent, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.noContent, contentType: contentType, headers: headers, content: content);
 
   Response.notModified({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.notModified, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.notModified, contentType: contentType, headers: headers, content: content);
 
   Response.badRequest({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.badRequest, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.badRequest, contentType: contentType, headers: headers, content: content);
 
   Response.unauthorized({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.unauthorized, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.unauthorized, contentType: contentType, headers: headers, content: content);
 
   Response.forbidden({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.forbidden, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.forbidden, contentType: contentType, headers: headers, content: content);
 
   Response.notFound({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.notFound, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.notFound, contentType: contentType, headers: headers, content: content);
 
   Response.conflict({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.conflict, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.conflict, contentType: contentType, headers: headers, content: content);
 
   Response.gone({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.gone, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.gone, contentType: contentType, headers: headers, content: content);
 
   Response.error({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.internalServerError, contentType: contentType, headers: headers, content: content);
+      : this(status: StatusCode.internalServerError, contentType: contentType, headers: headers, content: content);
 
-  Response({this.status = StatusCodes.ok, this.contentType, Map<String, String>? headers, T? content})
+  Response({this.status = StatusCode.ok, this.contentType, Map<String, String>? headers, T? content})
       : headers = MutableHeaders() {
     body = render(content);
 
@@ -113,12 +113,12 @@ class Response<T extends Object?> {
 
 class TextResponse extends Response<String> {
   factory TextResponse.html(String? content,
-      {int status = StatusCodes.ok, String contentType = ContentTypes.html, Map<String, String>? headers}) {
+      {int status = StatusCode.ok, String contentType = ContentTypes.html, Map<String, String>? headers}) {
     return TextResponse(content, status: status, contentType: contentType, headers: headers);
   }
 
   TextResponse(String? content,
-      {int status = StatusCodes.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
+      {int status = StatusCode.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
       : super(status: status, contentType: contentType, headers: headers, content: content);
 
   @override
@@ -132,7 +132,7 @@ class TextResponse extends Response<String> {
 }
 
 class JSONResponse extends Response {
-  JSONResponse(Object? content, {int status = StatusCodes.ok, Map<String, String>? headers})
+  JSONResponse(Object? content, {int status = StatusCode.ok, Map<String, String>? headers})
       : super(status: status, contentType: ContentTypes.json, headers: headers, content: content);
 
   @override
@@ -142,7 +142,7 @@ class JSONResponse extends Response {
 }
 
 class RedirectResponse extends Response {
-  RedirectResponse(Uri url, {int status = StatusCodes.temporaryRedirect, Map<String, String>? headers})
+  RedirectResponse(Uri url, {int status = StatusCode.temporaryRedirect, Map<String, String>? headers})
       : super(status: status, headers: headers) {
     this.headers[Headers.location] = '$url';
   }
@@ -150,23 +150,23 @@ class RedirectResponse extends Response {
 
 class StreamResponse extends Response {
   StreamResponse.text(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true, int status = StatusCode.ok, Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
             buffer: buffer, status: status, contentType: ContentTypes.text, headers: headers);
 
   StreamResponse.html(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true, int status = StatusCode.ok, Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
             buffer: buffer, status: status, contentType: ContentTypes.html, headers: headers);
 
   StreamResponse.json(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true, int status = StatusCode.ok, Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
             buffer: buffer, status: status, contentType: ContentTypes.json, headers: headers);
 
   StreamResponse(this.stream,
       {this.buffer = true,
-      int status = StatusCodes.ok,
+      int status = StatusCode.ok,
       String contentType = ContentTypes.stream,
       Map<String, String>? headers})
       : super(status: status, contentType: contentType, headers: headers);
@@ -191,7 +191,7 @@ class FileResponse extends Response {
   FileResponse(String filePath,
       {String? fileName,
       String? method,
-      int status = StatusCodes.ok,
+      int status = StatusCode.ok,
       String? contentType,
       Map<String, String>? headers})
       : this.file(File(path.normalize(filePath)),
@@ -200,7 +200,7 @@ class FileResponse extends Response {
   FileResponse.file(this.file,
       {String? fileName,
       String? method,
-      int status = StatusCodes.ok,
+      int status = StatusCode.ok,
       String? contentType,
       Map<String, String>? headers})
       : sendHeaderOnly = method != null && method.toUpperCase() == 'HEAD',
@@ -233,7 +233,7 @@ class FileResponse extends Response {
 
     if (ifModifiedSince != null) {
       if (!fileStat.modified.isAfter(ifModifiedSince)) {
-        start(status: StatusCodes.notModified, headers: headers.raw);
+        start(status: StatusCode.notModified, headers: headers.raw);
         return send(end: true);
       }
     }

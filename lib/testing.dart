@@ -1,8 +1,7 @@
-import 'dart:async' show Completer;
+import 'dart:async' show Completer, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus;
 
-import 'package:astra/astra.dart' show Application, Header;
-import 'package:astra/io.dart' show IORequest;
+import 'package:astra/astra.dart' show Application, DataMessage, Header, Headers, MutableHeaders, Request;
 import 'package:http/http.dart' show Client, Response;
 
 class TestClient {
@@ -67,7 +66,7 @@ class TestClient {
       }
 
       try {
-        await application(IORequest(ioRequest), start, send);
+        await application(TestRequest(ioRequest), start, send);
 
         if (isRedirectResponse) {
           return;
@@ -85,5 +84,82 @@ class TestClient {
       await serverSubscription.cancel();
       await server.close();
     }
+  }
+}
+
+class TestHeaders implements Headers {
+  TestHeaders(this.headers);
+
+  final HttpHeaders headers;
+
+  @override
+  List<Header> get raw {
+    final raw = <Header>[];
+
+    headers.forEach((String name, List<String> values) {
+      for (final value in values) {
+        raw.add(Header(name, value));
+      }
+    });
+
+    return raw;
+  }
+
+  @override
+  @pragma('vm:prefer-inline')
+  String? operator [](String name) {
+    return get(name);
+  }
+
+  @override
+  bool contains(String name) {
+    return headers[name] != null;
+  }
+
+  @override
+  String? get(String name) {
+    return headers.value(name);
+  }
+
+  @override
+  List<String> getAll(String name) {
+    return headers[name] ?? <String>[];
+  }
+
+  @override
+  MutableHeaders toMutable() {
+    throw UnimplementedError();
+  }
+}
+
+class TestRequest extends Request {
+  TestRequest(this.request, {Headers? headers})
+      : iterable = StreamIterator<List<int>>(request),
+        headers = headers ?? TestHeaders(request.headers);
+
+  final HttpRequest request;
+
+  final StreamIterator<List<int>> iterable;
+
+  @override
+  final Headers headers;
+
+  @override
+  String get method {
+    return request.method;
+  }
+
+  @override
+  Uri get url {
+    return request.uri;
+  }
+
+  @override
+  Future<DataMessage> receive() async {
+    if (await iterable.moveNext()) {
+      return DataMessage(iterable.current);
+    }
+
+    return DataMessage.empty(end: true);
   }
 }

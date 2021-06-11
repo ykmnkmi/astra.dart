@@ -7,16 +7,8 @@ import 'request.dart';
 import 'response.dart';
 import 'types.dart';
 
-class ServerErrorMiddleware {
-  ServerErrorMiddleware(this.application, {this.debug = false, this.handler});
-
-  final Application application;
-
-  final bool debug;
-
-  final ExceptionHandler? handler;
-
-  Future<void> call(Request request, Start start, Send send) async {
+Application error(Application application, {bool debug = false, ExceptionHandler? handler}) {
+  return (Request request, Start start, Send send) async {
     var responseStarted = false;
 
     void starter({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
@@ -61,10 +53,10 @@ class ServerErrorMiddleware {
         return response(request, start, send);
       }
 
-      var response = await handler!(request, error, stackTrace);
+      var response = await handler(request, error, stackTrace);
       response(request, start, send);
     }
-  }
+  };
 }
 
 const String style =
