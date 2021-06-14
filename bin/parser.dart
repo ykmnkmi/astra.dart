@@ -6,13 +6,13 @@ import 'package:astra/astra.dart';
 
 class Constants {
   // Bytes for "HTTP".
-  static const List<int> http = [72, 84, 84, 80];
+  static const List<int> http = <int>[72, 84, 84, 80];
   // Bytes for "HTTP/1.".
-  static const List<int> http1dot = [72, 84, 84, 80, 47, 49, 46];
+  static const List<int> http1dot = <int>[72, 84, 84, 80, 47, 49, 46];
   // Bytes for "HTTP/1.0".
-  static const List<int> http10 = [72, 84, 84, 80, 47, 49, 46, 48];
+  static const List<int> http10 = <int>[72, 84, 84, 80, 47, 49, 46, 48];
   // Bytes for "HTTP/1.1".
-  static const List<int> http11 = [72, 84, 84, 80, 47, 49, 46, 49];
+  static const List<int> http11 = <int>[72, 84, 84, 80, 47, 49, 46, 49];
 
   static const bool T = true;
 
@@ -55,125 +55,86 @@ class HttpVersion {
   static const int undetermined = 0;
   static const int http10 = 1;
   static const int http11 = 2;
+  static const int http2 = 3;
 }
 
 // States of the HTTP parser state machine.
 class State {
   static const int start = 0;
-  static const int methodOrResponseHTTPVersion = 1;
-  static const int responseHTTPVersion = 2;
-  static const int requestLineMethod = 3;
-  static const int requestLineUri = 4;
-  static const int requestLineHTTPVersion = 5;
-  static const int requestLineEnding = 6;
-  static const int responseLineStatus = 7;
-  static const int responseLineReason = 8;
-  static const int responseLineEnding = 9;
-  static const int headerStart = 10;
-  static const int headerField = 11;
-  static const int headerValueStart = 12;
-  static const int headerValue = 13;
-  static const int headerValueFoldOrEndCR = 14;
-  static const int headerValueFoldOrEnd = 15;
-  static const int headerEnding = 16;
-  static const int chunkSizeStartingCR = 17;
-  static const int chunkSizeStarting = 18;
-  static const int chunkSize = 19;
-  static const int chunkSizeExtension = 20;
-  static const int chunkSizeEnding = 21;
-  static const int chunkedBodyDoneCR = 22;
-  static const int chunkedBodyDone = 23;
-  static const int body = 24;
-  static const int closed = 25;
-  static const int upgraded = 26;
-  static const int failure = 27;
+  static const int method = 1;
+  static const int uri = 2;
+  static const int httpVersion = 3;
+  static const int ending = 4;
+
+  static const int headerStart = 5;
+  static const int headerField = 6;
+  static const int headerValueStart = 7;
+  static const int headerValue = 8;
+  static const int headerValueFoldOrEndCR = 9;
+  static const int headerValueFoldOrEnd = 10;
+  static const int headerEnding = 11;
+
+  static const int chunkSizeStartingCR = 12;
+  static const int chunkSizeStarting = 13;
+  static const int chunkSize = 14;
+  static const int chunkSizeExtension = 15;
+  static const int chunkSizeEnding = 16;
+  static const int chunkedBodyDoneCR = 17;
+  static const int chunkedBodyDone = 18;
+
+  static const int body = 19;
+  static const int closed = 20;
+  static const int upgraded = 21;
+  static const int failure = 22;
+
   static const int firstBodyState = chunkSizeStartingCR;
 }
 
-// States of the HTTP parser state machine.
-class MessageType {
-  static const int undetermined = 0;
-  static const int request = 1;
-  static const int response = 0;
+abstract class Message {
+  const Message([this.end = true]);
+
+  final bool end;
 }
 
-class Incoming extends Stream<Uint8List> {
-  Incoming(this.headers, this.transferLength, this.stream)
-      : dataCompleter = Completer<bool>(),
-        fullBodyRead = false,
-        upgraded = false,
-        hasSubscriber = false;
+class HeadersMessage extends Message {
+  HeadersMessage(this.method, this.uri, this.headers, [bool end = false]) : super(end);
+
+  final String method;
+
+  final Uri uri;
 
   final Headers headers;
-
-  final int transferLength;
-
-  final Stream<Uint8List> stream;
-
-  final Completer<bool> dataCompleter;
-
-  bool hasSubscriber;
-
-  bool fullBodyRead;
-
-  bool upgraded;
-
-  int? statusCode;
-
-  String? reasonPhrase;
-
-  String? method;
-
-  Uri? uri;
-
-  Future<bool> get dataDone {
-    return dataCompleter.future;
-  }
-
-  void close(bool closing) {
-    fullBodyRead = true;
-    hasSubscriber = true;
-    dataCompleter.complete(closing);
-  }
-
-  void errorHandler(Object error) {
-    throw HttpException('$error', uri: uri);
-  }
-
-  @override
-  StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    hasSubscriber = true;
-    return stream
-        .handleError(errorHandler)
-        .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
-  }
 }
 
-class Parser extends Stream<Incoming> {
+class DataMessage extends Message {
+  DataMessage(this.bytes, [bool end = true]) : super(end);
+
+  final List<int> bytes;
+}
+
+class Parser extends Stream<Message> {
   static const int chunkSizeLimit = 0x7FFFFFFF;
 
   static const int headerTotalSizeLimit = 1024 * 1024;
 
   Parser()
-      : controller = StreamController<Incoming>(sync: true),
+      : method = <int>[],
+        uri = <int>[],
+        headerField = <int>[],
+        headerValue = <int>[],
+        controller = StreamController<Message>(sync: true),
         parserCalled = false,
         state = State.start,
         index = -1,
-        status = 0,
-        statusLength = 0,
         headersReceivedSize = 0,
         httpVersion = HttpVersion.undetermined,
-        messageType = MessageType.undetermined,
         transferLength = -1,
-        persistentConnection = false,
         connectionUpgrade = false,
         chunked = false,
-        noMessageBody = false,
         remainingContent = -1,
         contentLength = false,
         transferEncoding = false,
-        connectMethod = false {
+        paused = true {
     controller
       ..onListen = () {
         paused = false;
@@ -192,15 +153,15 @@ class Parser extends Stream<Incoming> {
     reset();
   }
 
-  final List<int> method = <int>[];
+  final List<int> method;
 
-  final List<int> uriOrReasonPhrase = <int>[];
+  final List<int> uri;
 
-  final List<int> headerField = <int>[];
+  final List<int> headerField;
 
-  final List<int> headerValue = <int>[];
+  final List<int> headerValue;
 
-  final StreamController<Incoming> controller;
+  final StreamController<Message> controller;
 
   bool parserCalled;
 
@@ -212,25 +173,15 @@ class Parser extends Stream<Incoming> {
 
   int? httpVersionIndex;
 
-  int messageType;
-
-  int status;
-
-  int statusLength;
-
   int headersReceivedSize;
 
   int httpVersion;
 
   int transferLength;
 
-  bool persistentConnection;
-
   bool connectionUpgrade;
 
   bool chunked;
-
-  bool noMessageBody;
 
   int remainingContent;
 
@@ -238,26 +189,16 @@ class Parser extends Stream<Incoming> {
 
   bool transferEncoding;
 
-  bool connectMethod;
-
   MutableHeaders? headers;
 
-  Incoming? incoming;
+  Message? message;
 
   StreamSubscription<Uint8List>? socketSubscription;
 
-  bool paused = true;
-
-  bool bodyPaused = false;
-
-  StreamController<Uint8List>? bodyController;
-
-  bool get upgrade {
-    return connectionUpgrade && state == State.upgraded;
-  }
+  bool paused;
 
   @override
-  StreamSubscription<Incoming> listen(void Function(Incoming event)? onData,
+  StreamSubscription<Message> listen(void Function(Message event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     return controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
@@ -272,10 +213,10 @@ class Parser extends Stream<Incoming> {
     } catch (error, stackTrace) {
       if (state >= State.chunkSizeStartingCR && state <= State.body) {
         state = State.failure;
-        reportBodyError(error, stackTrace);
+        reportError(error, stackTrace);
       } else {
         state = State.failure;
-        reportHttpError(error, stackTrace);
+        reportError(error, stackTrace);
       }
     }
   }
@@ -297,7 +238,7 @@ class Parser extends Stream<Incoming> {
     // If a request message has neither Content-Length nor
     // Transfer-Encoding the message must not have a body (RFC
     // 2616 section 4.3).
-    if (messageType == MessageType.request && transferLength < 0 && chunked == false) {
+    if (transferLength < 0 && chunked == false) {
       transferLength = 0;
     }
 
@@ -306,24 +247,21 @@ class Parser extends Stream<Incoming> {
       transferLength = 0;
     }
 
-    var incoming = createIncoming(transferLength);
-    incoming.method = String.fromCharCodes(method);
-    incoming.uri = Uri.parse(String.fromCharCodes(uriOrReasonPhrase));
+    var message = createMessage(String.fromCharCodes(method), Uri.parse(String.fromCharCodes(uri)), headers!);
     method.clear();
-    uriOrReasonPhrase.clear();
+    uri.clear();
 
     if (connectionUpgrade) {
-      incoming.upgraded = true;
       parserCalled = false;
       closeIncoming();
-      controller.add(incoming);
+      controller.add(message);
       return true;
     }
 
-    if (transferLength == 0 || (messageType == MessageType.response && noMessageBody)) {
+    if (transferLength == 0) {
       reset();
       closeIncoming();
-      controller.add(incoming);
+      controller.add(message);
       return false;
     } else if (chunked) {
       state = State.chunkSize;
@@ -338,7 +276,7 @@ class Parser extends Stream<Incoming> {
     }
 
     parserCalled = false;
-    controller.add(incoming);
+    controller.add(message);
     return true;
   }
 
@@ -357,6 +295,7 @@ class Parser extends Stream<Incoming> {
 
   void doParse() {
     assert(!parserCalled);
+
     parserCalled = true;
 
     if (state == State.closed) {
@@ -367,8 +306,7 @@ class Parser extends Stream<Incoming> {
     }
 
     while (this.buffer != null && index < this.buffer!.length && state != State.failure && state != State.upgraded) {
-      // Depending on this._incoming, we either break on _bodyPaused or _paused.
-      if ((incoming != null && bodyPaused) || (incoming == null && paused)) {
+      if (message != null || (message == null && paused)) {
         parserCalled = false;
         return;
       }
@@ -379,82 +317,21 @@ class Parser extends Stream<Incoming> {
 
       switch (state) {
         case State.start:
-          if (byte == Constants.http[0]) {
-            // Start parsing method or HTTP version.
-            httpVersionIndex = 1;
-            state = State.methodOrResponseHTTPVersion;
-          } else {
-            // Start parsing method.
-            if (!isTokenChar(byte)) {
-              throw HttpException("Invalid request method");
-            }
-
-            addWithValidation(method, byte);
-            state = State.requestLineMethod;
+          // Start parsing method.
+          if (!isTokenChar(byte)) {
+            throw HttpException('Invalid request method');
           }
 
+          addWithValidation(method, byte);
+          state = State.method;
           break;
 
-        case State.methodOrResponseHTTPVersion:
-          var httpVersionIndex = this.httpVersionIndex!;
-
-          if (httpVersionIndex < Constants.http.length && byte == Constants.http[httpVersionIndex]) {
-            // Continue parsing HTTP version.
-            this.httpVersionIndex = httpVersionIndex + 1;
-          } else if (httpVersionIndex == Constants.http.length && byte == CharCode.slash) {
-            // HTTP/ parsed. As method is a token this cannot be a method anymore.
-            this.httpVersionIndex = httpVersionIndex + 1;
-            throw HttpException("Invalid request line");
-          } else {
-            // Did not parse HTTP version. Expect method instead.
-            for (var i = 0; i < httpVersionIndex; i++) {
-              addWithValidation(method, Constants.http[i]);
-            }
-
-            if (byte == CharCode.sp) {
-              state = State.requestLineUri;
-            } else {
-              addWithValidation(method, byte);
-              httpVersion = HttpVersion.undetermined;
-              state = State.requestLineMethod;
-            }
-          }
-
-          break;
-
-        case State.responseHTTPVersion:
-          var httpVersionIndex = this.httpVersionIndex!;
-
-          if (httpVersionIndex < Constants.http1dot.length) {
-            // Continue parsing HTTP version.
-            expect(byte, Constants.http1dot[httpVersionIndex]);
-            this.httpVersionIndex = httpVersionIndex + 1;
-          } else if (httpVersionIndex == Constants.http1dot.length && byte == CharCode.one) {
-            // HTTP/1.1 parsed.
-            httpVersion = HttpVersion.http11;
-            persistentConnection = true;
-            this.httpVersionIndex = httpVersionIndex + 1;
-          } else if (httpVersionIndex == Constants.http1dot.length && byte == CharCode.zero) {
-            // HTTP/1.0 parsed.
-            httpVersion = HttpVersion.http10;
-            persistentConnection = false;
-            this.httpVersionIndex = httpVersionIndex + 1;
-          } else if (httpVersionIndex == Constants.http1dot.length + 1) {
-            expect(byte, CharCode.sp);
-            // HTTP version parsed.
-            state = State.responseLineStatus;
-          } else {
-            throw HttpException("Invalid response line, failed to parse HTTP version");
-          }
-
-          break;
-
-        case State.requestLineMethod:
+        case State.method:
           if (byte == CharCode.sp) {
-            state = State.requestLineUri;
+            state = State.uri;
           } else {
             if (Constants.separatorMap[byte] || byte == CharCode.cr || byte == CharCode.lf) {
-              throw HttpException("Invalid request method");
+              throw HttpException('Invalid request method');
             }
 
             addWithValidation(method, byte);
@@ -462,25 +339,25 @@ class Parser extends Stream<Incoming> {
 
           break;
 
-        case State.requestLineUri:
+        case State.uri:
           if (byte == CharCode.sp) {
-            if (uriOrReasonPhrase.isEmpty) {
-              throw HttpException("Invalid request, empty URI");
+            if (uri.isEmpty) {
+              throw HttpException('Invalid request, empty URI');
             }
 
-            state = State.requestLineHTTPVersion;
+            state = State.httpVersion;
             httpVersionIndex = 0;
           } else {
             if (byte == CharCode.cr || byte == CharCode.lf) {
-              throw HttpException("Invalid request, unexpected $byte in URI");
+              throw HttpException('Invalid request, unexpected $byte in URI');
             }
 
-            addWithValidation(uriOrReasonPhrase, byte);
+            addWithValidation(uri, byte);
           }
 
           break;
 
-        case State.requestLineHTTPVersion:
+        case State.httpVersion:
           var httpVersionIndex = this.httpVersionIndex!;
 
           if (httpVersionIndex < Constants.http1dot.length) {
@@ -490,79 +367,26 @@ class Parser extends Stream<Incoming> {
             if (byte == CharCode.one) {
               // HTTP/1.1 parsed.
               httpVersion = HttpVersion.http11;
-              persistentConnection = true;
               this.httpVersionIndex = httpVersionIndex + 1;
             } else if (byte == CharCode.zero) {
               // HTTP/1.0 parsed.
               httpVersion = HttpVersion.http10;
-              persistentConnection = false;
               this.httpVersionIndex = httpVersionIndex + 1;
             } else {
-              throw HttpException("Invalid response, invalid HTTP version");
+              throw HttpException('Invalid HTTP version');
             }
           } else {
-            if (byte == CharCode.cr) {
-              state = State.requestLineEnding;
-            } else if (byte == CharCode.lf) {
-              state = State.requestLineEnding;
-              this.index = this.index - 1; // Make the new state see the LF again.
+            state = State.ending;
+
+            if (byte == CharCode.lf) {
+              this.index = this.index - 1;
             }
           }
 
           break;
 
-        case State.requestLineEnding:
+        case State.ending:
           expect(byte, CharCode.lf);
-          messageType = MessageType.request;
-          state = State.headerStart;
-
-          break;
-
-        case State.responseLineStatus:
-          if (byte == CharCode.sp) {
-            state = State.responseLineReason;
-          } else if (byte == CharCode.cr) {
-            // Some HTTP servers do not follow the spec and send
-            // \r?\n right after the status code.
-            state = State.responseLineEnding;
-          } else if (byte == CharCode.lf) {
-            state = State.responseLineEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
-          } else {
-            statusLength++;
-
-            if (byte < 0x30 || byte > 0x39) {
-              throw HttpException("Invalid response status code with $byte");
-            } else if (statusLength > 3) {
-              throw HttpException("Invalid response, status code is over 3 digits");
-            } else {
-              status = status * 10 + byte - 0x30;
-            }
-          }
-
-          break;
-
-        case State.responseLineReason:
-          if (byte == CharCode.cr) {
-            state = State.responseLineEnding;
-          } else if (byte == CharCode.lf) {
-            state = State.responseLineEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
-          } else {
-            addWithValidation(uriOrReasonPhrase, byte);
-          }
-
-          break;
-
-        case State.responseLineEnding:
-          expect(byte, CharCode.lf);
-          messageType == MessageType.response;
-
-          // Check whether this response will never have a body.
-          if (status <= 199 || status == 204 || status == 304) {
-            noMessageBody = true;
-          }
-
           state = State.headerStart;
           break;
 
@@ -573,9 +397,8 @@ class Parser extends Stream<Incoming> {
             state = State.headerEnding;
           } else if (byte == CharCode.lf) {
             state = State.headerEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            this.index = this.index - 1;
           } else {
-            // Start of new header field.
             addWithValidation(headerField, toLowerCaseByte(byte));
             state = State.headerField;
           }
@@ -587,7 +410,7 @@ class Parser extends Stream<Incoming> {
             state = State.headerValueStart;
           } else {
             if (!isTokenChar(byte)) {
-              throw HttpException("Invalid header field name, with $byte");
+              throw HttpException('Invalid header field name, with $byte');
             }
 
             addWithValidation(headerField, toLowerCaseByte(byte));
@@ -601,7 +424,6 @@ class Parser extends Stream<Incoming> {
           } else if (byte == CharCode.lf) {
             state = State.headerValueFoldOrEnd;
           } else if (byte != CharCode.sp && byte != CharCode.ht) {
-            // Start of new header value.
             addWithValidation(headerValue, byte);
             state = State.headerValue;
           }
@@ -633,21 +455,20 @@ class Parser extends Stream<Incoming> {
             var headerField = String.fromCharCodes(this.headerField);
             var headerValue = String.fromCharCodes(this.headerValue);
 
-            if (headerField == HttpHeaders.contentLengthHeader) {
+            if (headerField == Headers.contentLength) {
               // Content Length header should not have more than one occurance
               // or coexist with Transfer Encoding header.
               if (contentLength) {
-                throw HttpException("The Content-Length header occurred "
-                    "more than once, at most one is allowed.");
+                throw HttpException('The Content-Length header occurred more than once, at most one is allowed.');
               } else if (transferEncoding) {
                 throw HttpException(errorIfBothText);
               }
 
               contentLength = true;
-            } else if (headerField == HttpHeaders.transferEncodingHeader) {
+            } else if (headerField == Headers.transferEncoding) {
               transferEncoding = true;
 
-              if (caseInsensitiveCompare("chunked".codeUnits, this.headerValue)) {
+              if (caseInsensitiveCompare('chunked'.codeUnits, this.headerValue)) {
                 chunked = true;
               }
               if (contentLength) {
@@ -657,15 +478,13 @@ class Parser extends Stream<Incoming> {
 
             var headers = this.headers!;
 
-            if (headerField == HttpHeaders.connectionHeader) {
+            if (headerField == Headers.connection) {
               var tokens = tokenizeFieldValue(headerValue);
-              var isResponse = messageType == MessageType.response;
-              var isUpgradeCode = (status == StatusCodes.upgradeRequired) || (status == StatusCodes.switchingProtocols);
 
               for (int i = 0; i < tokens.length; i++) {
                 var isUpgrade = caseInsensitiveCompare('upgrade'.codeUnits, tokens[i].codeUnits);
 
-                if ((isUpgrade && !isResponse) || (isUpgrade && isResponse && isUpgradeCode)) {
+                if (isUpgrade) {
                   connectionUpgrade = true;
                 }
 
@@ -789,7 +608,6 @@ class Parser extends Stream<Incoming> {
           // cases like this, and the user will not experience different data
           // typed (which could lead to polymorphic user code).
           var data = Uint8List.view(buffer.buffer, buffer.offsetInBytes + this.index, dataAvailable);
-          bodyController!.add(data);
 
           if (remainingContent != -1) {
             remainingContent -= data.length;
@@ -809,13 +627,11 @@ class Parser extends Stream<Incoming> {
           break;
 
         case State.failure:
-          // Should be unreachable.
-          assert(false);
+          assert(false, 'should be unreachable');
           break;
 
         default:
-          // Should be unreachable.
-          assert(false);
+          assert(false, 'should be unreachable');
           break;
       }
     }
@@ -835,7 +651,6 @@ class Parser extends Stream<Incoming> {
 
   void onData(Uint8List buffer) {
     socketSubscription!.pause();
-    assert(this.buffer == null);
     this.buffer = buffer;
     index = 0;
     parse();
@@ -849,7 +664,7 @@ class Parser extends Stream<Incoming> {
       return;
     }
 
-    if (incoming != null) {
+    if (message != null) {
       closeIncoming(true);
       controller.close();
       return;
@@ -868,9 +683,7 @@ class Parser extends Stream<Incoming> {
 
     if (state < State.firstBodyState) {
       state = State.failure;
-      // Report the error through the error callback if any. Otherwise
-      // throw the error.
-      reportHttpError(HttpException('Connection closed before full header was received'));
+      reportError(HttpException('Connection closed before full header was received'));
       controller.close();
       return;
     }
@@ -879,15 +692,13 @@ class Parser extends Stream<Incoming> {
       state = State.closed;
     } else {
       state = State.failure;
-      // Report the error through the error callback if any. Otherwise
-      // throw the error.
-      reportHttpError(HttpException('Connection closed before full body was received'));
+      reportError(HttpException('Connection closed before full body was received'));
     }
 
     controller.close();
   }
 
-  void detachIncoming() {
+  void detach() {
     state = State.upgraded;
   }
 
@@ -915,20 +726,15 @@ class Parser extends Stream<Incoming> {
     }
 
     state = State.start;
-    messageType = MessageType.undetermined;
     headerField.clear();
     headerValue.clear();
     headersReceivedSize = 0;
     method.clear();
-    uriOrReasonPhrase.clear();
-    status = 0;
-    statusLength = 0;
+    uri.clear();
     httpVersion = HttpVersion.undetermined;
     transferLength = -1;
-    persistentConnection = false;
     connectionUpgrade = false;
     chunked = false;
-    noMessageBody = false;
     remainingContent = -1;
     contentLength = false;
     transferEncoding = false;
@@ -977,17 +783,12 @@ class Parser extends Stream<Incoming> {
 
     switch (state) {
       case State.start:
-      case State.methodOrResponseHTTPVersion:
-      case State.requestLineMethod:
+      case State.method:
         method = 'Method';
         break;
 
-      case State.requestLineUri:
+      case State.uri:
         method = 'URI';
-        break;
-
-      case State.responseLineReason:
-        method = 'Reason phrase';
         break;
 
       case State.headerStart:
@@ -1007,67 +808,29 @@ class Parser extends Stream<Incoming> {
     throw HttpException('$method exceeds the $headerTotalSizeLimit size limit');
   }
 
-  Incoming createIncoming(int transferLength) {
-    assert(this.incoming == null);
-    assert(bodyController == null);
-    assert(!bodyPaused);
+  Message createMessage(String method, Uri uri, Headers headers) {
+    assert(this.message == null);
 
-    var controller = bodyController = StreamController<Uint8List>(sync: true);
-    var incoming = this.incoming = Incoming(headers!, transferLength, controller.stream);
-    controller
-      ..onListen = () {
-        if (incoming != this.incoming) return;
-        assert(bodyPaused);
-        bodyPaused = false;
-        pauseStateChanged();
-      }
-      ..onPause = () {
-        if (incoming != this.incoming) return;
-        assert(!bodyPaused);
-        bodyPaused = true;
-        pauseStateChanged();
-      }
-      ..onResume = () {
-        if (incoming != this.incoming) return;
-        assert(bodyPaused);
-        bodyPaused = false;
-        pauseStateChanged();
-      }
-      ..onCancel = () {
-        if (incoming != this.incoming) return;
-        socketSubscription?.cancel();
-        closeIncoming(true);
-        this.controller.close();
-      };
-    bodyPaused = true;
+    var message = this.message = HeadersMessage(method, uri, headers, false);
     pauseStateChanged();
-    return incoming;
+    return message;
   }
 
   void closeIncoming([bool closing = false]) {
     // Ignore multiple close (can happen in re-entrance).
-    var temp = incoming;
+    var temp = message;
 
     if (temp == null) {
       return;
     }
 
-    temp.close(closing);
-    incoming = null;
-    var controller = bodyController;
-
-    if (controller != null) {
-      controller.close();
-      bodyController = null;
-    }
-
-    bodyPaused = false;
+    message = null;
     pauseStateChanged();
   }
 
   void pauseStateChanged() {
-    if (incoming != null) {
-      if (!bodyPaused && !parserCalled) {
+    if (message != null) {
+      if (!parserCalled) {
         parse();
       }
     } else {
@@ -1077,19 +840,11 @@ class Parser extends Stream<Incoming> {
     }
   }
 
-  void reportHttpError(Object error, [StackTrace? stackTrace]) {
+  void reportError(Object error, [StackTrace? stackTrace]) {
     socketSubscription?.cancel();
     state = State.failure;
     controller.addError(error, stackTrace);
     controller.close();
-  }
-
-  void reportBodyError(Object error, [StackTrace? stackTrace]) {
-    socketSubscription?.cancel();
-    state = State.failure;
-    bodyController?.addError(error, stackTrace);
-    // In case of drain(), error event will close the stream.
-    bodyController?.close();
   }
 
   // expected should already be lowercase.

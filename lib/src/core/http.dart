@@ -34,6 +34,7 @@ class Headers {
   static const String accessControlRequestMethod = 'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
+  static const String connection = 'connection';
   static const String contentDisposition = 'content-disposition';
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';

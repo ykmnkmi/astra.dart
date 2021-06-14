@@ -21,14 +21,6 @@ class IOConnection implements Connection {
 }
 
 class IOServer implements Server {
-  static const int active = 0;
-
-  static const int idle = 1;
-
-  static const int closing = 2;
-
-  static const int detached = 3;
-
   IOServer(this.socketServer, this.closeServer) : connections = <IOConnection>[] {
     // ...
   }
