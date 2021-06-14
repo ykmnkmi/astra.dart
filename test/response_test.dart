@@ -148,9 +148,9 @@ void main() {
   });
 
   test('response phrase', () async {
-    var client = TestClient(Response(status: StatusCode.noContent));
+    var client = TestClient(Response(status: StatusCodes.noContent));
     var response = await client.get('/');
-    expect(response.reasonPhrase, equals(ReasonPhrase.noContent));
+    expect(response.reasonPhrase, equals(ReasonPhrases.noContent));
     client = TestClient(Response(status: 123));
     response = await client.get('/');
     client.close();
@@ -166,7 +166,7 @@ void main() {
     var response = await client.get('/');
     client.close();
     var contentDisposition = 'attachment; filename="example.png"';
-    expect(response.statusCode, equals(StatusCode.ok));
+    expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentType], equals('image/png'));
     expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
@@ -206,7 +206,7 @@ void main() {
     var response = await client.get('/');
     client.close();
     var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
-    expect(response.statusCode, equals(StatusCode.ok));
+    expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
   });

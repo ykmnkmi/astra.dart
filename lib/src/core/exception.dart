@@ -50,7 +50,7 @@ Application exception(Application application, Map<Object, ExceptionHandler> han
   return (Request request, Start start, Send send) async {
     var responseStarted = false;
 
-    void starter({int status = StatusCode.ok, String? reason, List<Header>? headers}) {
+    void starter({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
       responseStarted = true;
       start(status: status, headers: headers);
     }
