@@ -1,3 +1,6 @@
+/// Astra core library.
+library astra;
+
 export 'src/core/error.dart';
 export 'src/core/exception.dart';
 export 'src/core/http.dart';

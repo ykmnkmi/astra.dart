@@ -1,78 +1,198 @@
-import 'dart:async' show StreamSubscription;
-import 'dart:io' show InternetAddressType, SecurityContext, ServerSocket, Socket, SocketOption;
+/// Astra `dart:io` server implementation.
+library astra.io;
+
+import 'dart:async' show FutureOr, StreamIterator, StreamSubscription;
+import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
 
-class IOConnection implements Connection {
-  IOConnection(this.socket, this.headers, this.url);
-
-  final Socket socket;
-
-  @override
-  Headers headers;
-
-  @override
-  Uri url;
-
-  @override
-  Future<DataMessage> receive() {
-    throw UnimplementedError();
-  }
-}
-
 class IOServer implements Server {
-  IOServer(this.socketServer, this.closeServer) : connections = <IOConnection>[] {
-    // ...
+  static Future<Server> bind(Object address, int port,
+      {int backlog = 0, bool shared = false, SecurityContext? context}) async {
+    if (context == null) {
+      final server = await HttpServer.bind(address, port, backlog: backlog, shared: shared);
+      return IOServer(server);
+    }
+
+    final server = await HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared);
+    return IOServer(server);
   }
 
-  IOServer.listenOn(this.socketServer)
-      : closeServer = false,
-        connections = <IOConnection>[];
+  IOServer(this.server);
 
-  final ServerSocket socketServer;
-
-  final bool closeServer;
-
-  final List<IOConnection> connections;
-
-  StreamSubscription<Socket>? subscription;
+  final HttpServer server;
 
   @override
   Future<void> close({bool force = false}) {
-    throw UnimplementedError();
+    return server.close(force: force);
   }
+
+  StreamSubscription<HttpRequest>? subscription;
 
   @override
   void handle(Handler handler) {
-    throw UnimplementedError();
+    void handleRequest(HttpRequest request) {
+      handleApplication(request, (request, start, send) async {
+        final response = await handler(request);
+        return response(request, start, send);
+      });
+    }
+
+    if (subscription == null) {
+      subscription = server.listen(handleRequest);
+    } else {
+      subscription!.onData(handleRequest);
+    }
   }
 
   @override
   void mount(Application application) {
-    if (subscription == null) {
-      subscription = socketServer.listen((Socket socket) {
-        handleApplication(socket, application);
-      });
-
-      return;
+    void handleRequest(HttpRequest request) {
+      handleApplication(request, application);
     }
 
-    subscription!.onData((Socket socket) {
-      handleApplication(socket, application);
-    });
+    if (subscription == null) {
+      subscription = server.listen(handleRequest);
+    } else {
+      subscription!.onData(handleRequest);
+    }
+  }
+}
+
+FutureOr<void> handleApplication(HttpRequest ioRequest, Application application) {
+  final ioResponse = ioRequest.response;
+
+  void start({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = false}) {
+    ioResponse.statusCode = status;
+    ioResponse.reasonPhrase = reason ?? ReasonPhrases.from(status);
+
+    if (headers != null) {
+      for (final header in headers) {
+        ioResponse.headers.set(header.name, header.value);
+      }
+    }
+
+    ioResponse.bufferOutput = buffer;
   }
 
-  Future<void> handleApplication(Socket socket, Application application) async {
-    if (socket.address.type != InternetAddressType.unix) {
-      socket.setOption(SocketOption.tcpNoDelay, true);
+  Future<void> send({List<int> bytes = const <int>[], bool flush = false, bool end = false}) async {
+    ioResponse.add(bytes);
+
+    if (flush) {
+      await ioResponse.flush();
     }
 
+    if (end) {
+      await ioResponse.close();
+    }
+  }
+
+  return application(IORequest(ioRequest), start, send);
+}
+
+class IOHeaders implements Headers {
+  IOHeaders(this.headers);
+
+  final HttpHeaders headers;
+
+  @override
+  List<Header> get raw {
+    final raw = <Header>[];
+
+    headers.forEach((String name, List<String> values) {
+      for (final value in values) {
+        raw.add(Header(name, value));
+      }
+    });
+
+    return raw;
+  }
+
+  @override
+  @pragma('vm:prefer-inline')
+  String? operator [](String name) {
+    return get(name);
+  }
+
+  @override
+  bool contains(String name) {
+    return headers[name] != null;
+  }
+
+  @override
+  String? get(String name) {
+    return headers.value(name);
+  }
+
+  @override
+  List<String> getAll(String name) {
+    return headers[name] ?? <String>[];
+  }
+
+  @override
+  MutableHeaders toMutable() {
     throw UnimplementedError();
   }
+}
 
-  static Future<Server> bind(Object address, int port,
-      {int backlog = 0, bool v6Only = false, bool shared = false, SecurityContext? context}) async {
-    var socket = await ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared);
-    return IOServer(socket, true);
+class IOMutableHeaders extends IOHeaders implements MutableHeaders {
+  IOMutableHeaders(HttpHeaders headers) : super(headers);
+
+  @override
+  @pragma('vm:prefer-inline')
+  void operator []=(String name, String value) {
+    set(name, value);
+  }
+
+  @override
+  void add(String name, String value) {
+    headers.add(name, value);
+  }
+
+  @override
+  void clear() {
+    headers.clear();
+  }
+
+  @override
+  void delete(String name) {
+    headers.removeAll(name);
+  }
+
+  @override
+  void set(String name, String value) {
+    headers.set(name, value);
+  }
+}
+
+class IORequest extends Request {
+  IORequest(this.request)
+      : iterable = StreamIterator<List<int>>(request),
+        headers = IOHeaders(request.headers);
+
+  final HttpRequest request;
+
+  final StreamIterator<List<int>> iterable;
+
+  @override
+  final Headers headers;
+
+  @override
+  String get method {
+    return request.method;
+  }
+
+  @override
+  Uri get url {
+    return request.uri;
+  }
+
+  @override
+  Future<DataMessage> receive() async {
+    if (await iterable.moveNext()) {
+      return DataMessage(iterable.current);
+    }
+
+    return DataMessage.empty(end: true);
   }
 }

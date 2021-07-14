@@ -77,13 +77,13 @@ class Response<T extends Object?> {
     }
   }
 
+  late final List<int> body;
+
   int status;
 
   MutableHeaders headers;
 
   String? contentType;
-
-  late List<int> body;
 
   FutureOr<void> call(Request request, Start start, Send send) {
     start(status: status, headers: headers.raw);

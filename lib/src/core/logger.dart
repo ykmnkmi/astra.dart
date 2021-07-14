@@ -3,7 +3,7 @@ import 'types.dart';
 
 Application log(Application application) {
   return (Request request, Start start, Send send) {
-    // TODO: log
+    // TODO: implement log
     return application(request, start, send);
   };
 }

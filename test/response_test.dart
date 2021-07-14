@@ -10,21 +10,21 @@ import 'package:test/test.dart';
 void main() {
   test('text response', () async {
     FutureOr<void> application(Request request, Start start, Send send) {
-      var response = Response(content: 'hello world!');
+      final response = Response(content: 'hello world!');
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/');
+    final client = TestClient(application);
+    final response = await client.get('/');
     client.close();
     expect(response.body, equals('hello world!'));
   });
 
   test('bytes response', () async {
-    var bytes = utf8.encode('xxxxx');
+    final bytes = utf8.encode('xxxxx');
 
     FutureOr<void> application(Request request, Start start, Send send) {
-      var response = Response(content: bytes, contentType: 'image/png');
+      final response = Response(content: bytes, contentType: 'image/png');
       return response(request, start, send);
     }
 
@@ -36,19 +36,19 @@ void main() {
 
   test('json null response', () async {
     FutureOr<void> application(Request request, Start start, Send send) {
-      var response = JSONResponse(null);
+      final response = JSONResponse(null);
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/');
+    final client = TestClient(application);
+    final response = await client.get('/');
     client.close();
     expect(json.decode(response.body), isNull);
   });
 
   test('redirect response', () async {
     FutureOr<void> application(Request request, Start start, Send send) {
-      Response response;
+      final Response response;
 
       if (request.url.path == '/') {
         response = TextResponse('hello world!');
@@ -67,7 +67,7 @@ void main() {
 
   test('quoting redirect response', () async {
     FutureOr<void> application(Request request, Start start, Send send) {
-      Response response;
+      final Response response;
 
       if (request.url.path == Uri.encodeFull('/I ♥ Astra/')) {
         response = TextResponse('hello world!');
@@ -78,8 +78,8 @@ void main() {
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/redirect');
+    final client = TestClient(application);
+    final response = await client.get('/redirect');
     client.close();
     expect(response.body, equals('hello world!'));
   });
@@ -98,13 +98,13 @@ void main() {
     }
 
     FutureOr<void> application(Request request, Start start, Send send) {
-      var stream = numbers(1, 5);
-      var response = StreamResponse.text(stream);
+      final stream = numbers(1, 5);
+      final response = StreamResponse.text(stream);
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/');
+    final client = TestClient(application);
+    final response = await client.get('/');
     client.close();
     expect(response.body, equals('1, 2, 3, 4, 5'));
   });
@@ -121,27 +121,27 @@ void main() {
     }
 
     FutureOr<void> application(Request request, Start start, Send send) {
-      var stream = numbers(1, 5);
-      var response = StreamResponse.text(stream);
+      final stream = numbers(1, 5);
+      final response = StreamResponse.text(stream);
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/');
+    final client = TestClient(application);
+    final response = await client.get('/');
     client.close();
     expect(response.body, equals('1, 2, 3, 4, 5'));
   });
 
   test('response headers', () async {
     FutureOr<void> application(Request request, Start start, Send send) {
-      var headers = <String, String>{'x-header-1': '123', 'x-header-2': '456'};
-      var response = TextResponse('hello world!', headers: headers);
+      final headers = <String, String>{'x-header-1': '123', 'x-header-2': '456'};
+      final response = TextResponse('hello world!', headers: headers);
       response.headers.set('x-header-2', '789');
       return response(request, start, send);
     }
 
-    var client = TestClient(application);
-    var response = await client.get('/');
+    final client = TestClient(application);
+    final response = await client.get('/');
     client.close();
     expect(response.headers['x-header-1'], equals('123'));
     expect(response.headers['x-header-2'], equals('789'));
@@ -159,13 +159,13 @@ void main() {
   });
 
   test('file response', () async {
-    var filePath = path.join(Directory.systemTemp.path, 'xyz');
-    var content = utf8.encode('<file content>' * 1000);
+    final filePath = path.join(Directory.systemTemp.path, 'xyz');
+    final content = utf8.encode('<file content>' * 1000);
     await File(filePath).writeAsBytes(content);
-    var client = TestClient(FileResponse(filePath, fileName: 'example.png'));
-    var response = await client.get('/');
+    final client = TestClient(FileResponse(filePath, fileName: 'example.png'));
+    final response = await client.get('/');
     client.close();
-    var contentDisposition = 'attachment; filename="example.png"';
+    final contentDisposition = 'attachment; filename="example.png"';
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentType], equals('image/png'));
@@ -186,8 +186,8 @@ void main() {
   });
 
   test('file response with missing file raises error', () async {
-    var filePath = path.join(Directory.systemTemp.path, '404.txt');
-    var client = TestClient(FileResponse(filePath, fileName: '404.txt'));
+    final filePath = path.join(Directory.systemTemp.path, '404.txt');
+    final client = TestClient(FileResponse(filePath, fileName: '404.txt'));
 
     try {
       await client.get('/');
@@ -198,22 +198,22 @@ void main() {
   });
 
   test('file response with chinese filename', () async {
-    var fileName = '你好.txt';
-    var content = utf8.encode('file content');
-    var filePath = path.join(Directory.systemTemp.path, fileName);
+    final fileName = '你好.txt';
+    final content = utf8.encode('file content');
+    final filePath = path.join(Directory.systemTemp.path, fileName);
     await File(filePath).writeAsBytes(content);
-    var client = TestClient(FileResponse(filePath, fileName: fileName));
-    var response = await client.get('/');
+    final client = TestClient(FileResponse(filePath, fileName: fileName));
+    final response = await client.get('/');
     client.close();
-    var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
+    final contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
   });
 
   test('populate headers', () async {
-    var client = TestClient(TextResponse('hi'));
-    var response = await client.get('/');
+    final client = TestClient(TextResponse('hi'));
+    final response = await client.get('/');
     client.close();
     expect(response.body, equals('hi'));
     expect(response.headers[Headers.contentLength], equals('2'));
@@ -221,9 +221,9 @@ void main() {
   });
 
   test('head method', () async {
-    var application = Response(content: 'hello world!', contentType: ContentTypes.text);
-    var client = TestClient(application);
-    var response = await client.head('/');
+    final application = Response(content: 'hello world!', contentType: ContentTypes.text);
+    final client = TestClient(application);
+    final response = await client.head('/');
     client.close();
     expect(response.body, equals(''));
   });

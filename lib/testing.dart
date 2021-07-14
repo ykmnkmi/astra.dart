@@ -1,3 +1,6 @@
+/// Astra testing utilities.
+library astra.testing;
+
 import 'dart:async' show Completer, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus;
 
@@ -18,32 +21,32 @@ class TestClient {
   }
 
   Future<Response> head(String url) {
-    return request(url, (Client client, Uri url) => client.head(url));
+    return request(url, (client, url) => client.head(url));
   }
 
   Future<Response> get(String url) {
-    return request(url, (Client client, Uri url) => client.get(url));
+    return request(url, (client, url) => client.get(url));
   }
 
   Future<Response> post(String url) {
-    return request(url, (Client client, Uri url) => client.post(url));
+    return request(url, (client, url) => client.post(url));
   }
 
   Future<Response> request(String path, Future<Response> Function(Client client, Uri url) callback) async {
-    var server = await HttpServer.bind('localhost', port);
-    var responseFuture = callback(client, Uri.http('localhost:$port', path));
-    var responseCompleter = Completer<Response>.sync();
-    var serverSubscription = server.listen(null);
+    final server = await HttpServer.bind('localhost', port);
+    final responseFuture = callback(client, Uri.http('localhost:$port', path));
+    final responseCompleter = Completer<Response>.sync();
+    final serverSubscription = server.listen(null);
 
-    serverSubscription.onData((HttpRequest ioRequest) async {
-      var ioResponse = ioRequest.response;
+    serverSubscription.onData((ioRequest) async {
+      final ioResponse = ioRequest.response;
       var isRedirectResponse = false;
 
       void start({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
         ioResponse.statusCode = status;
 
         if (headers != null) {
-          for (var header in headers) {
+          for (final header in headers) {
             ioResponse.headers.set(header.name, header.value);
 
             if (header.name == HttpHeaders.locationHeader) {
@@ -66,7 +69,8 @@ class TestClient {
       }
 
       try {
-        await application(TestRequest(ioRequest), start, send);
+        final request = TestRequest(ioRequest);
+        await application(request, start, send);
 
         if (isRedirectResponse) {
           return;
