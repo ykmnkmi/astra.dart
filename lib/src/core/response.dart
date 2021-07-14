@@ -79,9 +79,9 @@ class Response<T extends Object?> {
 
   late final List<int> body;
 
-  int status;
+  final int status;
 
-  MutableHeaders headers;
+  final MutableHeaders headers;
 
   String? contentType;
 
@@ -213,9 +213,9 @@ class FileResponse extends Response {
     }
   }
 
-  File file;
+  final File file;
 
-  bool sendHeaderOnly;
+  final bool sendHeaderOnly;
 
   @override
   Future<void> call(Request request, Start start, Send send) async {
@@ -229,7 +229,7 @@ class FileResponse extends Response {
       throw StateError('file at path ${file.path} is not a file');
     }
 
-    var ifModifiedSince = request.ifModifiedSince;
+    final ifModifiedSince = request.ifModifiedSince;
 
     if (ifModifiedSince != null) {
       if (!fileStat.modified.isAfter(ifModifiedSince)) {
@@ -248,7 +248,7 @@ class FileResponse extends Response {
       return send(end: true);
     }
 
-    await for (var bytes in file.openRead()) {
+    await for (final bytes in file.openRead()) {
       send(bytes: bytes);
     }
 
@@ -258,7 +258,7 @@ class FileResponse extends Response {
   static MimeTypeResolver? mimeTypeResolver;
 
   static String? guessType(String filePath) {
-    var resolver = mimeTypeResolver ??= MimeTypeResolver();
+    final resolver = mimeTypeResolver ??= MimeTypeResolver();
     return resolver.lookup(filePath) ?? ContentTypes.text;
   }
 }
