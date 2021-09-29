@@ -1,4 +1,4 @@
-A simple web server framework based on starlette (_work in progress_).
+A simple web server framework (_work in progress_).
 
 ```dart
 // lib/[package].dart
@@ -6,19 +6,25 @@ A simple web server framework based on starlette (_work in progress_).
 import 'dart:async';
 
 import 'package:astra/astra.dart';
-import 'package:astra/io.dart';
 
 FutureOr<void> application(Request request, Start start, Send send) {
-  final response = request.url.path == '/' ? TextResponse('hello world!') : Response.notFound();
-  return response(request, start, send);
+  Response response;
+
+  if (connection.url.path == '/') {
+    response = TextResponse('hello world!');
+  } else {
+    response = Response.notFound();
+  }
+
+  return response(connection);
 }
 
 Response handler(Request request) {
-  return request.url.path == '/' ? FileResponse('web/index.html') : Response.notFound();
+  return FileResponse('web/index.html');
 }
 
 Future<void> main() async {
-  final server = await IOServer.bind('localhost', 3000);
+  var server = await Server.bind('localhost', 3000);
   server.mount(log(error(application)));
   // server.handle(handler);
   print('serving at http://localhost:3000');

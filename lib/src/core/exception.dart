@@ -1,5 +1,5 @@
+import 'connection.dart';
 import 'http.dart';
-import 'request.dart';
 import 'response.dart';
 import 'types.dart';
 
@@ -12,17 +12,22 @@ class HTTPException implements Exception {
 
   @override
   String toString() {
-    var buffer = StringBuffer(runtimeType)..write('(')..write(status);
+    var buffer = StringBuffer(runtimeType)
+      ..write('(')
+      ..write(status);
 
     if (message != null) {
-      buffer..write(', ')..write(message);
+      buffer
+        ..write(', ')
+        ..write(message);
     }
 
     buffer.write(')');
     return buffer.toString();
   }
 
-  static Response handler(Request request, Object exception, StackTrace stackTrace) {
+  static Response handler(
+      Connection connection, Object exception, StackTrace stackTrace) {
     var typedException = exception as HTTPException;
 
     if (typedException.status == 204 || typedException.status == 304) {
@@ -33,9 +38,12 @@ class HTTPException implements Exception {
   }
 }
 
-Application exception(Application application, Map<Object, ExceptionHandler> handlers) {
+Application exception(
+    Application application, Map<Object, ExceptionHandler> handlers) {
   var statusHandlers = <int, ExceptionHandler>{};
-  var exceptionHandlers = <Type, ExceptionHandler>{HTTPException: HTTPException.handler};
+  var exceptionHandlers = <Type, ExceptionHandler>{
+    HTTPException: HTTPException.handler
+  };
 
   for (var statusOrException in handlers.keys) {
     if (statusOrException is int) {
@@ -47,16 +55,18 @@ Application exception(Application application, Map<Object, ExceptionHandler> han
     }
   }
 
-  return (Request request, Start start, Send send) async {
+  return (Connection connection) async {
+    var start = connection.start;
     var responseStarted = false;
 
-    void starter({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
+    connection.start =
+        ({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
       responseStarted = true;
       start(status: status, headers: headers);
-    }
+    };
 
     try {
-      await application(request, starter, send);
+      await application(connection);
     } catch (error, stackTrace) {
       ExceptionHandler? handler;
 
@@ -71,11 +81,12 @@ Application exception(Application application, Map<Object, ExceptionHandler> han
       }
 
       if (responseStarted) {
-        throw StateError('caught handled exception, but response already started');
+        throw StateError(
+            'caught handled exception, but response already started');
       }
 
-      var response = await handler(request, error, stackTrace);
-      response(request, start, send);
+      var response = await handler(connection, error, stackTrace);
+      await response(connection);
     }
   };
 }

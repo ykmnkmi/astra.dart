@@ -1,3 +1,5 @@
+import 'package:http_parser/http_parser.dart' show parseHttpDate;
+
 abstract class ContentTypes {
   static const String text = 'text/plain; charset=utf-8';
 
@@ -24,14 +26,20 @@ class Header {
 class Headers {
   static const String accept = 'accept';
   static const String acceptEncoding = 'accept-encoding';
-  static const String accessControlAllowCredentials = 'access-control-allow-credentials';
-  static const String accessControlAllowHeaders = 'access-control-allow-headers';
-  static const String accessControlAllowMethods = 'access-control-allow-methods';
+  static const String accessControlAllowCredentials =
+      'access-control-allow-credentials';
+  static const String accessControlAllowHeaders =
+      'access-control-allow-headers';
+  static const String accessControlAllowMethods =
+      'access-control-allow-methods';
   static const String accessControlAllowOrigin = 'access-control-allow-origin';
-  static const String accessControlExposeHeaders = 'access-control-expose-headers';
+  static const String accessControlExposeHeaders =
+      'access-control-expose-headers';
   static const String accessControlMaxAge = 'access-control-max-age';
-  static const String accessControlRequestHeaders = 'access-control-request-headers';
-  static const String accessControlRequestMethod = 'access-control-request-method';
+  static const String accessControlRequestHeaders =
+      'access-control-request-headers';
+  static const String accessControlRequestMethod =
+      'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
   static const String connection = 'connection';
@@ -39,7 +47,8 @@ class Headers {
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';
   static const String contentSecurityPolicy = 'content-security-policy';
-  static const String contentSecurityPolicyReportOnly = 'content-security-policy-report-only';
+  static const String contentSecurityPolicyReportOnly =
+      'content-security-policy-report-only';
   static const String contentType = 'content-type';
   static const String cookie = 'cookie';
   static const String ifModifiedSince = 'if-modified-since';
@@ -242,7 +251,8 @@ abstract class ReasonPhrases {
   static const String ok = 'OK';
   static const String created = 'Created';
   static const String accepted = 'Accepted';
-  static const String nonAuthoritativeInformation = 'Non-Authoritative Information';
+  static const String nonAuthoritativeInformation =
+      'Non-Authoritative Information';
   static const String noContent = 'No Content';
   static const String resetContent = 'Reset Content';
   static const String partialContent = 'Partial Content';
@@ -260,7 +270,8 @@ abstract class ReasonPhrases {
   static const String notFound = 'Not Found';
   static const String methodNotAllowed = 'Method Not Allowed';
   static const String notAcceptable = 'Not Acceptable';
-  static const String proxyAuthenticationRequired = 'Proxy Authentication Required';
+  static const String proxyAuthenticationRequired =
+      'Proxy Authentication Required';
   static const String requestTimeOut = 'Request Time-out';
   static const String conflict = 'Conflict';
   static const String gone = 'Gone';
@@ -269,7 +280,8 @@ abstract class ReasonPhrases {
   static const String requestEntityTooLarge = 'Request Entity Too Large';
   static const String requestURITooLarge = 'Request-URI Too Large';
   static const String unsupportedMediaType = 'Unsupported Media Type';
-  static const String requestedRangeNotSatisfiable = 'Requested range not satisfiable';
+  static const String requestedRangeNotSatisfiable =
+      'Requested range not satisfiable';
   static const String expectationFailed = 'Expectation Failed';
   static const String upgradeRequired = 'Upgrade Required';
   static const String internalServerError = 'Internal Server Error';
@@ -279,7 +291,7 @@ abstract class ReasonPhrases {
   static const String gatewayTimeOut = 'Gateway Time-out';
   static const String httpVersionNotSupported = 'HTTP Version not supported';
 
-  static String from(int status) {
+  static String to(int status) {
     switch (status) {
       case StatusCodes.kontinue:
         return kontinue;
@@ -365,6 +377,18 @@ abstract class ReasonPhrases {
         return httpVersionNotSupported;
       default:
         return '';
+    }
+  }
+}
+
+extension HeadersExtension on Headers {
+  DateTime? get ifModifiedSince {
+    var date = get(Headers.ifModifiedSince);
+
+    if (date == null) {
+      return null;
+    } else {
+      return parseHttpDate(date);
     }
   }
 }

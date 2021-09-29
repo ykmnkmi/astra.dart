@@ -1,20 +1,24 @@
+import 'dart:developer' as developer show log;
+
+import 'connection.dart';
 import 'http.dart';
-import 'request.dart';
 import 'types.dart';
 
 Application log(Application application) {
-  return (Request request, Start start, Send send) {
+  return (Connection connection) {
+    var start = connection.start;
     var statusCode = StatusCodes.ok;
 
-    void started({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
+    connection.start =
+        ({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
       statusCode = status;
       start(status: status, reason: reason, headers: headers);
-    }
+    };
 
     try {
-      return application(request, started, send);
+      return application(connection);
     } finally {
-      print('[$statusCode] ${request.method} ${request.url}');
+      developer.log('[$statusCode] ${connection.method} ${connection.url}');
     }
   };
 }

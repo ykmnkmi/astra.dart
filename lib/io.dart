@@ -1,20 +1,18 @@
 /// Astra `dart:io` server implementation.
 library astra.io;
 
-import 'dart:async' show FutureOr, StreamIterator, StreamSubscription;
+import 'dart:async' show StreamIterator, StreamSubscription;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
 import 'package:astra/astra.dart';
 
-class IOServer implements Server {
+class IOServer extends Server {
   static Future<Server> bind(Object address, int port,
       {int backlog = 0, bool shared = false, SecurityContext? context}) async {
-    if (context == null) {
-      final server = await HttpServer.bind(address, port, backlog: backlog, shared: shared);
-      return IOServer(server);
-    }
-
-    final server = await HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared);
+    var server = await (context == null
+        ? HttpServer.bind(address, port, backlog: backlog, shared: shared)
+        : HttpServer.bindSecure(address, port, context,
+            backlog: backlog, shared: shared));
     return IOServer(server);
   }
 
@@ -27,67 +25,38 @@ class IOServer implements Server {
     return server.close(force: force);
   }
 
-  StreamSubscription<HttpRequest>? subscription;
+  StreamSubscription<IORequest>? subscription;
 
   @override
   void handle(Handler handler) {
-    void handleRequest(HttpRequest request) {
-      handleApplication(request, (request, start, send) async {
-        final response = await handler(request);
-        return response(request, start, send);
-      });
+    Future<void> application(Connection connection) async {
+      var request = connection as Request;
+      var response = await handler(request);
+      return response(request);
     }
 
     if (subscription == null) {
-      subscription = server.listen(handleRequest);
+      subscription = listen(application);
     } else {
-      subscription!.onData(handleRequest);
+      subscription!.onData(application);
     }
   }
 
   @override
   void mount(Application application) {
-    void handleRequest(HttpRequest request) {
-      handleApplication(request, application);
-    }
-
     if (subscription == null) {
-      subscription = server.listen(handleRequest);
+      subscription = listen(application);
     } else {
-      subscription!.onData(handleRequest);
-    }
-  }
-}
-
-FutureOr<void> handleApplication(HttpRequest ioRequest, Application application) {
-  final ioResponse = ioRequest.response;
-
-  void start({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = false}) {
-    ioResponse.statusCode = status;
-    ioResponse.reasonPhrase = reason ?? ReasonPhrases.from(status);
-
-    if (headers != null) {
-      for (final header in headers) {
-        ioResponse.headers.set(header.name, header.value);
-      }
-    }
-
-    ioResponse.bufferOutput = buffer;
-  }
-
-  Future<void> send({List<int> bytes = const <int>[], bool flush = false, bool end = false}) async {
-    ioResponse.add(bytes);
-
-    if (flush) {
-      await ioResponse.flush();
-    }
-
-    if (end) {
-      await ioResponse.close();
+      subscription!.onData(application);
     }
   }
 
-  return application(IORequest(ioRequest), start, send);
+  @override
+  StreamSubscription<IORequest> listen(void Function(Connection event)? onData,
+      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+    return subscription = server.map<IORequest>(IORequest.new).listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  }
 }
 
 class IOHeaders implements Headers {
@@ -97,10 +66,10 @@ class IOHeaders implements Headers {
 
   @override
   List<Header> get raw {
-    final raw = <Header>[];
+    var raw = <Header>[];
 
     headers.forEach((String name, List<String> values) {
-      for (final value in values) {
+      for (var value in values) {
         raw.add(Header(name, value));
       }
     });
@@ -168,7 +137,39 @@ class IOMutableHeaders extends IOHeaders implements MutableHeaders {
 class IORequest extends Request {
   IORequest(this.request)
       : iterable = StreamIterator<List<int>>(request),
-        headers = IOHeaders(request.headers);
+        headers = IOHeaders(request.headers) {
+    start = (
+        {int status = StatusCodes.ok,
+        String? reason,
+        List<Header>? headers,
+        bool buffer = false}) {
+      request.response.statusCode = status;
+      request.response.reasonPhrase = reason ?? ReasonPhrases.to(status);
+
+      if (headers != null) {
+        for (var header in headers) {
+          request.response.headers.set(header.name, header.value);
+        }
+      }
+
+      request.response.bufferOutput = buffer;
+    };
+
+    send = (
+        {List<int> bytes = const <int>[],
+        bool flush = false,
+        bool end = false}) async {
+      request.response.add(bytes);
+
+      if (flush) {
+        await request.response.flush();
+      }
+
+      if (end) {
+        await request.response.close();
+      }
+    };
+  }
 
   final HttpRequest request;
 
@@ -176,6 +177,12 @@ class IORequest extends Request {
 
   @override
   final Headers headers;
+
+  @override
+  late Start start;
+
+  @override
+  late Send send;
 
   @override
   String get method {

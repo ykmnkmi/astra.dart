@@ -2,32 +2,36 @@ import 'dart:io' show File, HttpStatus;
 
 import 'package:stack_trace/stack_trace.dart' show Trace;
 
+import 'connection.dart';
 import 'http.dart';
-import 'request.dart';
 import 'response.dart';
 import 'types.dart';
 
-Application error(Application application, {bool debug = false, ExceptionHandler? handler}) {
-  return (Request request, Start start, Send send) async {
+Application error(Application application,
+    {bool debug = false, ExceptionHandler? handler}) {
+  return (Connection connection) async {
+    var start = connection.start;
     var responseStarted = false;
 
-    void starter({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
+    connection.start =
+        ({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
       responseStarted = true;
       start(status: status, headers: headers);
-    }
+    };
 
     try {
-      await application(request, starter, send);
+      await application(connection);
     } catch (error, stackTrace) {
       if (responseStarted) {
         rethrow;
       }
 
       if (debug) {
-        var accept = request.headers.get('accept');
+        var accept = connection.headers.get('accept');
 
         if (accept != null && accept.contains('text/html')) {
-          var html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
+          var html =
+              template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
             switch (match[1]) {
               case 'type':
                 return error.toString();
@@ -40,21 +44,24 @@ Application error(Application application, {bool debug = false, ExceptionHandler
             }
           });
 
-          return TextResponse.html(html, status: 500)(request, start, send);
+          var response = TextResponse.html(html, status: 500);
+          return response(connection);
         }
 
         var trace = Trace.format(stackTrace);
-        var response = TextResponse('$error\n\n$trace', status: HttpStatus.internalServerError);
-        return response(request, start, send);
+        var response = TextResponse('$error\n\n$trace',
+            status: HttpStatus.internalServerError);
+        return response(connection);
       }
 
       if (handler == null) {
-        var response = TextResponse('Internal Server Error', status: HttpStatus.internalServerError);
-        return response(request, start, send);
+        var response = TextResponse('Internal Server Error',
+            status: HttpStatus.internalServerError);
+        return response(connection);
       }
 
-      var response = await handler(request, error, stackTrace);
-      response(request, start, send);
+      var response = await handler(connection, error, stackTrace);
+      await response(connection);
     }
   };
 }
@@ -96,7 +103,9 @@ String renderFrames(Trace trace) {
       ..write('<div class="frame">')
       ..write(scheme == 'file' ? 'File' : 'Package')
       ..write('&nbsp;<span class="library">')
-      ..write(scheme == 'package' ? frame.library.replaceFirst('package:', '') : frame.library)
+      ..write(scheme == 'package'
+          ? frame.library.replaceFirst('package:', '')
+          : frame.library)
       ..write('</span>, line&nbsp;<i>')
       ..write(frame.line)
       ..write('</i>,&nbsp;column&nbsp;<i>')
@@ -109,7 +118,9 @@ String renderFrames(Trace trace) {
       member = member.replaceAll('<fn>', 'closure');
     }
 
-    buffer..write(member)..write('</span>');
+    buffer
+      ..write(member)
+      ..write('</span>');
 
     if (scheme == 'file' && frame.line != null) {
       var lines = File.fromUri(frame.uri).readAsLinesSync();

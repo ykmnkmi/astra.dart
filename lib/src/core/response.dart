@@ -2,53 +2,113 @@ import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
 import 'dart:io' show File, FileSystemEntityType;
 
-import 'package:astra/astra.dart';
 import 'package:http_parser/http_parser.dart' show formatHttpDate;
 import 'package:mime/mime.dart' show MimeTypeResolver;
 import 'package:path/path.dart' as path show normalize;
 
+import 'connection.dart';
 import 'http.dart';
-import 'request.dart';
-import 'types.dart';
 
 class Response<T extends Object?> {
   Response.ok({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.ok, contentType: contentType, headers: headers, content: content);
+      : this(
+            status: StatusCodes.ok,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.created({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.created, contentType: contentType, headers: headers, content: content);
+  Response.created(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.created,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.accepted({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.accepted, contentType: contentType, headers: headers, content: content);
+  Response.accepted(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.accepted,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.noContent({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.noContent, contentType: contentType, headers: headers, content: content);
+  Response.noContent(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.noContent,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.notModified({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.notModified, contentType: contentType, headers: headers, content: content);
+  Response.notModified(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.notModified,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.badRequest({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.badRequest, contentType: contentType, headers: headers, content: content);
+  Response.badRequest(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.badRequest,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.unauthorized({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.unauthorized, contentType: contentType, headers: headers, content: content);
+  Response.unauthorized(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.unauthorized,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.forbidden({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.forbidden, contentType: contentType, headers: headers, content: content);
+  Response.forbidden(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.forbidden,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.notFound({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.notFound, contentType: contentType, headers: headers, content: content);
+  Response.notFound(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.notFound,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.conflict({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.conflict, contentType: contentType, headers: headers, content: content);
+  Response.conflict(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.conflict,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
   Response.gone({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.gone, contentType: contentType, headers: headers, content: content);
+      : this(
+            status: StatusCodes.gone,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response.error({String? contentType, Map<String, String>? headers, T? content})
-      : this(status: StatusCodes.internalServerError, contentType: contentType, headers: headers, content: content);
+  Response.error(
+      {String? contentType, Map<String, String>? headers, T? content})
+      : this(
+            status: StatusCodes.internalServerError,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
-  Response({this.status = StatusCodes.ok, this.contentType, Map<String, String>? headers, T? content})
+  Response(
+      {this.status = StatusCodes.ok,
+      this.contentType,
+      Map<String, String>? headers,
+      T? content})
       : headers = MutableHeaders() {
     body = render(content);
 
@@ -56,7 +116,7 @@ class Response<T extends Object?> {
     var populateContentType = true;
 
     if (headers != null) {
-      final keys = <String>{};
+      var keys = <String>{};
 
       for (var key in headers.keys) {
         key = key.toLowerCase();
@@ -85,9 +145,9 @@ class Response<T extends Object?> {
 
   String? contentType;
 
-  FutureOr<void> call(Request request, Start start, Send send) {
-    start(status: status, headers: headers.raw);
-    return send(bytes: body, end: true);
+  FutureOr<void> call(Connection connection) async {
+    connection.start(status: status, headers: headers.raw);
+    await connection.send(bytes: body, end: true);
   }
 
   List<int> render(T? content) {
@@ -113,13 +173,22 @@ class Response<T extends Object?> {
 
 class TextResponse extends Response<String> {
   factory TextResponse.html(String? content,
-      {int status = StatusCodes.ok, String contentType = ContentTypes.html, Map<String, String>? headers}) {
-    return TextResponse(content, status: status, contentType: contentType, headers: headers);
+      {int status = StatusCodes.ok,
+      String contentType = ContentTypes.html,
+      Map<String, String>? headers}) {
+    return TextResponse(content,
+        status: status, contentType: contentType, headers: headers);
   }
 
   TextResponse(String? content,
-      {int status = StatusCodes.ok, String contentType = ContentTypes.text, Map<String, String>? headers})
-      : super(status: status, contentType: contentType, headers: headers, content: content);
+      {int status = StatusCodes.ok,
+      String contentType = ContentTypes.text,
+      Map<String, String>? headers})
+      : super(
+            status: status,
+            contentType: contentType,
+            headers: headers,
+            content: content);
 
   @override
   List<int> render(String? content) {
@@ -132,8 +201,13 @@ class TextResponse extends Response<String> {
 }
 
 class JSONResponse extends Response {
-  JSONResponse(Object? content, {int status = StatusCodes.ok, Map<String, String>? headers})
-      : super(status: status, contentType: ContentTypes.json, headers: headers, content: content);
+  JSONResponse(Object? content,
+      {int status = StatusCodes.ok, Map<String, String>? headers})
+      : super(
+            status: status,
+            contentType: ContentTypes.json,
+            headers: headers,
+            content: content);
 
   @override
   List<int> render(Object? content) {
@@ -142,7 +216,9 @@ class JSONResponse extends Response {
 }
 
 class RedirectResponse extends Response {
-  RedirectResponse(Uri url, {int status = StatusCodes.temporaryRedirect, Map<String, String>? headers})
+  RedirectResponse(Uri url,
+      {int status = StatusCodes.temporaryRedirect,
+      Map<String, String>? headers})
       : super(status: status, headers: headers) {
     this.headers[Headers.location] = '$url';
   }
@@ -150,19 +226,34 @@ class RedirectResponse extends Response {
 
 class StreamResponse extends Response {
   StreamResponse.text(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
-            buffer: buffer, status: status, contentType: ContentTypes.text, headers: headers);
+            buffer: buffer,
+            status: status,
+            contentType: ContentTypes.text,
+            headers: headers);
 
   StreamResponse.html(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
-            buffer: buffer, status: status, contentType: ContentTypes.html, headers: headers);
+            buffer: buffer,
+            status: status,
+            contentType: ContentTypes.html,
+            headers: headers);
 
   StreamResponse.json(Stream<String> stream,
-      {bool buffer = true, int status = StatusCodes.ok, Map<String, String>? headers})
+      {bool buffer = true,
+      int status = StatusCodes.ok,
+      Map<String, String>? headers})
       : this(utf8.encoder.bind(stream),
-            buffer: buffer, status: status, contentType: ContentTypes.json, headers: headers);
+            buffer: buffer,
+            status: status,
+            contentType: ContentTypes.json,
+            headers: headers);
 
   StreamResponse(this.stream,
       {this.buffer = true,
@@ -176,14 +267,14 @@ class StreamResponse extends Response {
   final bool buffer;
 
   @override
-  Future<void> call(Request request, Start start, Send send) async {
-    start(status: status, headers: headers.raw);
+  Future<void> call(Connection connection) async {
+    connection.start(status: status, headers: headers.raw);
 
     await for (var bytes in stream) {
-      send(bytes: bytes);
+      connection.send(bytes: bytes);
     }
 
-    return send(end: true);
+    return connection.send(end: true);
   }
 }
 
@@ -195,7 +286,11 @@ class FileResponse extends Response {
       String? contentType,
       Map<String, String>? headers})
       : this.file(File(path.normalize(filePath)),
-            fileName: fileName, method: method, status: status, contentType: contentType, headers: headers);
+            fileName: fileName,
+            method: method,
+            status: status,
+            contentType: contentType,
+            headers: headers);
 
   FileResponse.file(this.file,
       {String? fileName,
@@ -204,12 +299,16 @@ class FileResponse extends Response {
       String? contentType,
       Map<String, String>? headers})
       : sendHeaderOnly = method != null && method.toUpperCase() == 'HEAD',
-        super(status: status, contentType: contentType ?? guessType(fileName ?? file.path), headers: headers) {
+        super(
+            status: status,
+            contentType: contentType ?? guessType(fileName ?? file.path),
+            headers: headers) {
     if (fileName != null) {
       var contentDispositionFileName = Uri.encodeFull(fileName);
-      this.headers[Headers.contentDisposition] = contentDispositionFileName == fileName
-          ? 'attachment; filename="$contentDispositionFileName"'
-          : 'attachment; filename*=utf-8\'\'$contentDispositionFileName';
+      this.headers[Headers.contentDisposition] =
+          contentDispositionFileName == fileName
+              ? 'attachment; filename="$contentDispositionFileName"'
+              : 'attachment; filename*=utf-8\'\'$contentDispositionFileName';
     }
   }
 
@@ -218,7 +317,7 @@ class FileResponse extends Response {
   final bool sendHeaderOnly;
 
   @override
-  Future<void> call(Request request, Start start, Send send) async {
+  Future<void> call(Connection connection) async {
     var fileStat = await file.stat();
 
     if (fileStat.type == FileSystemEntityType.notFound) {
@@ -229,12 +328,12 @@ class FileResponse extends Response {
       throw StateError('file at path ${file.path} is not a file');
     }
 
-    final ifModifiedSince = request.ifModifiedSince;
+    var ifModifiedSince = connection.headers.ifModifiedSince;
 
     if (ifModifiedSince != null) {
       if (!fileStat.modified.isAfter(ifModifiedSince)) {
-        start(status: StatusCodes.notModified, headers: headers.raw);
-        return send(end: true);
+        connection.start(status: StatusCodes.notModified, headers: headers.raw);
+        await connection.send(end: true);
       }
     }
 
@@ -242,23 +341,23 @@ class FileResponse extends Response {
       ..[Headers.contentLength] = '${fileStat.size}'
       ..[Headers.lastModified] = formatHttpDate(fileStat.modified);
 
-    start(status: status, headers: headers.raw);
+    connection.start(status: status, headers: headers.raw);
 
     if (sendHeaderOnly) {
-      return send(end: true);
+      await connection.send(end: true);
     }
 
-    await for (final bytes in file.openRead()) {
-      send(bytes: bytes);
+    await for (var bytes in file.openRead()) {
+      connection.send(bytes: bytes);
     }
 
-    return send(end: true);
+    await connection.send(end: true);
   }
 
   static MimeTypeResolver? mimeTypeResolver;
 
   static String? guessType(String filePath) {
-    final resolver = mimeTypeResolver ??= MimeTypeResolver();
+    var resolver = mimeTypeResolver ??= MimeTypeResolver();
     return resolver.lookup(filePath) ?? ContentTypes.text;
   }
 }

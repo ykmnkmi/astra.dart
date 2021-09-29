@@ -4,7 +4,9 @@ library astra.testing;
 import 'dart:async' show Completer, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus;
 
-import 'package:astra/astra.dart' show Application, DataMessage, Header, Headers, MutableHeaders, Request;
+import 'package:astra/astra.dart'
+    show Application, DataMessage, Header, Headers, MutableHeaders, Request;
+import 'package:astra/src/core/types.dart';
 import 'package:http/http.dart' show Client, Response;
 
 class TestClient {
@@ -32,21 +34,25 @@ class TestClient {
     return request(url, (client, url) => client.post(url));
   }
 
-  Future<Response> request(String path, Future<Response> Function(Client client, Uri url) callback) async {
-    final server = await HttpServer.bind('localhost', port);
-    final responseFuture = callback(client, Uri.http('localhost:$port', path));
-    final responseCompleter = Completer<Response>.sync();
-    final serverSubscription = server.listen(null);
+  Future<Response> request(String path,
+      Future<Response> Function(Client client, Uri url) callback) async {
+    var server = await HttpServer.bind('localhost', port);
+    var responseFuture = callback(client, Uri.http('localhost:$port', path));
+    var responseCompleter = Completer<Response>.sync();
+    var serverSubscription = server.listen(null);
 
     serverSubscription.onData((ioRequest) async {
-      final ioResponse = ioRequest.response;
+      var request = TestRequest(ioRequest);
+
+      var ioResponse = ioRequest.response;
       var isRedirectResponse = false;
 
-      void start({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
+      request.start = (
+          {int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
         ioResponse.statusCode = status;
 
         if (headers != null) {
-          for (final header in headers) {
+          for (var header in headers) {
             ioResponse.headers.set(header.name, header.value);
 
             if (header.name == HttpHeaders.locationHeader) {
@@ -54,9 +60,12 @@ class TestClient {
             }
           }
         }
-      }
+      };
 
-      Future<void> send({List<int> bytes = const <int>[], bool flush = false, bool end = false}) async {
+      request.send = (
+          {List<int> bytes = const <int>[],
+          bool flush = false,
+          bool end = false}) async {
         ioResponse.add(bytes);
 
         if (flush) {
@@ -66,11 +75,10 @@ class TestClient {
         if (end) {
           await ioResponse.close();
         }
-      }
+      };
 
       try {
-        final request = TestRequest(ioRequest);
-        await application(request, start, send);
+        await application(request);
 
         if (isRedirectResponse) {
           return;
@@ -98,10 +106,10 @@ class TestHeaders implements Headers {
 
   @override
   List<Header> get raw {
-    final raw = <Header>[];
+    var raw = <Header>[];
 
     headers.forEach((String name, List<String> values) {
-      for (final value in values) {
+      for (var value in values) {
         raw.add(Header(name, value));
       }
     });
@@ -147,6 +155,12 @@ class TestRequest extends Request {
 
   @override
   final Headers headers;
+
+  @override
+  late Send send;
+
+  @override
+  late Start start;
 
   @override
   String get method {

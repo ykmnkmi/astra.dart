@@ -5,13 +5,20 @@ import 'dart:async';
 import 'package:astra/astra.dart';
 import 'package:astra/io.dart';
 
-FutureOr<void> application(Request request, Start start, Send send) {
-  final response = request.url.path == '/' ? TextResponse('hello world!') : Response.notFound();
-  return response(request, start, send);
+FutureOr<void> application(Connection connection) {
+  Response response;
+
+  if (connection.url.path == '/') {
+    response = TextResponse('hello world!');
+  } else {
+    response = Response.notFound();
+  }
+
+  return response(connection);
 }
 
 Future<void> main() async {
-  final server = await IOServer.bind('localhost', 3000);
+  var server = await IOServer.bind('localhost', 3000);
   server.mount(log(error(application)));
   print('serving at http://localhost:3000');
 }
