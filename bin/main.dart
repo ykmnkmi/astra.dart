@@ -7,7 +7,7 @@ import 'package:astra/astra.dart';
 import 'parser.dart';
 
 Future<void> main() async {
-  final server = await _Server.bind('localhost', 3000);
+  var server = await _Server.bind('localhost', 3000);
 
   await for (final connection in server) {
     print(connection);
@@ -93,18 +93,18 @@ class _Server extends Server {
   @override
   void handle(Handler handler) {
     mount((connection) async {
-      final request = connection as Request;
-      final response = await handler(request);
+      var request = connection as Request;
+      var response = await handler(request);
       await response(connection);
     });
   }
 
   @override
   void mount(Application application) {
-    final subscription = this.subscription;
+    var subscription = this.subscription;
 
     if (subscription == null) {
-      listen(application);
+      this.subscription = listen(application);
     } else {
       subscription.onData(application);
     }
