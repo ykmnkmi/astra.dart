@@ -1,40 +1,39 @@
-import 'dart:async' show StreamSubscription;
-import 'dart:convert' show Latin1Decoder;
+import 'dart:async' show StreamController, StreamSubscription;
+import 'dart:convert' show utf8;
 import 'dart:io' show InternetAddressType, ServerSocket, Socket, SocketOption;
 
 import 'package:astra/astra.dart';
 
-import 'parser.dart';
+part 'parser.dart';
 
 Future<void> main() async {
-  var server = await _Server.bind('localhost', 3000);
-
-  await for (final connection in server) {
-    print(connection);
-  }
+  var server = await ServerSocket.bind('localhost', 3000);
+  server.listen((socket) async {});
 }
 
 class _Connection extends Connection {
-  static Future<_Connection> from(Socket socket) async {
+  static Future<Connection> parse(Socket socket) async {
     if (socket.address.type != InternetAddressType.unix) {
       socket.setOption(SocketOption.tcpNoDelay, true);
     }
 
-    Parser(socket).listen((bytes) {
-      print(bytes.length);
-      print(bytes.take(10));
-      print(const Latin1Decoder().convert(bytes));
+    var subscription = Parser(socket).listen(null);
+    subscription.onData((bytes) {
+      if (bytes.isEmpty) {
+        subscription.pause();
+        subscription.onData(print);
+        subscription.resume();
+        return;
+      }
+
+      print('>>> ${utf8.decode(bytes)}');
     });
 
-    Future<void>(() async {
-      socket
-        ..writeln('HTTP/1.1 404 Not Found')
-        ..writeln();
-      await socket.flush();
-      await socket.close();
-    });
+    socket.writeln('HTTP/1.1 404 Not Found');
+    await socket.flush();
+    await socket.close();
 
-    return _Connection(socket);
+    throw UnimplementedError();
   }
 
   _Connection(this.socket);
@@ -42,25 +41,19 @@ class _Connection extends Connection {
   final Socket socket;
 
   @override
+  late String method;
+
+  @override
+  late Uri url;
+
+  @override
+  late Headers headers;
+
+  @override
   late Send send;
 
   @override
   late Start start;
-
-  @override
-  String get method {
-    throw UnimplementedError();
-  }
-
-  @override
-  Uri get url {
-    throw UnimplementedError();
-  }
-
-  @override
-  Headers get headers {
-    throw UnimplementedError();
-  }
 
   @override
   Future<DataMessage> receive() {
@@ -86,7 +79,7 @@ class _Server extends Server {
   StreamSubscription<Connection> listen(void Function(Connection event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     return subscription = server
-        .asyncMap<Connection>(_Connection.from)
+        .asyncMap<Connection>(_Connection.parse)
         .listen(onData, onError: onError, onDone: onDone);
   }
 

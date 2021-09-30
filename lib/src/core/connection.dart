@@ -13,4 +13,9 @@ abstract class Connection {
   abstract Send send;
 
   Future<DataMessage> receive();
+
+  @override
+  String toString() {
+    return 'Connection($method, $url)';
+  }
 }
