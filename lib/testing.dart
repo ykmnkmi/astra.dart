@@ -4,10 +4,10 @@ library astra.testing;
 import 'dart:async' show Completer, StreamIterator;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, HttpStatus;
 
-import 'package:astra/astra.dart'
-    show Application, DataMessage, Header, Headers, MutableHeaders, Request;
-import 'package:astra/src/core/types.dart';
+import 'package:astra/astra.dart' show Application, DataMessage, Header, Headers, MutableHeaders, Request, Send, Start;
 import 'package:http/http.dart' show Client, Response;
+
+typedef TestClientCallback = Future<Response> Function(Client client, Uri url);
 
 class TestClient {
   TestClient(this.application, {this.port = 3000}) : client = Client();
@@ -34,68 +34,61 @@ class TestClient {
     return request(url, (client, url) => client.post(url));
   }
 
-  Future<Response> request(String path,
-      Future<Response> Function(Client client, Uri url) callback) async {
-    var server = await HttpServer.bind('localhost', port);
-    var responseFuture = callback(client, Uri.http('localhost:$port', path));
-    var responseCompleter = Completer<Response>.sync();
-    var serverSubscription = server.listen(null);
+  Future<Response> request(String path, TestClientCallback callback) {
+    return HttpServer.bind('localhost', port).then<Response>((server) {
+      var responseFuture = callback(client, Uri.http('localhost:$port', path));
+      var responseCompleter = Completer<Response>.sync();
+      var serverSubscription = server.listen(null);
 
-    serverSubscription.onData((ioRequest) async {
-      var request = TestRequest(ioRequest);
+      serverSubscription.onData((ioRequest) {
+        var request = TestRequest(ioRequest);
+        var ioResponse = ioRequest.response;
+        var isRedirectResponse = false;
 
-      var ioResponse = ioRequest.response;
-      var isRedirectResponse = false;
+        request.start = ({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
+          ioResponse.statusCode = status;
 
-      request.start = (
-          {int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
-        ioResponse.statusCode = status;
+          if (headers != null) {
+            for (var header in headers) {
+              ioResponse.headers.set(header.name, header.value);
 
-        if (headers != null) {
-          for (var header in headers) {
-            ioResponse.headers.set(header.name, header.value);
-
-            if (header.name == HttpHeaders.locationHeader) {
-              isRedirectResponse = true;
+              if (header.name == HttpHeaders.locationHeader) {
+                isRedirectResponse = true;
+              }
             }
           }
-        }
-      };
+        };
 
-      request.send = (
-          {List<int> bytes = const <int>[],
-          bool flush = false,
-          bool end = false}) async {
-        ioResponse.add(bytes);
+        request.send = ({List<int>? bytes, bool flush = false, bool end = false}) {
+          if (bytes != null) {
+            ioResponse.add(bytes);
+          }
 
-        if (flush) {
-          await ioResponse.flush();
-        }
+          if (flush) {
+            if (end) {
+              return ioResponse.flush().then<void>((void _) => ioResponse.close());
+            }
 
-        if (end) {
-          await ioResponse.close();
-        }
-      };
+            return ioResponse.flush();
+          }
 
-      try {
-        await application(request);
+          if (end) {
+            return ioResponse.close();
+          }
+        };
 
-        if (isRedirectResponse) {
-          return;
-        }
+        Future<void>.value(application(request)).then<void>((void _) {
+          if (isRedirectResponse) {
+            return;
+          }
 
-        responseCompleter.complete(responseFuture);
-      } catch (error, stackTrace) {
-        responseCompleter.completeError(error, stackTrace);
-      }
+          responseCompleter.complete(responseFuture);
+        }).catchError(responseCompleter.completeError);
+      });
+
+      return responseCompleter.future
+          .whenComplete(() => serverSubscription.cancel().then<void>((void _) => server.close()));
     });
-
-    try {
-      return await responseCompleter.future;
-    } finally {
-      await serverSubscription.cancel();
-      await server.close();
-    }
   }
 }
 
@@ -145,22 +138,20 @@ class TestHeaders implements Headers {
 }
 
 class TestRequest extends Request {
-  TestRequest(this.request, {Headers? headers})
-      : iterable = StreamIterator<List<int>>(request),
-        headers = headers ?? TestHeaders(request.headers);
+  TestRequest(this.request, {Headers? headers}) : headers = headers ?? TestHeaders(request.headers);
 
   final HttpRequest request;
 
-  final StreamIterator<List<int>> iterable;
+  StreamIterator<List<int>>? iterator;
 
   @override
   final Headers headers;
 
   @override
-  late Send send;
+  late Start start;
 
   @override
-  late Start start;
+  late Send send;
 
   @override
   String get method {
@@ -173,11 +164,19 @@ class TestRequest extends Request {
   }
 
   @override
-  Future<DataMessage> receive() async {
-    if (await iterable.moveNext()) {
-      return DataMessage(iterable.current);
+  Stream<List<int>> get stream {
+    if (streamConsumed) {
+      // TODO: update error
+      throw Exception('stream consumed');
     }
 
-    return DataMessage.empty(end: true);
+    streamConsumed = true;
+    return request;
+  }
+
+  @override
+  Future<List<int>> receive() {
+    var iterator = this.iterator ??= StreamIterator<List<int>>(stream);
+    return iterator.moveNext().then<List<int>>((moved) => moved ? iterator.current : <int>[]);
   }
 }

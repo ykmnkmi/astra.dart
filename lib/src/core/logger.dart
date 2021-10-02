@@ -9,8 +9,7 @@ Application log(Application application) {
     var start = connection.start;
     var statusCode = StatusCodes.ok;
 
-    connection.start =
-        ({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
+    connection.start = ({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
       statusCode = status;
       start(status: status, reason: reason, headers: headers);
     };

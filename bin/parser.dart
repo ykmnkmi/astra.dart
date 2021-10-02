@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of 'astra.dart';
 
 const int lf = 10;
 const int cr = 13;
@@ -7,13 +7,12 @@ class Parser extends Stream<List<int>> {
   Parser(this.socket)
       : controller = StreamController<List<int>>(sync: true),
         skipLeadingLF = false,
-        newLineCount = 0 {
+        newLinesCount = 0 {
     controller.onCancel = () {
       subscription?.cancel();
     };
 
-    subscription =
-        socket.listen(onData, onError: controller.addError, onDone: onDone);
+    subscription = socket.listen(onData, onError: controller.addError, onDone: onDone);
   }
 
   final Socket socket;
@@ -23,7 +22,7 @@ class Parser extends Stream<List<int>> {
   bool skipLeadingLF;
 
   // TODO: rename
-  int newLineCount;
+  int newLinesCount;
 
   List<int>? carry;
 
@@ -32,8 +31,7 @@ class Parser extends Stream<List<int>> {
   @override
   StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return controller.stream.listen(onData,
-        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
   void switchToBody(List<int>? rest) {
@@ -66,14 +64,14 @@ class Parser extends Stream<List<int>> {
 
       if (char != cr) {
         if (char != lf) {
-          newLineCount = 0;
+          newLinesCount = 0;
           continue;
         }
 
         if (previousChar == cr) {
-          newLineCount += 1;
+          newLinesCount += 1;
 
-          if (newLineCount == 2) {
+          if (newLinesCount == 2) {
             switchToBody(bytes.sublist(i + 1));
             return;
           } else {

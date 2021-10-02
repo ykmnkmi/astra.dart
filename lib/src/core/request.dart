@@ -12,34 +12,15 @@ abstract class Request extends Connection {
 
   List<int>? receivedBody;
 
-  Future<List<int>> get body async {
+  Future<List<int>> get body {
+    var receivedBody = this.receivedBody;
+
     if (receivedBody == null) {
-      receivedBody = <int>[];
-
-      await for (var bytes in stream) {
-        receivedBody!.addAll(bytes);
-      }
+      return stream.fold<List<int>>(this.receivedBody = <int>[], (body, chunk) => body..addAll(chunk));
     }
 
-    return receivedBody!;
+    return Future<List<int>>.value(receivedBody);
   }
 
-  Stream<List<int>> get stream async* {
-    if (receivedBody != null) {
-      yield receivedBody!;
-    }
-
-    if (streamConsumed) {
-      throw StateError('Stream consumed');
-    }
-
-    var message = await receive();
-    streamConsumed = true;
-
-    while (!message.end) {
-      yield message.bytes;
-    }
-
-    yield message.bytes;
-  }
+  Stream<List<int>> get stream;
 }

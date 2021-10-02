@@ -12,7 +12,7 @@ abstract class Connection {
 
   abstract Send send;
 
-  Future<DataMessage> receive();
+  Future<List<int>> receive();
 
   @override
   String toString() {

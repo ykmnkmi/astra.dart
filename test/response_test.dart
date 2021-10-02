@@ -169,24 +169,19 @@ void main() {
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentType], equals('image/png'));
-    expect(response.headers[Headers.contentDisposition],
-        equals(contentDisposition));
+    expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
     expect(response.headers, contains(Headers.contentLength));
     expect(response.headers, contains(Headers.lastModified));
   });
 
   test('file response with directory raises error', () async {
-    var client = TestClient(
-        FileResponse(Directory.systemTemp.path, fileName: 'example.png'));
+    var client = TestClient(FileResponse(Directory.systemTemp.path, fileName: 'example.png'));
 
     try {
       await client.get('/');
       client.close();
     } catch (error) {
-      expect(
-          error,
-          isA<StateError>().having(
-              (error) => error.message, 'message', contains('is not a file')));
+      expect(error, isA<StateError>().having((error) => error.message, 'message', contains('is not a file')));
     }
   });
 
@@ -198,10 +193,7 @@ void main() {
       await client.get('/');
       client.close();
     } catch (error) {
-      expect(
-          error,
-          isA<StateError>().having(
-              (error) => error.message, 'message', contains('does not exist')));
+      expect(error, isA<StateError>().having((error) => error.message, 'message', contains('does not exist')));
     }
   });
 
@@ -213,12 +205,10 @@ void main() {
     var client = TestClient(FileResponse(filePath, fileName: fileName));
     var response = await client.get('/');
     client.close();
-    var contentDisposition =
-        'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
+    var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
     expect(response.statusCode, equals(StatusCodes.ok));
     expect(response.bodyBytes, orderedEquals(content));
-    expect(response.headers[Headers.contentDisposition],
-        equals(contentDisposition));
+    expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
   });
 
   test('populate headers', () async {
@@ -231,8 +221,7 @@ void main() {
   });
 
   test('head method', () async {
-    var application =
-        Response(content: 'hello world!', contentType: ContentTypes.text);
+    var application = Response(content: 'hello world!', contentType: ContentTypes.text);
     var client = TestClient(application);
     var response = await client.head('/');
     client.close();
