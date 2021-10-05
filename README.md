@@ -1,5 +1,7 @@
 A simple web server framework (_work in progress_).
 
+TODO: parsing and sending body properly
+
 ```dart
 // lib/[package].dart
 
