@@ -1,5 +1,5 @@
 /// Astra core library.
-library astra;
+library astra.core;
 
 export 'src/core/connection.dart';
 export 'src/core/error.dart';

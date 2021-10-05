@@ -4,15 +4,20 @@ library astra.io;
 import 'dart:async' show StreamIterator, StreamSubscription;
 import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 
-import 'package:astra/astra.dart';
+import 'package:astra/core.dart';
 
 class IOServer extends Server {
   static Future<Server> bind(Object address, int port,
-      {int backlog = 0, bool shared = false, SecurityContext? context}) {
-    var future = context == null
-        ? HttpServer.bind(address, port, backlog: backlog, shared: shared)
-        : HttpServer.bindSecure(address, port, context, backlog: backlog, shared: shared);
-    return future.then<Server>(IOServer.new);
+      {int backlog = 0,
+      bool v6Only = false,
+      bool shared = false,
+      SecurityContext? context}) async {
+    var server = await (context == null
+        ? HttpServer.bind(address, port,
+            backlog: backlog, v6Only: v6Only, shared: shared)
+        : HttpServer.bindSecure(address, port, context,
+            backlog: backlog, v6Only: v6Only, shared: shared));
+    return IOServer.new(server);
   }
 
   IOServer(this.server);
@@ -28,9 +33,10 @@ class IOServer extends Server {
 
   @override
   void handle(Handler handler) {
-    Future<void> application(Connection connection) {
+    Future<void> application(Connection connection) async {
       var request = connection as Request;
-      return Future<Response>.value(handler(request)).then<void>((response) => response(request));
+      var response = await handler(request);
+      return response(request);
     }
 
     if (subscription == null) {
@@ -52,9 +58,50 @@ class IOServer extends Server {
   @override
   StreamSubscription<IORequest> listen(void Function(Connection event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return subscription = server
-        .map<IORequest>(IORequest.new)
-        .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    IORequest mapper(HttpRequest request) {
+      void start(
+          {int? status,
+          String? reason,
+          List<Header>? headers,
+          bool buffer = false}) {
+        var response = request.response;
+        status ??= Codes.ok;
+
+        response
+          ..statusCode = status
+          ..reasonPhrase = reason ?? ReasonPhrases.to(status);
+
+        if (headers != null) {
+          for (var header in headers) {
+            response.headers.set(header.name, header.value);
+          }
+        }
+
+        response.bufferOutput = buffer;
+      }
+
+      Future<void> send(
+          {List<int>? bytes, bool flush = false, bool end = false}) async {
+        var response = request.response;
+
+        if (bytes != null) {
+          response.add(bytes);
+        }
+
+        if (flush) {
+          await response.flush();
+        }
+
+        if (end) {
+          await response.close();
+        }
+      }
+
+      return IORequest(request, start, send);
+    }
+
+    return subscription = server.map<IORequest>(mapper).listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 }
 
@@ -77,7 +124,6 @@ class IOHeaders implements Headers {
   }
 
   @override
-  @pragma('vm:prefer-inline')
   String? operator [](String name) {
     return get(name);
   }
@@ -94,13 +140,13 @@ class IOHeaders implements Headers {
 
   @override
   List<String> getAll(String name) {
-    return headers[name] ?? <String>[];
+    return headers[name] ?? const <String>[];
   }
 
   @override
   MutableHeaders toMutable() {
-    // TODO: update error
-    throw UnsupportedError('');
+    // UNDONE: update error
+    throw UnimplementedError();
   }
 }
 
@@ -108,7 +154,6 @@ class IOMutableHeaders extends IOHeaders implements MutableHeaders {
   IOMutableHeaders(HttpHeaders headers) : super(headers);
 
   @override
-  @pragma('vm:prefer-inline')
   void operator []=(String name, String value) {
     set(name, value);
   }
@@ -135,42 +180,8 @@ class IOMutableHeaders extends IOHeaders implements MutableHeaders {
 }
 
 class IORequest extends Request {
-  IORequest(this.request) : headers = IOHeaders(request.headers) {
-    start = ({int status = StatusCodes.ok, String? reason, List<Header>? headers, bool buffer = false}) {
-      var response = request.response;
-      response
-        ..statusCode = status
-        ..reasonPhrase = reason ?? ReasonPhrases.to(status);
-
-      if (headers != null) {
-        for (var header in headers) {
-          response.headers.set(header.name, header.value);
-        }
-      }
-
-      response.bufferOutput = buffer;
-    };
-
-    send = ({List<int>? bytes, bool flush = false, bool end = false}) {
-      var response = request.response;
-
-      if (bytes != null) {
-        response.add(bytes);
-      }
-
-      if (flush) {
-        if (end) {
-          return response.flush().then<void>((void _) => response.close());
-        }
-
-        return response.flush();
-      }
-
-      if (end) {
-        return response.close();
-      }
-    };
-  }
+  IORequest(this.request, this.start, this.send)
+      : headers = IOHeaders(request.headers);
 
   final HttpRequest request;
 
@@ -178,12 +189,17 @@ class IORequest extends Request {
   final Headers headers;
 
   @override
-  late Start start;
+  Start start;
 
   @override
-  late Send send;
+  Send send;
 
   StreamIterator<List<int>>? iterator;
+
+  @override
+  String get version {
+    return request.protocolVersion;
+  }
 
   @override
   String get method {
@@ -198,7 +214,7 @@ class IORequest extends Request {
   @override
   Stream<List<int>> get stream {
     if (streamConsumed) {
-      throw StateError('Stream consumed');
+      throw StateError('stream consumed');
     }
 
     streamConsumed = true;
@@ -206,8 +222,9 @@ class IORequest extends Request {
   }
 
   @override
-  Future<List<int>> receive() {
+  Future<DataMessage> receive() async {
     var iterator = this.iterator ??= StreamIterator<List<int>>(stream);
-    return iterator.moveNext().then<List<int>>((moved) => moved ? iterator.current : <int>[]);
+    var moveNext = await iterator.moveNext();
+    return moveNext ? DataMessage(iterator.current) : DataMessage.eos;
   }
 }

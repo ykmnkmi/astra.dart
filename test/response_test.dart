@@ -2,7 +2,7 @@ import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
 import 'dart:io' show Directory, File;
 
-import 'package:astra/astra.dart';
+import 'package:astra/core.dart';
 import 'package:astra/testing.dart';
 import 'package:path/path.dart' as path;
 import 'package:test/test.dart';
@@ -148,7 +148,7 @@ void main() {
   });
 
   test('response phrase', () async {
-    var client = TestClient(Response(status: StatusCodes.noContent));
+    var client = TestClient(Response(status: Codes.noContent));
     var response = await client.get('/');
     expect(response.reasonPhrase, equals(ReasonPhrases.noContent));
     client = TestClient(Response(status: 123));
@@ -166,22 +166,27 @@ void main() {
     var response = await client.get('/');
     client.close();
     var contentDisposition = 'attachment; filename="example.png"';
-    expect(response.statusCode, equals(StatusCodes.ok));
+    expect(response.statusCode, equals(Codes.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentType], equals('image/png'));
-    expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
+    expect(response.headers[Headers.contentDisposition],
+        equals(contentDisposition));
     expect(response.headers, contains(Headers.contentLength));
     expect(response.headers, contains(Headers.lastModified));
   });
 
   test('file response with directory raises error', () async {
-    var client = TestClient(FileResponse(Directory.systemTemp.path, fileName: 'example.png'));
+    var client = TestClient(
+        FileResponse(Directory.systemTemp.path, fileName: 'example.png'));
 
     try {
       await client.get('/');
       client.close();
     } catch (error) {
-      expect(error, isA<StateError>().having((error) => error.message, 'message', contains('is not a file')));
+      expect(
+          error,
+          isA<StateError>().having(
+              (error) => error.message, 'message', contains('is not a file')));
     }
   });
 
@@ -193,7 +198,9 @@ void main() {
       await client.get('/');
       client.close();
     } catch (error) {
-      expect(error, isA<StateError>().having((error) => error.message, 'message', contains('does not exist')));
+      var matcher = isA<StateError>()
+          .having((error) => error.message, 'message', contains('not exist'));
+      expect(error, matcher);
     }
   });
 
@@ -205,10 +212,12 @@ void main() {
     var client = TestClient(FileResponse(filePath, fileName: fileName));
     var response = await client.get('/');
     client.close();
-    var contentDisposition = 'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
-    expect(response.statusCode, equals(StatusCodes.ok));
+    var contentDisposition =
+        'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
+    expect(response.statusCode, equals(Codes.ok));
     expect(response.bodyBytes, orderedEquals(content));
-    expect(response.headers[Headers.contentDisposition], equals(contentDisposition));
+    expect(response.headers[Headers.contentDisposition],
+        equals(contentDisposition));
   });
 
   test('populate headers', () async {
@@ -217,11 +226,12 @@ void main() {
     client.close();
     expect(response.body, equals('hi'));
     expect(response.headers[Headers.contentLength], equals('2'));
-    expect(response.headers[Headers.contentType], equals(ContentTypes.text));
+    expect(response.headers[Headers.contentType], equals(MediaTypes.text));
   });
 
   test('head method', () async {
-    var application = Response(content: 'hello world!', contentType: ContentTypes.text);
+    var application =
+        Response(content: 'hello world!', contentType: MediaTypes.text);
     var client = TestClient(application);
     var response = await client.head('/');
     client.close();

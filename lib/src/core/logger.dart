@@ -1,23 +1,30 @@
-import 'dart:developer' as developer show log;
+import 'dart:io' show HttpStatus;
 
 import 'connection.dart';
 import 'http.dart';
 import 'types.dart';
 
-Application log(Application application) {
+typedef LoggerCallback = void Function(String message, bool isError);
+
+Application log(Application application, {required LoggerCallback logger}) {
   return (Connection connection) {
     var start = connection.start;
-    var statusCode = StatusCodes.ok;
+    var statusCode = HttpStatus.ok;
 
-    connection.start = ({int status = StatusCodes.ok, String? reason, List<Header>? headers}) {
+    connection.start =
+        ({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
       statusCode = status;
       start(status: status, reason: reason, headers: headers);
     };
 
-    try {
-      return application(connection);
-    } finally {
-      developer.log('[$statusCode] ${connection.method} ${connection.url}');
-    }
+    var method = connection.method;
+    var url = connection.url;
+
+    Future<void>.value(application(connection)).then<void>((_) {
+      var message = '$statusCode $method $url';
+      logger(message, false);
+    }).catchError((Object error, StackTrace trace) {
+      logger('$statusCode $method $url\n$error\n$trace', true);
+    });
   };
 }

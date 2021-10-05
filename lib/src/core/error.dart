@@ -7,12 +7,14 @@ import 'http.dart';
 import 'response.dart';
 import 'types.dart';
 
-Application error(Application application, {bool debug = false, ExceptionHandler? handler}) {
+Application error(Application application,
+    {bool debug = false, ExceptionHandler? handler}) {
   return (Connection connection) async {
     var start = connection.start;
     var responseStarted = false;
 
-    connection.start = ({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
+    connection.start =
+        ({int status = Codes.ok, String? reason, List<Header>? headers}) {
       responseStarted = true;
       start(status: status, headers: headers);
     };
@@ -26,9 +28,8 @@ Application error(Application application, {bool debug = false, ExceptionHandler
 
       if (debug) {
         var accept = connection.headers.get('accept');
-
         if (accept != null && accept.contains('text/html')) {
-          var html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (Match match) {
+          var html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
             switch (match[1]) {
               case 'type':
                 return error.toString();
@@ -46,12 +47,14 @@ Application error(Application application, {bool debug = false, ExceptionHandler
         }
 
         var trace = Trace.format(stackTrace);
-        var response = TextResponse('$error\n\n$trace', status: HttpStatus.internalServerError);
+        var response = TextResponse('$error\n\n$trace',
+            status: HttpStatus.internalServerError);
         return response(connection);
       }
 
       if (handler == null) {
-        var response = TextResponse('Internal Server Error', status: HttpStatus.internalServerError);
+        var response = TextResponse('Internal Server Error',
+            status: HttpStatus.internalServerError);
         return response(connection);
       }
 
@@ -98,7 +101,9 @@ String renderFrames(Trace trace) {
       ..write('<div class="frame">')
       ..write(scheme == 'file' ? 'File' : 'Package')
       ..write('&nbsp;<span class="library">')
-      ..write(scheme == 'package' ? frame.library.replaceFirst('package:', '') : frame.library)
+      ..write(scheme == 'package'
+          ? frame.library.replaceFirst('package:', '')
+          : frame.library)
       ..write('</span>, line&nbsp;<i>')
       ..write(frame.line)
       ..write('</i>,&nbsp;column&nbsp;<i>')

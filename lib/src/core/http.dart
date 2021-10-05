@@ -1,6 +1,8 @@
+import 'dart:io' show HttpStatus;
+
 import 'package:http_parser/http_parser.dart' show parseHttpDate;
 
-abstract class ContentTypes {
+abstract class MediaTypes {
   static const String text = 'text/plain; charset=utf-8';
 
   static const String html = 'text/html; charset=utf-8';
@@ -26,14 +28,20 @@ class Header {
 class Headers {
   static const String accept = 'accept';
   static const String acceptEncoding = 'accept-encoding';
-  static const String accessControlAllowCredentials = 'access-control-allow-credentials';
-  static const String accessControlAllowHeaders = 'access-control-allow-headers';
-  static const String accessControlAllowMethods = 'access-control-allow-methods';
+  static const String accessControlAllowCredentials =
+      'access-control-allow-credentials';
+  static const String accessControlAllowHeaders =
+      'access-control-allow-headers';
+  static const String accessControlAllowMethods =
+      'access-control-allow-methods';
   static const String accessControlAllowOrigin = 'access-control-allow-origin';
-  static const String accessControlExposeHeaders = 'access-control-expose-headers';
+  static const String accessControlExposeHeaders =
+      'access-control-expose-headers';
   static const String accessControlMaxAge = 'access-control-max-age';
-  static const String accessControlRequestHeaders = 'access-control-request-headers';
-  static const String accessControlRequestMethod = 'access-control-request-method';
+  static const String accessControlRequestHeaders =
+      'access-control-request-headers';
+  static const String accessControlRequestMethod =
+      'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
   static const String connection = 'connection';
@@ -41,7 +49,8 @@ class Headers {
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';
   static const String contentSecurityPolicy = 'content-security-policy';
-  static const String contentSecurityPolicyReportOnly = 'content-security-policy-report-only';
+  static const String contentSecurityPolicyReportOnly =
+      'content-security-policy-report-only';
   static const String contentType = 'content-type';
   static const String cookie = 'cookie';
   static const String ifModifiedSince = 'if-modified-since';
@@ -109,11 +118,10 @@ class Headers {
 
   List<String> getAll(String name) {
     name = name.toLowerCase();
-
-    return <String>[
-      for (var header in raw)
-        if (name == header.name) header.value
-    ];
+    return raw
+        .where((header) => name == header.name)
+        .map<String>((header) => header.value)
+        .toList();
   }
 
   MutableHeaders toMutable() {
@@ -124,13 +132,12 @@ class Headers {
 class MutableHeaders extends Headers {
   MutableHeaders({List<Header>? raw}) : super(raw: raw);
 
-  @pragma('vm:prefer-inline')
   void operator []=(String name, String value) {
     set(name, value);
   }
 
   void add(String name, String value) {
-    raw.add(Header(name, value));
+    raw.add(Header(name.toLowerCase(), value.toLowerCase()));
   }
 
   void clear() {
@@ -176,6 +183,11 @@ class MutableHeaders extends Headers {
       }
     }
   }
+
+  @override
+  MutableHeaders toMutable() {
+    return this;
+  }
 }
 
 abstract class Message {
@@ -194,7 +206,7 @@ class DataMessage extends Message {
   final bool end;
 }
 
-abstract class StatusCodes {
+abstract class Codes {
   static const int kontinue = 100;
   static const int switchingProtocols = 101;
   static const int ok = 200;
@@ -219,13 +231,11 @@ abstract class StatusCodes {
   static const int methodNotAllowed = 405;
   static const int notAcceptable = 406;
   static const int proxyAuthenticationRequired = 407;
-  static const int requestTimeOut = 408;
   static const int conflict = 409;
   static const int gone = 410;
   static const int lengthRequired = 411;
   static const int preconditionFailed = 412;
   static const int requestEntityTooLarge = 413;
-  static const int requestURITooLarge = 414;
   static const int unsupportedMediaType = 415;
   static const int requestedRangeNotSatisfiable = 416;
   static const int expectationFailed = 417;
@@ -234,17 +244,17 @@ abstract class StatusCodes {
   static const int notImplemented = 501;
   static const int badGateway = 502;
   static const int serviceUnavailable = 503;
-  static const int gatewayTimeOut = 504;
   static const int httpVersionNotSupported = 505;
 }
 
 abstract class ReasonPhrases {
-  static const String kontinue = 'Continue';
+  static const String continue_ = 'Continue';
   static const String switchingProtocols = 'Switching Protocols';
   static const String ok = 'OK';
   static const String created = 'Created';
   static const String accepted = 'Accepted';
-  static const String nonAuthoritativeInformation = 'Non-Authoritative Information';
+  static const String nonAuthoritativeInformation =
+      'Non-Authoritative Information';
   static const String noContent = 'No Content';
   static const String resetContent = 'Reset Content';
   static const String partialContent = 'Partial Content';
@@ -262,108 +272,101 @@ abstract class ReasonPhrases {
   static const String notFound = 'Not Found';
   static const String methodNotAllowed = 'Method Not Allowed';
   static const String notAcceptable = 'Not Acceptable';
-  static const String proxyAuthenticationRequired = 'Proxy Authentication Required';
-  static const String requestTimeOut = 'Request Time-out';
+  static const String proxyAuthenticationRequired =
+      'Proxy Authentication Required';
   static const String conflict = 'Conflict';
   static const String gone = 'Gone';
   static const String lengthRequired = 'Length Required';
   static const String preconditionFailed = 'Precondition Failed';
   static const String requestEntityTooLarge = 'Request Entity Too Large';
-  static const String requestURITooLarge = 'Request-URI Too Large';
   static const String unsupportedMediaType = 'Unsupported Media Type';
-  static const String requestedRangeNotSatisfiable = 'Requested range not satisfiable';
+  static const String requestedRangeNotSatisfiable =
+      'Requested range not satisfiable';
   static const String expectationFailed = 'Expectation Failed';
   static const String upgradeRequired = 'Upgrade Required';
   static const String internalServerError = 'Internal Server Error';
   static const String notImplemented = 'Not Implemented';
   static const String badGateway = 'Bad Gateway';
   static const String serviceUnavailable = 'Service Unavailable';
-  static const String gatewayTimeOut = 'Gateway Time-out';
   static const String httpVersionNotSupported = 'HTTP Version not supported';
 
   static String to(int status) {
     switch (status) {
-      case StatusCodes.kontinue:
-        return kontinue;
-      case StatusCodes.switchingProtocols:
+      case HttpStatus.continue_:
+        return continue_;
+      case HttpStatus.switchingProtocols:
         return switchingProtocols;
-      case StatusCodes.ok:
+      case HttpStatus.ok:
         return ok;
-      case StatusCodes.created:
+      case HttpStatus.created:
         return created;
-      case StatusCodes.accepted:
+      case HttpStatus.accepted:
         return accepted;
-      case StatusCodes.nonAuthoritativeInformation:
+      case HttpStatus.nonAuthoritativeInformation:
         return nonAuthoritativeInformation;
-      case StatusCodes.noContent:
+      case HttpStatus.noContent:
         return noContent;
-      case StatusCodes.resetContent:
+      case HttpStatus.resetContent:
         return resetContent;
-      case StatusCodes.partialContent:
+      case HttpStatus.partialContent:
         return partialContent;
-      case StatusCodes.multipleChoices:
+      case HttpStatus.multipleChoices:
         return multipleChoices;
-      case StatusCodes.movedPermanently:
+      case HttpStatus.movedPermanently:
         return movedPermanently;
-      case StatusCodes.found:
+      case HttpStatus.found:
         return found;
-      case StatusCodes.seeOther:
+      case HttpStatus.seeOther:
         return seeOther;
-      case StatusCodes.notModified:
+      case HttpStatus.notModified:
         return notModified;
-      case StatusCodes.useProxy:
+      case HttpStatus.useProxy:
         return useProxy;
-      case StatusCodes.temporaryRedirect:
+      case HttpStatus.temporaryRedirect:
         return temporaryRedirect;
-      case StatusCodes.badRequest:
+      case HttpStatus.badRequest:
         return badRequest;
-      case StatusCodes.unauthorized:
+      case HttpStatus.unauthorized:
         return unauthorized;
-      case StatusCodes.paymentRequired:
+      case HttpStatus.paymentRequired:
         return paymentRequired;
-      case StatusCodes.forbidden:
+      case HttpStatus.forbidden:
         return forbidden;
-      case StatusCodes.notFound:
+      case HttpStatus.notFound:
         return notFound;
-      case StatusCodes.methodNotAllowed:
+      case HttpStatus.methodNotAllowed:
         return methodNotAllowed;
-      case StatusCodes.notAcceptable:
+      case HttpStatus.notAcceptable:
         return notAcceptable;
-      case StatusCodes.proxyAuthenticationRequired:
+      case HttpStatus.proxyAuthenticationRequired:
         return proxyAuthenticationRequired;
-      case StatusCodes.requestTimeOut:
-        return requestTimeOut;
-      case StatusCodes.conflict:
+      case HttpStatus.conflict:
         return conflict;
-      case StatusCodes.gone:
+      case HttpStatus.gone:
         return gone;
-      case StatusCodes.lengthRequired:
+      case HttpStatus.lengthRequired:
         return lengthRequired;
-      case StatusCodes.preconditionFailed:
+      case HttpStatus.preconditionFailed:
         return preconditionFailed;
-      case StatusCodes.requestEntityTooLarge:
+      case HttpStatus.requestEntityTooLarge:
         return requestEntityTooLarge;
-      case StatusCodes.requestURITooLarge:
-        return requestURITooLarge;
-      case StatusCodes.unsupportedMediaType:
+      case HttpStatus.unsupportedMediaType:
         return unsupportedMediaType;
-      case StatusCodes.requestedRangeNotSatisfiable:
+      case HttpStatus.requestedRangeNotSatisfiable:
         return requestedRangeNotSatisfiable;
-      case StatusCodes.expectationFailed:
+      case HttpStatus.expectationFailed:
         return expectationFailed;
-      case StatusCodes.upgradeRequired:
+      case HttpStatus.upgradeRequired:
         return upgradeRequired;
-      case StatusCodes.internalServerError:
+      case HttpStatus.internalServerError:
         return internalServerError;
-      case StatusCodes.notImplemented:
+      case HttpStatus.notImplemented:
         return notImplemented;
-      case StatusCodes.badGateway:
+      case HttpStatus.badGateway:
         return badGateway;
-      case StatusCodes.serviceUnavailable:
+      case HttpStatus.serviceUnavailable:
         return serviceUnavailable;
-      case StatusCodes.gatewayTimeOut:
-        return gatewayTimeOut;
-      case StatusCodes.httpVersionNotSupported:
+      case HttpStatus.httpVersionNotSupported:
         return httpVersionNotSupported;
       default:
         return '';

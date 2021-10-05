@@ -1,9 +1,4 @@
 import 'connection.dart';
-import 'http.dart';
-
-Future<DataMessage> emptyReceive() async {
-  return DataMessage.eos;
-}
 
 abstract class Request extends Connection {
   Request() : streamConsumed = false;
@@ -16,11 +11,10 @@ abstract class Request extends Connection {
     var receivedBody = this.receivedBody;
 
     if (receivedBody == null) {
-      return stream.fold<List<int>>(this.receivedBody = <int>[], (body, chunk) => body..addAll(chunk));
+      return stream.fold<List<int>>(
+          this.receivedBody = <int>[], (body, chunk) => body..addAll(chunk));
     }
 
     return Future<List<int>>.value(receivedBody);
   }
-
-  Stream<List<int>> get stream;
 }
