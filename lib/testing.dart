@@ -2,10 +2,10 @@
 library astra.testing;
 
 import 'dart:async' show Completer;
-import 'dart:io' show HttpHeaders, HttpServer, HttpStatus;
+import 'dart:io' show HttpHeaders;
 
 import 'package:astra/core.dart' show Application, Header;
-import 'package:astra/io.dart' show IORequest;
+import 'package:astra/io.dart' show IOServer;
 import 'package:http/http.dart' show Client, Response;
 
 typedef TestClientCallback = Future<Response> Function(Client client, Uri url);
@@ -36,47 +36,26 @@ class TestClient {
   }
 
   Future<Response> request(String path, TestClientCallback callback) async {
-    var server = await HttpServer.bind('localhost', port);
-
-    var responseFuture = callback(client, Uri.http('localhost:$port', path));
-    var responseCompleter = Completer<Response>.sync();
-    var serverSubscription = server.listen(null);
-
-    serverSubscription.onData((ioRequest) async {
-      var ioResponse = ioRequest.response;
+    var server = await IOServer.bind('localhost', port);
+    // var server = await Server.bind('localhost', port);
+    var future = callback(client, Uri.http('localhost:$port', path));
+    var completer = Completer<Response>.sync();
+    var subscription = server.listen((request) async {
+      var start = request.start;
       var isRedirectResponse = false;
 
-      void start(
-          {int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
-        ioResponse.statusCode = status;
-
+      request.start = (int status, {List<Header>? headers}) {
         if (headers != null) {
           for (var header in headers) {
-            ioResponse.headers.set(header.name, header.value);
-
             if (header.name == HttpHeaders.locationHeader) {
               isRedirectResponse = true;
+              break;
             }
           }
         }
-      }
 
-      Future<void> send(
-          {List<int>? bytes, bool flush = false, bool end = false}) async {
-        if (bytes != null) {
-          ioResponse.add(bytes);
-        }
-
-        if (flush) {
-          await ioResponse.flush();
-        }
-
-        if (end) {
-          await ioResponse.close();
-        }
-      }
-
-      var request = IORequest(ioRequest, start, send);
+        start(status, headers: headers);
+      };
 
       try {
         await application(request);
@@ -85,16 +64,16 @@ class TestClient {
           return;
         }
 
-        responseCompleter.complete(responseFuture);
+        completer.complete(future);
       } catch (error, stackTrace) {
-        responseCompleter.completeError(error, stackTrace);
+        completer.completeError(error, stackTrace);
       }
     });
 
     try {
-      return await responseCompleter.future;
+      return await completer.future;
     } finally {
-      await serverSubscription.cancel();
+      await subscription.cancel();
       await server.close();
     }
   }

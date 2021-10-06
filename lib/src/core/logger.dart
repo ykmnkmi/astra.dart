@@ -1,30 +1,40 @@
 import 'dart:io' show HttpStatus;
 
-import 'connection.dart';
+import 'package:stack_trace/stack_trace.dart' show Trace;
+
 import 'http.dart';
+import 'request.dart';
 import 'types.dart';
 
 typedef LoggerCallback = void Function(String message, bool isError);
 
-Application log(Application application, {required LoggerCallback logger}) {
-  return (Connection connection) {
-    var start = connection.start;
-    var statusCode = HttpStatus.ok;
+String format(int code, Request request, DateTime start, Duration elapsed) {
+  return '$start $elapsed [${request.method}] $code ${request.url}';
+}
 
-    connection.start =
-        ({int status = HttpStatus.ok, String? reason, List<Header>? headers}) {
-      statusCode = status;
-      start(status: status, reason: reason, headers: headers);
+Application log(Application application, {required LoggerCallback logger}) {
+  return (Request request) async {
+    var startTime = DateTime.now();
+    var stopwatch = Stopwatch();
+    stopwatch.start();
+
+    var start = request.start;
+    var code = HttpStatus.ok;
+
+    request.start = (int status, {List<Header>? headers}) {
+      code = status;
+      start(status, headers: headers);
     };
 
-    var method = connection.method;
-    var url = connection.url;
-
-    Future<void>.value(application(connection)).then<void>((_) {
-      var message = '$statusCode $method $url';
+    try {
+      await application(request);
+      var message = format(code, request, startTime, stopwatch.elapsed);
       logger(message, false);
-    }).catchError((Object error, StackTrace trace) {
-      logger('$statusCode $method $url\n$error\n$trace', true);
-    });
+    } catch (error, stackTrace) {
+      var message = format(code, request, startTime, stopwatch.elapsed);
+      message = '$message\n$error\n${Trace.format(stackTrace, terse: true)}';
+      logger(message, true);
+      rethrow;
+    }
   };
 }

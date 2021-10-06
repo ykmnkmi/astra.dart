@@ -1,20 +1,63 @@
-import 'connection.dart';
+import 'dart:io' show IOSink;
 
-abstract class Request extends Connection {
-  Request() : streamConsumed = false;
+import 'http.dart';
+import 'types.dart';
 
-  bool streamConsumed;
+abstract class Request {
+  String get version;
 
-  List<int>? receivedBody;
+  String get method;
 
-  Future<List<int>> get body {
-    var receivedBody = this.receivedBody;
+  Uri get url;
 
-    if (receivedBody == null) {
-      return stream.fold<List<int>>(
-          this.receivedBody = <int>[], (body, chunk) => body..addAll(chunk));
-    }
+  Headers get headers;
 
-    return Future<List<int>>.value(receivedBody);
+  Stream<List<int>> get stream;
+
+  abstract Start start;
+
+  abstract Send send;
+
+  abstract Future<void> Function() flush;
+
+  abstract Future<void> Function() close;
+
+  @override
+  String toString() {
+    return 'Request($method, $url, $version)';
   }
+}
+
+class RequestImpl extends Request {
+  RequestImpl(this.stream, this.sink, this.method, this.url, this.version,
+      this.headers, this.start, this.send, this.flush, this.close);
+
+  @override
+  final Stream<List<int>> stream;
+
+  final IOSink sink;
+
+  @override
+  String method;
+
+  @override
+  Uri url;
+
+  @override
+  String version;
+
+  @override
+  Headers headers;
+
+  @override
+  Start start;
+
+  @override
+  Send send;
+
+  @override
+  Future<void> Function() flush;
+
+  @override
+  Future<void> Function() close;
 }

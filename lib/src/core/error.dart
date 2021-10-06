@@ -2,32 +2,31 @@ import 'dart:io' show File, HttpStatus;
 
 import 'package:stack_trace/stack_trace.dart' show Trace;
 
-import 'connection.dart';
 import 'http.dart';
+import 'request.dart';
 import 'response.dart';
 import 'types.dart';
 
 Application error(Application application,
     {bool debug = false, ExceptionHandler? handler}) {
-  return (Connection connection) async {
-    var start = connection.start;
+  return (Request request) async {
+    var start = request.start;
     var responseStarted = false;
 
-    connection.start =
-        ({int status = Codes.ok, String? reason, List<Header>? headers}) {
+    request.start = (int status, {List<Header>? headers}) {
       responseStarted = true;
-      start(status: status, headers: headers);
+      start(status, headers: headers);
     };
 
     try {
-      await application(connection);
+      await application(request);
     } catch (error, stackTrace) {
       if (responseStarted) {
         rethrow;
       }
 
       if (debug) {
-        var accept = connection.headers.get('accept');
+        var accept = request.headers.get('accept');
         if (accept != null && accept.contains('text/html')) {
           var html = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
             switch (match[1]) {
@@ -43,23 +42,23 @@ Application error(Application application,
           });
 
           var response = TextResponse.html(html, status: 500);
-          return response(connection);
+          return response(request);
         }
 
         var trace = Trace.format(stackTrace);
         var response = TextResponse('$error\n\n$trace',
             status: HttpStatus.internalServerError);
-        return response(connection);
+        return response(request);
       }
 
       if (handler == null) {
         var response = TextResponse('Internal Server Error',
             status: HttpStatus.internalServerError);
-        return response(connection);
+        return response(request);
       }
 
-      var response = await handler(connection, error, stackTrace);
-      await response(connection);
+      var response = await handler(request, error, stackTrace);
+      return response(request);
     }
   };
 }
@@ -146,5 +145,5 @@ String renderFrames(Trace trace) {
     buffer.write('</div>');
   }
 
-  return buffer.toString();
+  return '$buffer';
 }

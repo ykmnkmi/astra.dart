@@ -1,6 +1,6 @@
 name: astra
 description: A simple web server framework.
-version: 1.0.0-dev.43
+version: 1.0.0-dev.44
 # homepage: https://www.example.com
 
 environment:
@@ -12,7 +12,7 @@ dependencies:
 
 dev_dependencies:
   http: ^0.13.0
+  l: ^3.0.1
   lints: ^1.0.0
-  logging: ^1.0.2
   path: ^1.8.0
   test: ^1.18.0

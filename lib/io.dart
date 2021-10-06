@@ -7,7 +7,7 @@ import 'dart:io' show HttpHeaders, HttpRequest, HttpServer, SecurityContext;
 import 'package:astra/core.dart';
 
 class IOServer extends Server {
-  static Future<Server> bind(Object address, int port,
+  static Future<IOServer> bind(Object address, int port,
       {int backlog = 0,
       bool v6Only = false,
       bool shared = false,
@@ -17,24 +17,31 @@ class IOServer extends Server {
             backlog: backlog, v6Only: v6Only, shared: shared)
         : HttpServer.bindSecure(address, port, context,
             backlog: backlog, v6Only: v6Only, shared: shared));
-    return IOServer.new(server);
+    return IOServer(server);
   }
 
   IOServer(this.server);
 
   final HttpServer server;
 
+  StreamSubscription<IORequest>? subscription;
+
+  @override
+  Uri get url {
+    var address = server.address;
+    var host = address.isLoopback ? 'loopback' : address.host;
+    // TODO: add scheme
+    return Uri(host: host, port: server.port);
+  }
+
   @override
   Future<void> close({bool force = false}) {
     return server.close(force: force);
   }
 
-  StreamSubscription<IORequest>? subscription;
-
   @override
   void handle(Handler handler) {
-    Future<void> application(Connection connection) async {
-      var request = connection as Request;
+    Future<void> application(Request request) async {
       var response = await handler(request);
       return response(request);
     }
@@ -56,48 +63,28 @@ class IOServer extends Server {
   }
 
   @override
-  StreamSubscription<IORequest> listen(void Function(Connection event)? onData,
+  StreamSubscription<IORequest> listen(void Function(Request event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     IORequest mapper(HttpRequest request) {
-      void start(
-          {int? status,
-          String? reason,
-          List<Header>? headers,
-          bool buffer = false}) {
-        var response = request.response;
-        status ??= Codes.ok;
-
-        response
-          ..statusCode = status
-          ..reasonPhrase = reason ?? ReasonPhrases.to(status);
+      void start(int status, {List<Header>? headers}) {
+        request.response.statusCode = status;
 
         if (headers != null) {
           for (var header in headers) {
-            response.headers.set(header.name, header.value);
+            request.response.headers.set(header.name, header.value);
           }
         }
-
-        response.bufferOutput = buffer;
       }
 
-      Future<void> send(
-          {List<int>? bytes, bool flush = false, bool end = false}) async {
-        var response = request.response;
-
-        if (bytes != null) {
-          response.add(bytes);
-        }
-
-        if (flush) {
-          await response.flush();
-        }
-
-        if (end) {
-          await response.close();
-        }
+      Future<void> flush() {
+        return request.response.flush();
       }
 
-      return IORequest(request, start, send);
+      Future<void> close() {
+        return request.response.close();
+      }
+
+      return IORequest(request, start, request.response.add, flush, close);
     }
 
     return subscription = server.map<IORequest>(mapper).listen(onData,
@@ -145,8 +132,7 @@ class IOHeaders implements Headers {
 
   @override
   MutableHeaders toMutable() {
-    // UNDONE: update error
-    throw UnimplementedError();
+    throw UnsupportedError('freezed');
   }
 }
 
@@ -180,7 +166,7 @@ class IOMutableHeaders extends IOHeaders implements MutableHeaders {
 }
 
 class IORequest extends Request {
-  IORequest(this.request, this.start, this.send)
+  IORequest(this.request, this.start, this.send, this.flush, this.close)
       : headers = IOHeaders(request.headers);
 
   final HttpRequest request;
@@ -193,6 +179,12 @@ class IORequest extends Request {
 
   @override
   Send send;
+
+  @override
+  Future<void> Function() flush;
+
+  @override
+  Future<void> Function() close;
 
   StreamIterator<List<int>>? iterator;
 
@@ -213,18 +205,6 @@ class IORequest extends Request {
 
   @override
   Stream<List<int>> get stream {
-    if (streamConsumed) {
-      throw StateError('stream consumed');
-    }
-
-    streamConsumed = true;
     return request;
-  }
-
-  @override
-  Future<DataMessage> receive() async {
-    var iterator = this.iterator ??= StreamIterator<List<int>>(stream);
-    var moveNext = await iterator.moveNext();
-    return moveNext ? DataMessage(iterator.current) : DataMessage.eos;
   }
 }

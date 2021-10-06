@@ -1,6 +1,5 @@
-import 'dart:async' show FutureOr;
 import 'dart:convert' show json, utf8;
-import 'dart:io' show Directory, File;
+import 'dart:io' show Directory, File, HttpStatus;
 
 import 'package:astra/core.dart';
 import 'package:astra/testing.dart';
@@ -9,9 +8,9 @@ import 'package:test/test.dart';
 
 void main() {
   test('text response', () async {
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var response = Response(content: 'hello world!');
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -23,9 +22,9 @@ void main() {
   test('bytes response', () async {
     var bytes = utf8.encode('xxxxx');
 
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var response = Response(content: bytes, contentType: 'image/png');
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -35,9 +34,9 @@ void main() {
   });
 
   test('json null response', () async {
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var response = JSONResponse(null);
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -47,16 +46,16 @@ void main() {
   });
 
   test('redirect response', () async {
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       Response response;
 
-      if (connection.url.path == '/') {
+      if (request.url.path == '/') {
         response = TextResponse('hello world!');
       } else {
         response = RedirectResponse(Uri(path: '/'));
       }
 
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -66,16 +65,16 @@ void main() {
   });
 
   test('quoting redirect response', () async {
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       Response response;
 
-      if (connection.url.path == Uri.encodeFull('/I ♥ Astra/')) {
+      if (request.url.path == Uri.encodeFull('/I ♥ Astra/')) {
         response = TextResponse('hello world!');
       } else {
         response = RedirectResponse(Uri(path: '/I ♥ Astra/'));
       }
 
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -97,10 +96,10 @@ void main() {
       }
     }
 
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var stream = numbers(1, 5);
       var response = StreamResponse.text(stream);
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -120,10 +119,10 @@ void main() {
       }
     }
 
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var stream = numbers(1, 5);
       var response = StreamResponse.text(stream);
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -133,11 +132,11 @@ void main() {
   });
 
   test('response headers', () async {
-    FutureOr<void> application(Connection connection) {
+    Future<void> application(Request request) {
       var headers = <String, String>{'x-header-1': '123', 'x-header-2': '456'};
       var response = TextResponse('hello world!', headers: headers);
       response.headers.set('x-header-2', '789');
-      return response(connection);
+      return response(request);
     }
 
     var client = TestClient(application);
@@ -148,13 +147,12 @@ void main() {
   });
 
   test('response phrase', () async {
-    var client = TestClient(Response(status: Codes.noContent));
+    var client = TestClient(Response(status: HttpStatus.noContent));
     var response = await client.get('/');
     expect(response.reasonPhrase, equals(ReasonPhrases.noContent));
     client = TestClient(Response(status: 123));
     response = await client.get('/');
     client.close();
-    // TODO: replace 'Status 123' with ''
     expect(response.reasonPhrase, anyOf('Status 123', ''));
   });
 
@@ -166,7 +164,7 @@ void main() {
     var response = await client.get('/');
     client.close();
     var contentDisposition = 'attachment; filename="example.png"';
-    expect(response.statusCode, equals(Codes.ok));
+    expect(response.statusCode, equals(HttpStatus.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentType], equals('image/png'));
     expect(response.headers[Headers.contentDisposition],
@@ -214,7 +212,7 @@ void main() {
     client.close();
     var contentDisposition =
         'attachment; filename*=utf-8\'\'%E4%BD%A0%E5%A5%BD.txt';
-    expect(response.statusCode, equals(Codes.ok));
+    expect(response.statusCode, equals(HttpStatus.ok));
     expect(response.bodyBytes, orderedEquals(content));
     expect(response.headers[Headers.contentDisposition],
         equals(contentDisposition));

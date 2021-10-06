@@ -95,8 +95,8 @@ class Headers {
   bool contains(String name) {
     name = name.toLowerCase();
 
-    for (var pair in raw) {
-      if (name == pair.name) {
+    for (var index = raw.length - 1; index >= 0; index -= 1) {
+      if (raw[index].name == name) {
         return true;
       }
     }
@@ -105,11 +105,11 @@ class Headers {
   }
 
   String? get(String name) {
-    name = name.toLowerCase();
+    for (var index = raw.length - 1; index >= 0; index -= 1) {
+      name = name.toLowerCase();
 
-    for (var header in raw.reversed) {
-      if (name == header.name) {
-        return header.value;
+      if (raw[index].name == name) {
+        return raw[index].value;
       }
     }
 
@@ -137,7 +137,7 @@ class MutableHeaders extends Headers {
   }
 
   void add(String name, String value) {
-    raw.add(Header(name.toLowerCase(), value.toLowerCase()));
+    raw.add(Header(name, value));
   }
 
   void clear() {
@@ -146,11 +146,10 @@ class MutableHeaders extends Headers {
 
   void delete(String name) {
     var indexes = <int>[];
-
     name = name.toLowerCase();
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (name == raw[index].name) {
+      if (raw[index].name == name) {
         indexes.add(index);
       }
     }
@@ -162,11 +161,10 @@ class MutableHeaders extends Headers {
 
   void set(String name, String value) {
     var indexes = <int>[];
-
     name = name.toLowerCase();
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (name == raw[index].name) {
+      if (raw[index].name == name) {
         indexes.add(index);
       }
     }
@@ -204,47 +202,6 @@ class DataMessage extends Message {
   final List<int> bytes;
 
   final bool end;
-}
-
-abstract class Codes {
-  static const int kontinue = 100;
-  static const int switchingProtocols = 101;
-  static const int ok = 200;
-  static const int created = 201;
-  static const int accepted = 202;
-  static const int nonAuthoritativeInformation = 203;
-  static const int noContent = 204;
-  static const int resetContent = 205;
-  static const int partialContent = 206;
-  static const int multipleChoices = 300;
-  static const int movedPermanently = 301;
-  static const int found = 302;
-  static const int seeOther = 303;
-  static const int notModified = 304;
-  static const int useProxy = 305;
-  static const int temporaryRedirect = 307;
-  static const int badRequest = 400;
-  static const int unauthorized = 401;
-  static const int paymentRequired = 402;
-  static const int forbidden = 403;
-  static const int notFound = 404;
-  static const int methodNotAllowed = 405;
-  static const int notAcceptable = 406;
-  static const int proxyAuthenticationRequired = 407;
-  static const int conflict = 409;
-  static const int gone = 410;
-  static const int lengthRequired = 411;
-  static const int preconditionFailed = 412;
-  static const int requestEntityTooLarge = 413;
-  static const int unsupportedMediaType = 415;
-  static const int requestedRangeNotSatisfiable = 416;
-  static const int expectationFailed = 417;
-  static const int upgradeRequired = 426;
-  static const int internalServerError = 500;
-  static const int notImplemented = 501;
-  static const int badGateway = 502;
-  static const int serviceUnavailable = 503;
-  static const int httpVersionNotSupported = 505;
 }
 
 abstract class ReasonPhrases {

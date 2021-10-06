@@ -1,27 +1,18 @@
-import 'dart:async' show Completer, StreamController, StreamSubscription;
-import 'dart:io'
-    show
-        IOSink,
-        InternetAddressType,
-        SecureServerSocket,
-        SecurityContext,
-        ServerSocket,
-        Socket,
-        SocketOption;
+import 'dart:async' show StreamController, StreamSubscription;
+import 'dart:io' show SecureServerSocket, SecurityContext, ServerSocket, Socket;
 
-import 'connection.dart';
-import 'http.dart';
+import 'parser.dart';
 import 'request.dart';
 import 'types.dart';
 
-part 'parser.dart';
+abstract class Server extends Stream<Request> {
+  Uri get url;
 
-abstract class Server extends Stream<Connection> {
+  Future<void> close({bool force = false});
+
   void mount(Application application);
 
   void handle(Handler handler);
-
-  Future<void> close({bool force = false});
 
   static Future<Server> bind(Object address, int port,
       {int backlog = 0,
@@ -29,89 +20,32 @@ abstract class Server extends Stream<Connection> {
       bool shared = false,
       SecurityContext? context}) {
     return context == null
-        ? _$Server.bind(address, port,
+        ? ServerImpl.bind(address, port,
             backlog: backlog, v6Only: v6Only, shared: shared)
-        : _$SecureServer.bind(address, port, context,
+        : SecureServerImpl.bind(address, port, context,
             v6Only: v6Only, backlog: backlog, shared: shared);
   }
 }
 
-class _Connection extends Connection {
-  _Connection(this.stream, this.sink) : headers = MutableHeaders() {
-    start = ({int? status, String? reason, List<Header>? headers}) {
-      status ??= Codes.ok;
-      sink.writeln(
-          'HTTP/$version $status ${reason ?? ReasonPhrases.to(status)}');
+abstract class ServerBase extends Server {
+  ServerBase() : controller = StreamController<Request>(sync: true);
 
-      if (headers != null) {
-        for (var header in headers) {
-          sink.writeln('$header');
-        }
-      }
+  final StreamController<Request> controller;
 
-      sink.writeln();
-    };
-
-    send = ({List<int>? bytes, bool flush = false, bool end = false}) async {
-      if (bytes != null) {
-        sink.add(bytes);
-      }
-
-      if (flush) {
-        await sink.flush();
-      }
-
-      if (end) {
-        await sink.close();
-      }
-    };
-  }
-
-  @override
-  final Stream<List<int>> stream;
-
-  final IOSink sink;
-
-  @override
-  final MutableHeaders headers;
-
-  @override
-  late String version;
-
-  @override
-  late String method;
-
-  @override
-  late Uri url;
-
-  @override
-  late Start start;
-
-  @override
-  late Send send;
-
-  @override
-  Future<DataMessage> receive() {
-    throw UnimplementedError();
-  }
-}
-
-abstract class _Server extends Server {
-  _Server() : controller = StreamController<Connection>(sync: true);
-
-  final StreamController<Connection> controller;
-
-  StreamSubscription<Connection>? subscription;
+  StreamSubscription<Request>? subscription;
 
   Stream<Socket> get server;
 
   Future<void> parseSocket(Socket socket) async {
-    var connection = await _Parser.parse(socket);
-    controller.add(connection);
+    var request = await Parser.parse(this, socket);
+    controller.add(request);
   }
 
   @override
-  StreamSubscription<Connection> listen(void Function(Connection event)? onData,
+  Future<void> close({bool force = false});
+
+  @override
+  StreamSubscription<Request> listen(void Function(Request event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     server.listen(parseSocket);
     return subscription = controller.stream.listen(onData,
@@ -120,10 +54,9 @@ abstract class _Server extends Server {
 
   @override
   void handle(Handler handler) {
-    mount((connection) async {
-      var request = connection as Request;
+    mount((request) async {
       var response = await handler(request);
-      return response(connection);
+      return response(request);
     });
   }
 
@@ -137,23 +70,27 @@ abstract class _Server extends Server {
       subscription.onData(application);
     }
   }
-
-  @override
-  Future<void> close({bool force = false});
 }
 
-class _$Server extends _Server {
-  static Future<_Server> bind(Object address, int port,
+class ServerImpl extends ServerBase {
+  static Future<ServerImpl> bind(Object address, int port,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server = await ServerSocket.bind(address, port,
+    var serverSocket = await ServerSocket.bind(address, port,
         backlog: backlog, v6Only: v6Only, shared: shared);
-    return _$Server.listenOn(server);
+    return ServerImpl.listenOn(serverSocket);
   }
 
-  _$Server.listenOn(this.server) : super();
+  ServerImpl.listenOn(this.server) : super();
 
   @override
   final ServerSocket server;
+
+  @override
+  Uri get url {
+    var address = server.address;
+    var host = address.isLoopback ? 'loopback' : address.host;
+    return Uri(scheme: 'http', host: host, port: server.port);
+  }
 
   @override
   Future<void> close({bool force = false}) {
@@ -161,18 +98,26 @@ class _$Server extends _Server {
   }
 }
 
-class _$SecureServer extends _Server {
-  static Future<_Server> bind(Object address, int port, SecurityContext context,
+class SecureServerImpl extends ServerBase {
+  static Future<SecureServerImpl> bind(
+      Object address, int port, SecurityContext context,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server = await SecureServerSocket.bind(address, port, context,
+    var serverSocket = await SecureServerSocket.bind(address, port, context,
         backlog: backlog, v6Only: v6Only, shared: shared);
-    return _$SecureServer.listenOn(server);
+    return SecureServerImpl.listenOn(serverSocket);
   }
 
-  _$SecureServer.listenOn(this.server) : super();
+  SecureServerImpl.listenOn(this.server) : super();
 
   @override
   final SecureServerSocket server;
+
+  @override
+  Uri get url {
+    var address = server.address;
+    var host = address.isLoopback ? 'loopback' : address.host;
+    return Uri(scheme: 'https', host: host, port: server.port);
+  }
 
   @override
   Future<void> close({bool force = false}) {

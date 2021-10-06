@@ -1,5 +1,5 @@
-import 'connection.dart';
 import 'http.dart';
+import 'request.dart';
 import 'response.dart';
 import 'types.dart';
 
@@ -23,18 +23,21 @@ class HTTPException implements Exception {
     }
 
     buffer.write(')');
-    return buffer.toString();
+    return '$buffer';
   }
 
-  static Response handler(
-      Connection connection, Object exception, StackTrace stackTrace) {
-    var typedException = exception as HTTPException;
+  static Future<Response> handler(
+      Request request, Object error, StackTrace stackTrace) {
+    var typed = error as HTTPException;
+    Response response;
 
-    if (typedException.status == 204 || typedException.status == 304) {
-      return Response(status: typedException.status);
+    if (typed.status == 204 || typed.status == 304) {
+      response = Response(status: typed.status);
+    } else {
+      response = TextResponse(typed.message ?? '', status: error.status);
     }
 
-    return TextResponse(typedException.message ?? '', status: exception.status);
+    return Future<Response>.value(response);
   }
 }
 
@@ -55,18 +58,17 @@ Application exception(
     }
   }
 
-  return (Connection connection) async {
-    var start = connection.start;
+  return (Request request) async {
+    var start = request.start;
     var responseStarted = false;
 
-    connection.start =
-        ({int status = Codes.ok, String? reason, List<Header>? headers}) {
+    request.start = (int status, {String? reason, List<Header>? headers}) {
       responseStarted = true;
-      start(status: status, headers: headers);
+      start(status, headers: headers);
     };
 
     try {
-      await application(connection);
+      await application(request);
     } catch (error, stackTrace) {
       ExceptionHandler? handler;
 
@@ -85,8 +87,8 @@ Application exception(
             'caught handled exception, but response already started');
       }
 
-      var response = await handler(connection, error, stackTrace);
-      await response(connection);
+      var response = await handler(request, error, stackTrace);
+      return response(request);
     }
   };
 }

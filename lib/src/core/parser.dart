@@ -1,16 +1,21 @@
-part of 'server.dart';
+import 'dart:async' show StreamController, StreamSubscription;
+import 'dart:io' show InternetAddressType, Socket, SocketOption;
+
+import 'package:astra/core.dart';
+
+import 'request.dart';
 
 const int lf = 10;
 const int cr = 13;
 
-enum _State {
+enum State {
   request,
   headers,
 }
 
-class _Parser extends Stream<List<int>> {
-  _Parser(this.socket, this.sink)
-      : controller = StreamController<List<int>>(sync: true),
+class Parser extends Stream<List<int>> {
+  Parser(this.socket, this.sink)
+      : controller = StreamController<List<int>>(),
         skipLeadingLF = false,
         newLinesCount = 0 {
     subscription =
@@ -50,7 +55,7 @@ class _Parser extends Stream<List<int>> {
 
       controller.close();
       subscription
-        ..onData(sink.add)
+        ..onData(socket.add)
         ..resume();
     }
   }
@@ -120,33 +125,33 @@ class _Parser extends Stream<List<int>> {
     subscription = null;
   }
 
-  static Future<_Connection> parse(Socket socket) {
+  static Future<RequestImpl> parse(Server server, Socket socket) async {
     if (socket.address.type != InternetAddressType.unix) {
       socket.setOption(SocketOption.tcpNoDelay, true);
     }
 
     var controller = StreamController<List<int>>();
-    var completer = Completer<_Connection>.sync();
-    var connection = _Connection(controller.stream, socket);
-    var state = _State.request;
+    var state = State.request;
 
-    _Parser(socket, controller.sink).listen((bytes) {
+    late String method;
+    late String url;
+    late String version;
+    var headers = MutableHeaders();
+
+    await for (var bytes in Parser(socket, controller.sink)) {
       if (bytes.isEmpty) {
-        completer.complete(connection);
-        return;
+        break;
       }
 
+      // TODO: update errors
       switch (state) {
-        // TODO: update errors
-        case _State.request:
+        case State.request:
           var start = 0, end = bytes.indexOf(32);
           if (end == -1) throw Exception('method');
-          connection.method =
-              String.fromCharCodes(bytes.sublist(start, start = end));
+          method = String.fromCharCodes(bytes.sublist(start, start = end));
           end = bytes.indexOf(32, start += 1);
           if (end == -1) throw Exception('uri');
-          connection.url = Uri.parse(
-              String.fromCharCodes(bytes.sublist(start, start = end)));
+          url = String.fromCharCodes(bytes.sublist(start, start = end));
           if (start + 9 != bytes.length) throw Exception('version');
           if (bytes[start += 1] != 72) throw Exception('version H');
           if (bytes[start += 1] != 84) throw Exception('version HT');
@@ -155,18 +160,46 @@ class _Parser extends Stream<List<int>> {
           if (bytes[start += 1] != 47) throw Exception('version HTTP/');
           if (bytes[start += 1] != 49) throw Exception('version HTTP/1');
           if (bytes[start + 1] != 46) throw Exception('version HTTP/1.');
-          connection.version = String.fromCharCodes(bytes.sublist(start));
-          state = _State.headers;
+          version = String.fromCharCodes(bytes.sublist(start));
+          state = State.headers;
           break;
-        case _State.headers:
+        case State.headers:
           var index = bytes.indexOf(58);
           if (index == -1) throw Exception('header field');
           var name = String.fromCharCodes(bytes.sublist(0, index));
           var value = String.fromCharCodes(bytes.sublist(index + 2));
-          connection.headers.add(name, value);
+          headers.add(name, value);
           break;
+        default:
+          throw UnimplementedError();
       }
-    }, onError: completer.completeError);
-    return completer.future;
+    }
+
+    void start(int status, {List<Header>? headers}) {
+      socket.writeln('HTTP/$version $status ${ReasonPhrases.to(status)}');
+
+      if (headers != null) {
+        for (var header in headers) {
+          socket.writeln('$header');
+        }
+      }
+
+      socket.writeln();
+    }
+
+    void send(List<int> bytes) {
+      socket.add(bytes);
+    }
+
+    Future<void> flush() {
+      return socket.flush();
+    }
+
+    Future<void> close() {
+      return socket.close();
+    }
+
+    return RequestImpl(controller.stream, socket, method, Uri.parse(url),
+        version, headers, start, send, flush, close);
   }
 }
