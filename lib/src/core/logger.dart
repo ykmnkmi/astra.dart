@@ -21,9 +21,9 @@ Application log(Application application, {required LoggerCallback logger}) {
     var start = request.start;
     var code = HttpStatus.ok;
 
-    request.start = (int status, {List<Header>? headers}) {
+    request.start = (int status, {List<Header>? headers, bool buffer = true}) {
       code = status;
-      start(status, headers: headers);
+      start(status, headers: headers, buffer: buffer);
     };
 
     try {

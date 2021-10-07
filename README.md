@@ -1,6 +1,6 @@
-A simple web server framework (_work in progress_).
+A custom web server framework (_work in progress_).
 
-TODO: parsing and sending body properly
+TODO: parsing and sending body properly.
 
 ```dart
 // lib/[package].dart
@@ -28,4 +28,4 @@ Future<void> main() async {
 }
 ```
 
-(Not yet) Use `astra serve [package]` or `astra build [package]` for AOT compilation.
+(Not yet) Use `astra serve [[package]:app]`.

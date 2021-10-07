@@ -1,1 +1,5 @@
-Future<void> main() async {}
+import 'dart:io';
+
+Future<void> main() async {
+  BytesBuilder();
+}

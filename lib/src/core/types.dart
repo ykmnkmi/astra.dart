@@ -2,7 +2,7 @@ import 'http.dart';
 import 'request.dart';
 import 'response.dart';
 
-typedef Start = void Function(int status, {List<Header>? headers});
+typedef Start = void Function(int status, {List<Header>? headers, bool buffer});
 
 typedef Send = void Function(List<int> bytes);
 

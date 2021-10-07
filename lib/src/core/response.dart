@@ -12,7 +12,7 @@ class Response<T extends Object?> {
   Response.ok({String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.ok,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -20,7 +20,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.created,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -28,7 +28,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.accepted,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -36,7 +36,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.noContent,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -44,7 +44,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.notModified,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -52,7 +52,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.badRequest,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -60,7 +60,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.unauthorized,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -68,7 +68,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.forbidden,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -76,7 +76,7 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.notFound,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -84,14 +84,14 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.conflict,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
   Response.gone({String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.gone,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -99,13 +99,13 @@ class Response<T extends Object?> {
       {String? contentType, Map<String, String>? headers, T? content})
       : this(
             status: HttpStatus.internalServerError,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
   Response(
       {this.status = HttpStatus.ok,
-      this.contentType,
+      this.mediaType,
       Map<String, String>? headers,
       T? content})
       : headers = MutableHeaders() {
@@ -131,8 +131,8 @@ class Response<T extends Object?> {
       this.headers.add(Headers.contentLength, '${body.length}');
     }
 
-    if (contentType != null && populateContentType) {
-      this.headers.add(Headers.contentType, contentType!);
+    if (mediaType != null && populateContentType) {
+      this.headers.add(Headers.contentType, mediaType!);
     }
   }
 
@@ -142,7 +142,7 @@ class Response<T extends Object?> {
 
   final MutableHeaders headers;
 
-  String? contentType;
+  String? mediaType;
 
   Future<void> call(Request request) async {
     request.start(status, headers: headers.raw);
@@ -173,13 +173,12 @@ class Response<T extends Object?> {
 }
 
 class TextResponse extends Response<String> {
-  factory TextResponse.html(String? content,
+  TextResponse.html(String? content,
       {int status = HttpStatus.ok,
       String contentType = MediaTypes.html,
-      Map<String, String>? headers}) {
-    return TextResponse(content,
-        status: status, contentType: contentType, headers: headers);
-  }
+      Map<String, String>? headers})
+      : this(content,
+            status: status, contentType: contentType, headers: headers);
 
   TextResponse(String? content,
       {int status = HttpStatus.ok,
@@ -187,7 +186,7 @@ class TextResponse extends Response<String> {
       Map<String, String>? headers})
       : super(
             status: status,
-            contentType: contentType,
+            mediaType: contentType,
             headers: headers,
             content: content);
 
@@ -206,7 +205,7 @@ class JSONResponse extends Response {
       {int status = HttpStatus.ok, Map<String, String>? headers})
       : super(
             status: status,
-            contentType: MediaTypes.json,
+            mediaType: MediaTypes.json,
             headers: headers,
             content: content);
 
@@ -260,7 +259,7 @@ class StreamResponse extends Response {
       int status = HttpStatus.ok,
       String mediaType = MediaTypes.stream,
       Map<String, String>? headers})
-      : super(status: status, contentType: mediaType, headers: headers);
+      : super(status: status, mediaType: mediaType, headers: headers);
 
   final Stream<List<int>> stream;
 
@@ -268,6 +267,8 @@ class StreamResponse extends Response {
 
   @override
   Future<void> call(Request request) async {
+    request.start(status, headers: headers.raw, buffer: buffer);
+
     await for (var bytes in stream) {
       request.send(bytes);
     }
@@ -300,7 +301,7 @@ class FileResponse extends Response {
       : sendHeaderOnly = method != null && method.toUpperCase() == 'HEAD',
         super(
             status: status,
-            contentType: contentType ?? guessType(fileName ?? file.path),
+            mediaType: contentType ?? guessType(fileName ?? file.path),
             headers: headers) {
     if (fileName != null) {
       var contentDispositionFileName = Uri.encodeFull(fileName);
@@ -318,6 +319,7 @@ class FileResponse extends Response {
   @override
   Future<void> call(Request request) async {
     var stat = await file.stat();
+
     if (stat.type == FileSystemEntityType.notFound) {
       throw StateError('file at path ${file.path} does not exist');
     }
@@ -329,7 +331,7 @@ class FileResponse extends Response {
     var ifModifiedSince = request.headers.ifModifiedSince;
 
     if (ifModifiedSince != null) {
-      if (!stat.modified.isAfter(ifModifiedSince)) {
+      if (ifModifiedSince.isAfter(stat.modified)) {
         request.start(HttpStatus.notModified, headers: headers.raw);
         return request.close();
       }

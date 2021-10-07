@@ -1,8 +1,19 @@
 // ignore_for_file: avoid_print
 
-import 'dart:io' show File, HttpServer;
+import 'dart:convert' show utf8;
+import 'dart:io' show HttpServer;
 
 import 'package:stack_trace/stack_trace.dart' show Trace;
+
+Stream<String> numbers(int minimum, int maximum) async* {
+  yield '$minimum';
+  minimum += 1;
+
+  for (; minimum <= maximum; minimum += 1) {
+    await Future<void>.delayed(Duration(milliseconds: 500));
+    yield ', $minimum';
+  }
+}
 
 Future<void> main() async {
   var server = await HttpServer.bind('localhost', 3000);
@@ -12,7 +23,8 @@ Future<void> main() async {
 
     if (request.uri.path == '/') {
       response.statusCode = 202;
-      await response.addStream(File('README.md').openRead());
+      response.bufferOutput = false;
+      await response.addStream(utf8.encoder.bind(numbers(1, 10)));
     } else {
       response.statusCode = 404;
     }

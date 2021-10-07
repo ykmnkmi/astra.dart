@@ -1,4 +1,4 @@
-import 'dart:io' show HttpStatus;
+import 'dart:io' show HttpHeaders, HttpStatus;
 
 import 'package:http_parser/http_parser.dart' show parseHttpDate;
 
@@ -137,7 +137,7 @@ class MutableHeaders extends Headers {
   }
 
   void add(String name, String value) {
-    raw.add(Header(name, value));
+    raw.add(Header(name.toLowerCase(), value));
   }
 
   void clear() {
@@ -333,7 +333,7 @@ abstract class ReasonPhrases {
 
 extension HeadersExtension on Headers {
   DateTime? get ifModifiedSince {
-    var date = get(Headers.ifModifiedSince);
+    var date = get(HttpHeaders.ifModifiedSinceHeader);
 
     if (date == null) {
       return null;

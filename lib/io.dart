@@ -66,8 +66,10 @@ class IOServer extends Server {
   StreamSubscription<IORequest> listen(void Function(Request event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     IORequest mapper(HttpRequest request) {
-      void start(int status, {List<Header>? headers}) {
-        request.response.statusCode = status;
+      void start(int status, {List<Header>? headers, bool buffer = true}) {
+        request.response
+          ..bufferOutput = buffer
+          ..statusCode = status;
 
         if (headers != null) {
           for (var header in headers) {

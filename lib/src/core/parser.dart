@@ -1,9 +1,5 @@
 import 'dart:async' show StreamController, StreamSubscription;
-import 'dart:io' show InternetAddressType, Socket, SocketOption;
-
-import 'package:astra/core.dart';
-
-import 'request.dart';
+import 'dart:io' show Socket;
 
 const int lf = 10;
 const int cr = 13;
@@ -15,7 +11,7 @@ enum State {
 
 class Parser extends Stream<List<int>> {
   Parser(this.socket, this.sink)
-      : controller = StreamController<List<int>>(),
+      : controller = StreamController<List<int>>(sync: true),
         skipLeadingLF = false,
         newLinesCount = 0 {
     subscription =
@@ -123,83 +119,5 @@ class Parser extends Stream<List<int>> {
     }
 
     subscription = null;
-  }
-
-  static Future<RequestImpl> parse(Server server, Socket socket) async {
-    if (socket.address.type != InternetAddressType.unix) {
-      socket.setOption(SocketOption.tcpNoDelay, true);
-    }
-
-    var controller = StreamController<List<int>>();
-    var state = State.request;
-
-    late String method;
-    late String url;
-    late String version;
-    var headers = MutableHeaders();
-
-    await for (var bytes in Parser(socket, controller.sink)) {
-      if (bytes.isEmpty) {
-        break;
-      }
-
-      // TODO: update errors
-      switch (state) {
-        case State.request:
-          var start = 0, end = bytes.indexOf(32);
-          if (end == -1) throw Exception('method');
-          method = String.fromCharCodes(bytes.sublist(start, start = end));
-          end = bytes.indexOf(32, start += 1);
-          if (end == -1) throw Exception('uri');
-          url = String.fromCharCodes(bytes.sublist(start, start = end));
-          if (start + 9 != bytes.length) throw Exception('version');
-          if (bytes[start += 1] != 72) throw Exception('version H');
-          if (bytes[start += 1] != 84) throw Exception('version HT');
-          if (bytes[start += 1] != 84) throw Exception('version HTT');
-          if (bytes[start += 1] != 80) throw Exception('version HTTP');
-          if (bytes[start += 1] != 47) throw Exception('version HTTP/');
-          if (bytes[start += 1] != 49) throw Exception('version HTTP/1');
-          if (bytes[start + 1] != 46) throw Exception('version HTTP/1.');
-          version = String.fromCharCodes(bytes.sublist(start));
-          state = State.headers;
-          break;
-        case State.headers:
-          var index = bytes.indexOf(58);
-          if (index == -1) throw Exception('header field');
-          var name = String.fromCharCodes(bytes.sublist(0, index));
-          var value = String.fromCharCodes(bytes.sublist(index + 2));
-          headers.add(name, value);
-          break;
-        default:
-          throw UnimplementedError();
-      }
-    }
-
-    void start(int status, {List<Header>? headers}) {
-      socket.writeln('HTTP/$version $status ${ReasonPhrases.to(status)}');
-
-      if (headers != null) {
-        for (var header in headers) {
-          socket.writeln('$header');
-        }
-      }
-
-      socket.writeln();
-    }
-
-    void send(List<int> bytes) {
-      socket.add(bytes);
-    }
-
-    Future<void> flush() {
-      return socket.flush();
-    }
-
-    Future<void> close() {
-      return socket.close();
-    }
-
-    return RequestImpl(controller.stream, socket, method, Uri.parse(url),
-        version, headers, start, send, flush, close);
   }
 }

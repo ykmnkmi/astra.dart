@@ -23,7 +23,7 @@ void main() {
     var bytes = utf8.encode('xxxxx');
 
     Future<void> application(Request request) {
-      var response = Response(content: bytes, contentType: 'image/png');
+      var response = Response(content: bytes, mediaType: 'image/png');
       return response(request);
     }
 
@@ -85,14 +85,12 @@ void main() {
 
   test('streaming response', () async {
     Stream<String> numbers(int minimum, int maximum) async* {
-      for (var i = minimum; i < maximum + 1; i++) {
-        yield '$i';
+      yield '$minimum';
+      minimum += 1;
 
-        if (i != maximum) {
-          yield ', ';
-        }
-
+      for (; minimum <= maximum; minimum += 1) {
         await Future<void>.delayed(Duration.zero);
+        yield ', $minimum';
       }
     }
 
@@ -229,7 +227,7 @@ void main() {
 
   test('head method', () async {
     var application =
-        Response(content: 'hello world!', contentType: MediaTypes.text);
+        Response(content: 'hello world!', mediaType: MediaTypes.text);
     var client = TestClient(application);
     var response = await client.head('/');
     client.close();

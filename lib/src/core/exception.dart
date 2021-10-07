@@ -62,9 +62,10 @@ Application exception(
     var start = request.start;
     var responseStarted = false;
 
-    request.start = (int status, {String? reason, List<Header>? headers}) {
+    request.start = (int status,
+        {String? reason, List<Header>? headers, bool buffer = true}) {
       responseStarted = true;
-      start(status, headers: headers);
+      start(status, headers: headers, buffer: buffer);
     };
 
     try {

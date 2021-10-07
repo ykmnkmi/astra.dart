@@ -12,7 +12,7 @@ Future<void> application(Request request) {
       response = FileResponse('README.md');
       break;
     case '/error':
-      throw AssertionError('some message');
+      throw Exception('some message');
     default:
       response = Response.notFound();
   }
