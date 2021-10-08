@@ -35,29 +35,47 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
     switch (state) {
       case State.request:
         var start = 0, end = bytes.indexOf(32);
-        if (end == -1) throw Exception('method');
+
+        if (end == -1) {
+          throw Exception('method');
+        }
+
         method = String.fromCharCodes(bytes.sublist(start, start = end));
         end = bytes.indexOf(32, start += 1);
-        if (end == -1) throw Exception('uri');
+
+        if (end == -1) {
+          throw Exception('uri');
+        }
+
         url = String.fromCharCodes(bytes.sublist(start, start = end));
-        if (start + 9 != bytes.length) throw Exception('version');
-        if (bytes[start += 1] != 72) throw Exception('version H');
-        if (bytes[start += 1] != 84) throw Exception('version HT');
-        if (bytes[start += 1] != 84) throw Exception('version HTT');
-        if (bytes[start += 1] != 80) throw Exception('version HTTP');
-        if (bytes[start += 1] != 47) throw Exception('version HTTP/');
-        if (bytes[start += 1] != 49) throw Exception('version HTTP/1');
-        if (bytes[start + 1] != 46) throw Exception('version HTTP/1.');
+
+        if (start + 9 != bytes.length ||
+            bytes[start += 1] != 72 ||
+            bytes[start += 1] != 84 ||
+            bytes[start += 1] != 84 ||
+            bytes[start += 1] != 80 ||
+            bytes[start += 1] != 47 ||
+            bytes[start += 1] != 49 ||
+            bytes[start + 1] != 46) {
+          throw Exception('version');
+        }
+
         version = String.fromCharCodes(bytes.sublist(start));
         state = State.headers;
         break;
+
       case State.headers:
         var index = bytes.indexOf(58);
-        if (index == -1) throw Exception('header field');
+
+        if (index == -1) {
+          throw Exception('header field');
+        }
+
         var name = String.fromCharCodes(bytes.sublist(0, index));
         var value = String.fromCharCodes(bytes.sublist(index + 2));
         headers.add(name, value);
         break;
+
       default:
         throw UnimplementedError();
     }
@@ -69,7 +87,7 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
 
     if (headers != null) {
       for (var header in headers) {
-        socket.writeln('$header');
+        socket.writeln(header);
       }
     }
 
