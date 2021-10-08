@@ -9,7 +9,7 @@ import 'dart:async';
 
 import 'package:astra/core.dart';
 
-Future<void> application(Request request, Start start, Send send) {
+Future<void> application(Request request) {
   Response response;
 
   if (connection.url.path == '/') {
