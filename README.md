@@ -5,27 +5,36 @@ TODO: parsing and sending body properly.
 ```dart
 // lib/[package].dart
 
-import 'dart:async';
-
 import 'package:astra/core.dart';
 
 Future<void> application(Request request) {
   Response response;
 
-  if (connection.url.path == '/') {
-    response = TextResponse('hello world!');
-  } else {
-    response = Response.notFound();
+  switch (request.url.path) {
+    case '/':
+      response = TextResponse('hello world!');
+      break;
+    case '/readme':
+      response = FileResponse('README.md');
+      break;
+    case '/error':
+      throw Exception('some message');
+    default:
+      response = Response.notFound();
   }
 
-  return response(connection);
+  return response(request);
+}
+
+void logger(String message, bool isError) {
+  print(message);
 }
 
 Future<void> main() async {
   var server = await Server.bind('localhost', 3000);
   print('serving at ${server.url}');
-  server.mount(log(error(application)));
+  server.mount(error(log(application, logger: logger)));
 }
-```
 
-(Not yet) Use `astra serve [[package]:app]`.
+```
+(Not yet) Use `astra serve [[package]:application]`.
