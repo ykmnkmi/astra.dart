@@ -122,24 +122,10 @@ String renderFrames(Trace trace) {
     if (scheme == 'file' && frame.line != null) {
       var lines = File.fromUri(frame.uri).readAsLinesSync();
       var line = lines[frame.line! - 1];
-      var leftTrimmed = line.trimLeft();
-      var column = (frame.column ?? 0) - line.length + leftTrimmed.length - 1;
-      var code = leftTrimmed.trimRight();
-
-      buffer.write('<br><pre style="">');
-
-      if (column != 0) {
-        buffer
-          ..write(code.substring(0, column))
-          ..write('<u>')
-          ..write(code.substring(column, column + 1))
-          ..write('</u>')
-          ..write(code.substring(column + 1));
-      } else {
-        buffer.write(code);
-      }
-
-      buffer.write('</pre>');
+      buffer
+        ..write('<br><pre style="">')
+        ..write(line)
+        ..write('</pre>');
     }
 
     buffer.write('</div>');

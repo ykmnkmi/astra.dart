@@ -30,7 +30,8 @@ void logger(String message, bool isError) {
 
 Future<void> main() async {
   var server = await Server.bind('localhost', 3000);
-  // ignore: avoid_print
   print('serving at ${server.url}');
-  server.mount(error(log(application, logger: logger)));
+  server.mount(error(log(application, logger: logger), debug: true));
 }
+
+// ignore_for_file: avoid_print

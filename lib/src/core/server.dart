@@ -180,9 +180,9 @@ abstract class ServerBase extends Server {
 class ServerImpl extends ServerBase {
   static Future<ServerImpl> bind(Object address, int port,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var serverSocket = await ServerSocket.bind(address, port,
+    var server = await ServerSocket.bind(address, port,
         backlog: backlog, v6Only: v6Only, shared: shared);
-    return ServerImpl.listenOn(serverSocket);
+    return ServerImpl.listenOn(server);
   }
 
   ServerImpl.listenOn(this.server) : super();
@@ -207,9 +207,9 @@ class SecureServerImpl extends ServerBase {
   static Future<SecureServerImpl> bind(
       Object address, int port, SecurityContext context,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var serverSocket = await SecureServerSocket.bind(address, port, context,
+    var server = await SecureServerSocket.bind(address, port, context,
         backlog: backlog, v6Only: v6Only, shared: shared);
-    return SecureServerImpl.listenOn(serverSocket);
+    return SecureServerImpl.listenOn(server);
   }
 
   SecureServerImpl.listenOn(this.server) : super();

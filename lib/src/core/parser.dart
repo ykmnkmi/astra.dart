@@ -1,5 +1,6 @@
 import 'dart:async' show StreamController, StreamSubscription;
 import 'dart:io' show Socket;
+import 'dart:typed_data' show Uint8List;
 
 const int lf = 10;
 const int cr = 13;
@@ -9,9 +10,9 @@ enum State {
   headers,
 }
 
-class Parser extends Stream<List<int>> {
+class Parser extends Stream<Uint8List> {
   Parser(this.socket, this.sink)
-      : controller = StreamController<List<int>>(sync: true),
+      : controller = StreamController<Uint8List>(sync: true),
         skipLeadingLF = false,
         newLinesCount = 0 {
     subscription =
@@ -22,18 +23,18 @@ class Parser extends Stream<List<int>> {
 
   final Sink<List<int>> sink;
 
-  final StreamController<List<int>> controller;
+  final StreamController<Uint8List> controller;
 
   bool skipLeadingLF;
 
   int newLinesCount;
 
-  List<int>? carry;
+  Uint8List? carry;
 
   StreamSubscription<List<int>>? subscription;
 
   @override
-  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
+  StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     return controller.stream.listen(onData,
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
@@ -56,7 +57,7 @@ class Parser extends Stream<List<int>> {
     }
   }
 
-  void addLines(List<int> bytes, int start) {
+  void addLines(Uint8List bytes, int start) {
     var sliceStart = start, end = bytes.length;
     var char = 0;
 
@@ -94,12 +95,12 @@ class Parser extends Stream<List<int>> {
     }
   }
 
-  void onData(List<int> bytes) {
+  void onData(Uint8List bytes) {
     var start = 0;
 
     if (carry != null) {
       assert(!skipLeadingLF);
-      bytes = carry! + bytes.sublist(start);
+      bytes = carry! + bytes.sublist(start) as Uint8List;
       start = 0;
       carry = null;
     } else if (skipLeadingLF) {
