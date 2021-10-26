@@ -1,12 +1,7 @@
 import 'dart:async' show StreamController, StreamSubscription;
-import 'dart:io'
-    show
-        InternetAddressType,
-        SecureServerSocket,
-        SecurityContext,
-        ServerSocket,
-        Socket,
-        SocketOption;
+import 'dart:convert';
+import 'dart:io' show InternetAddressType, SecureServerSocket, SecurityContext, ServerSocket, Socket, SocketOption;
+import 'dart:typed_data';
 
 import 'http.dart';
 import 'parser.dart';
@@ -73,7 +68,7 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
 
         var name = String.fromCharCodes(bytes.sublist(0, index));
         var value = String.fromCharCodes(bytes.sublist(index + 2));
-        headers.add(name, value);
+        headers.add(name.toLowerCase(), value);
         break;
 
       default:
@@ -83,15 +78,45 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
 
   // TODO: implement buffering
   void start(int status, {List<Header>? headers, bool buffer = true}) {
-    socket.writeln('HTTP/$version $status ${ReasonPhrases.to(status)}');
+    var builder = BytesBuilder();
+    // socket.writeln('HTTP/$version $status ${ReasonPhrases.to(status)}');
+    builder
+      ..add(const <int>[72, 84, 84, 80, 47])
+      ..add(version.codeUnits)
+      ..addByte(32)
+      ..add(status.toString().codeUnits)
+      ..addByte(32)
+      ..add(ReasonPhrases.to(status).codeUnits)
+      ..addByte(13)
+      ..addByte(10);
 
     if (headers != null) {
       for (var header in headers) {
-        socket.writeln(header);
+        builder
+          ..add(header.name.codeUnits)
+          ..addByte(58)
+          ..addByte(32);
+
+        var values = header.values;
+        builder.add(values[0].codeUnits);
+
+        for (var i = 1; i < values.length; i += 1) {
+          builder
+            ..addByte(44)
+            ..addByte(32)
+            ..add(values[i].codeUnits);
+        }
+
+        builder
+          ..addByte(13)
+          ..addByte(10);
       }
     }
 
-    socket.writeln();
+    builder
+      ..addByte(13)
+      ..addByte(10);
+    socket.add(builder.takeBytes());
   }
 
   void send(List<int> bytes) {
@@ -106,8 +131,7 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
     return socket.close();
   }
 
-  return RequestImpl(controller.stream, socket, method, Uri.parse(url), version,
-      headers, start, send, flush, close);
+  return RequestImpl(controller.stream, socket, method, Uri.parse(url), version, headers, start, send, flush, close);
 }
 
 abstract class Server extends Stream<Request> {
@@ -120,15 +144,10 @@ abstract class Server extends Stream<Request> {
   void handle(Handler handler);
 
   static Future<Server> bind(Object address, int port,
-      {int backlog = 0,
-      bool v6Only = false,
-      bool shared = false,
-      SecurityContext? context}) {
+      {int backlog = 0, bool v6Only = false, bool shared = false, SecurityContext? context}) {
     return context == null
-        ? ServerImpl.bind(address, port,
-            backlog: backlog, v6Only: v6Only, shared: shared)
-        : SecureServerImpl.bind(address, port, context,
-            v6Only: v6Only, backlog: backlog, shared: shared);
+        ? ServerImpl.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared)
+        : SecureServerImpl.bind(address, port, context, v6Only: v6Only, backlog: backlog, shared: shared);
   }
 }
 
@@ -172,16 +191,15 @@ abstract class ServerBase extends Server {
   StreamSubscription<Request> listen(void Function(Request event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     server.listen(parseSocket);
-    return subscription = controller.stream.listen(onData,
-        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return subscription =
+        controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 }
 
 class ServerImpl extends ServerBase {
   static Future<ServerImpl> bind(Object address, int port,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server = await ServerSocket.bind(address, port,
-        backlog: backlog, v6Only: v6Only, shared: shared);
+    var server = await ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared);
     return ServerImpl.listenOn(server);
   }
 
@@ -204,11 +222,10 @@ class ServerImpl extends ServerBase {
 }
 
 class SecureServerImpl extends ServerBase {
-  static Future<SecureServerImpl> bind(
-      Object address, int port, SecurityContext context,
+  static Future<SecureServerImpl> bind(Object address, int port, SecurityContext context,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server = await SecureServerSocket.bind(address, port, context,
-        backlog: backlog, v6Only: v6Only, shared: shared);
+    var server =
+        await SecureServerSocket.bind(address, port, context, backlog: backlog, v6Only: v6Only, shared: shared);
     return SecureServerImpl.listenOn(server);
   }
 

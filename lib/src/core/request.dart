@@ -29,8 +29,8 @@ abstract class Request {
 }
 
 class RequestImpl extends Request {
-  RequestImpl(this.stream, this.sink, this.method, this.url, this.version,
-      this.headers, this.start, this.send, this.flush, this.close);
+  RequestImpl(this.stream, this.sink, this.method, this.url, this.version, this.headers, this.start, this.send,
+      this.flush, this.close);
 
   @override
   final Stream<List<int>> stream;

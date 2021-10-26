@@ -13,35 +13,29 @@ abstract class MediaTypes {
 }
 
 class Header {
-  const Header(this.name, this.value);
+  const Header(this.name, this.values);
 
   final String name;
 
-  final String value;
+  final List<String> values;
 
   @override
   String toString() {
-    return '$name: $value';
+    return 'Header($name: ${values.join(', ')})';
   }
 }
 
 class Headers {
   static const String accept = 'accept';
   static const String acceptEncoding = 'accept-encoding';
-  static const String accessControlAllowCredentials =
-      'access-control-allow-credentials';
-  static const String accessControlAllowHeaders =
-      'access-control-allow-headers';
-  static const String accessControlAllowMethods =
-      'access-control-allow-methods';
+  static const String accessControlAllowCredentials = 'access-control-allow-credentials';
+  static const String accessControlAllowHeaders = 'access-control-allow-headers';
+  static const String accessControlAllowMethods = 'access-control-allow-methods';
   static const String accessControlAllowOrigin = 'access-control-allow-origin';
-  static const String accessControlExposeHeaders =
-      'access-control-expose-headers';
+  static const String accessControlExposeHeaders = 'access-control-expose-headers';
   static const String accessControlMaxAge = 'access-control-max-age';
-  static const String accessControlRequestHeaders =
-      'access-control-request-headers';
-  static const String accessControlRequestMethod =
-      'access-control-request-method';
+  static const String accessControlRequestHeaders = 'access-control-request-headers';
+  static const String accessControlRequestMethod = 'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
   static const String connection = 'connection';
@@ -49,8 +43,7 @@ class Headers {
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';
   static const String contentSecurityPolicy = 'content-security-policy';
-  static const String contentSecurityPolicyReportOnly =
-      'content-security-policy-report-only';
+  static const String contentSecurityPolicyReportOnly = 'content-security-policy-report-only';
   static const String contentType = 'content-type';
   static const String cookie = 'cookie';
   static const String ifModifiedSince = 'if-modified-since';
@@ -79,21 +72,16 @@ class Headers {
   static const String xURLScheme = 'x-url-scheme';
   static const String xXSSProtection = 'x-xss-protection';
 
-  Headers({List<Header>? raw}) : raw = <Header>[] {
-    if (raw != null) {
-      raw.addAll(raw);
-    }
-  }
+  Headers({List<Header>? raw}) : raw = raw ?? <Header>[];
 
   final List<Header> raw;
 
-  @pragma('vm:prefer-inline')
   String? operator [](String name) {
     return get(name);
   }
 
   bool contains(String name) {
-    name = name.toLowerCase();
+    name = name;
 
     for (var index = raw.length - 1; index >= 0; index -= 1) {
       if (raw[index].name == name) {
@@ -106,10 +94,11 @@ class Headers {
 
   String? get(String name) {
     for (var index = raw.length - 1; index >= 0; index -= 1) {
-      name = name.toLowerCase();
+      name = name;
 
       if (raw[index].name == name) {
-        return raw[index].value;
+        var values = raw[index].values;
+        return values.isEmpty ? null : values[0];
       }
     }
 
@@ -117,15 +106,17 @@ class Headers {
   }
 
   List<String> getAll(String name) {
-    name = name.toLowerCase();
-    return raw
-        .where((header) => name == header.name)
-        .map<String>((header) => header.value)
-        .toList();
+    for (var header in raw) {
+      if (name == header.name) {
+        return header.values;
+      }
+    }
+
+    return <String>[];
   }
 
   MutableHeaders toMutable() {
-    return MutableHeaders(raw: raw.toList());
+    return MutableHeaders(raw: raw);
   }
 }
 
@@ -137,49 +128,53 @@ class MutableHeaders extends Headers {
   }
 
   void add(String name, String value) {
-    raw.add(Header(name.toLowerCase(), value));
+    raw.add(Header(name, <String>[value]));
+  }
+
+  void addAll(String name, List<String> values) {
+    raw.add(Header(name, values));
   }
 
   void clear() {
     raw.clear();
   }
 
-  void delete(String name) {
-    var indexes = <int>[];
-    name = name.toLowerCase();
+  void delete(String name, [String? value]) {
+    for (var i = raw.length - 1; i >= 0; i -= 1) {
+      if (raw[i].name == name) {
+        if (value == null) {
+          raw.removeAt(i);
+        } else {
+          raw[i].values.remove(value);
+        }
 
-    for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (raw[index].name == name) {
-        indexes.add(index);
+        return;
       }
-    }
-
-    for (var index in indexes) {
-      raw.removeAt(index);
     }
   }
 
   void set(String name, String value) {
-    var indexes = <int>[];
-    name = name.toLowerCase();
-
-    for (var index = raw.length - 1; index >= 0; index -= 1) {
-      if (raw[index].name == name) {
-        indexes.add(index);
+    for (var i = 0; i < raw.length; i += 1) {
+      if (name == raw[i].name) {
+        raw[i].values
+          ..length = 1
+          ..[0] = value;
+        return;
       }
     }
 
-    if (indexes.isEmpty) {
-      raw.add(Header(name, value));
-    } else {
-      var index = indexes.removeLast();
-      var header = raw[index];
-      raw[index] = Header(header.name, value);
+    add(name, value);
+  }
 
-      for (var index in indexes) {
-        raw.removeAt(index);
+  void setAll(String name, List<String> values) {
+    for (var i = 0; i < raw.length; i += 1) {
+      if (name == raw[i].name) {
+        raw[i] = Header(name, values);
+        return;
       }
     }
+
+    addAll(name, values);
   }
 
   @override
@@ -202,6 +197,11 @@ class DataMessage extends Message {
   final List<int> bytes;
 
   final bool end;
+
+  @override
+  String toString() {
+    return 'DataMessage(end: $end, bytes: ${bytes.take(10)})';
+  }
 }
 
 abstract class ReasonPhrases {
@@ -210,8 +210,7 @@ abstract class ReasonPhrases {
   static const String ok = 'OK';
   static const String created = 'Created';
   static const String accepted = 'Accepted';
-  static const String nonAuthoritativeInformation =
-      'Non-Authoritative Information';
+  static const String nonAuthoritativeInformation = 'Non-Authoritative Information';
   static const String noContent = 'No Content';
   static const String resetContent = 'Reset Content';
   static const String partialContent = 'Partial Content';
@@ -229,16 +228,14 @@ abstract class ReasonPhrases {
   static const String notFound = 'Not Found';
   static const String methodNotAllowed = 'Method Not Allowed';
   static const String notAcceptable = 'Not Acceptable';
-  static const String proxyAuthenticationRequired =
-      'Proxy Authentication Required';
+  static const String proxyAuthenticationRequired = 'Proxy Authentication Required';
   static const String conflict = 'Conflict';
   static const String gone = 'Gone';
   static const String lengthRequired = 'Length Required';
   static const String preconditionFailed = 'Precondition Failed';
   static const String requestEntityTooLarge = 'Request Entity Too Large';
   static const String unsupportedMediaType = 'Unsupported Media Type';
-  static const String requestedRangeNotSatisfiable =
-      'Requested range not satisfiable';
+  static const String requestedRangeNotSatisfiable = 'Requested range not satisfiable';
   static const String expectationFailed = 'Expectation Failed';
   static const String upgradeRequired = 'Upgrade Required';
   static const String internalServerError = 'Internal Server Error';

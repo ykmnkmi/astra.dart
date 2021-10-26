@@ -10,7 +10,6 @@ typedef Application = Future<void> Function(Request request);
 
 typedef Handler = Future<Response> Function(Request request);
 
-typedef ExceptionHandler = Future<Response> Function(
-    Request connection, Object error, StackTrace stackTrace);
+typedef ExceptionHandler = Future<Response> Function(Request connection, Object error, StackTrace stackTrace);
 
 typedef Middleware = Handler Function(Handler handler);

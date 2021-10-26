@@ -42,8 +42,7 @@ class TestClient {
       var start = request.start;
       var isRedirectResponse = false;
 
-      request.start =
-          (int status, {List<Header>? headers, bool buffer = true}) {
+      request.start = (int status, {List<Header>? headers, bool buffer = true}) {
         if (headers != null) {
           for (var header in headers) {
             if (header.name == HttpHeaders.locationHeader) {
