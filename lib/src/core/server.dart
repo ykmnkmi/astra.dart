@@ -210,9 +210,15 @@ class ServerImpl extends ServerBase {
 
   @override
   Uri get url {
-    var address = server.address;
-    var host = address.isLoopback ? 'loopback' : address.host;
-    return Uri(scheme: 'http', host: host, port: server.port);
+    if (server.address.isLoopback) {
+      return Uri(scheme: 'http', host: 'localhost', port: server.port);
+    }
+
+    if (server.address.type == InternetAddressType.IPv6) {
+      return Uri(scheme: 'http', host: '[${server.address.address}]', port: server.port);
+    }
+
+    return Uri(scheme: 'http', host: server.address.address, port: server.port);
   }
 
   @override
@@ -236,9 +242,15 @@ class SecureServerImpl extends ServerBase {
 
   @override
   Uri get url {
-    var address = server.address;
-    var host = address.isLoopback ? 'loopback' : address.host;
-    return Uri(scheme: 'https', host: host, port: server.port);
+    if (server.address.isLoopback) {
+      return Uri(scheme: 'https', host: 'localhost', port: server.port);
+    }
+
+    if (server.address.type == InternetAddressType.IPv6) {
+      return Uri(scheme: 'https', host: '[${server.address.address}]', port: server.port);
+    }
+
+    return Uri(scheme: 'https', host: server.address.address, port: server.port);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:io' show File, FileSystemEntityType, HttpStatus;
 
 import 'package:http_parser/http_parser.dart' show formatHttpDate;
 import 'package:mime/mime.dart' show MimeTypeResolver;
+import 'package:meta/meta.dart' show internal;
 import 'package:path/path.dart' as path show normalize;
 
 import 'http.dart';
@@ -69,8 +70,10 @@ class Response<T extends Object?> {
       this.headers.add(Headers.contentLength, '${body.length}');
     }
 
+    var mediaType = this.mediaType;
+
     if (mediaType != null && populateContentType) {
-      this.headers.add(Headers.contentType, mediaType!);
+      this.headers.add(Headers.contentType, mediaType);
     }
   }
 
@@ -90,6 +93,7 @@ class Response<T extends Object?> {
     return request.close();
   }
 
+  @internal
   List<int> render(T? content) {
     if (content == null) {
       return const <int>[];
