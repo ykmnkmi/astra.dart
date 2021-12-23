@@ -5,17 +5,13 @@ import 'dart:typed_data' show Uint8List;
 const int lf = 10;
 const int cr = 13;
 
-enum State {
-  request,
-  headers,
-}
-
 class Parser extends Stream<Uint8List> {
   Parser(this.socket, this.sink)
       : controller = StreamController<Uint8List>(sync: true),
         skipLeadingLF = false,
         newLinesCount = 0 {
-    subscription = socket.listen(onData, onError: controller.addError, onDone: onDone);
+    subscription =
+        socket.listen(onData, onError: controller.addError, onDone: onDone);
   }
 
   final Socket socket;
@@ -35,7 +31,8 @@ class Parser extends Stream<Uint8List> {
   @override
   StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return controller.stream.listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
   void switchToBody() {

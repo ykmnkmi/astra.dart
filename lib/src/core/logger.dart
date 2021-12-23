@@ -9,7 +9,7 @@ import 'types.dart';
 typedef LoggerCallback = void Function(String message, bool isError);
 
 String format(int code, Request request, DateTime start, Duration elapsed) {
-  return '$start $elapsed [${request.method}] $code ${request.url}';
+  return '$start $elapsed [${request.method}] $code ${request.uri}';
 }
 
 Application log(Application application, {required LoggerCallback logger}) {

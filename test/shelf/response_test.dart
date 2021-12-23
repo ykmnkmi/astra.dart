@@ -6,13 +6,15 @@ import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 
 void main() {
-  late final Server server;
+  late Server server;
 
-  setUpAll(() async {
+  setUp(() async {
     server = await Server.bind(InternetAddress.loopbackIPv4, 0);
   });
 
-  tearDownAll(() => server.close());
+  tearDown(() {
+    return server.close();
+  });
 
   test('text response', () async {
     server.handle((request) async {

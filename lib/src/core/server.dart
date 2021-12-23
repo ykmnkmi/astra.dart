@@ -1,6 +1,12 @@
 import 'dart:async' show StreamController, StreamSubscription;
-import 'dart:convert';
-import 'dart:io' show InternetAddressType, SecureServerSocket, SecurityContext, ServerSocket, Socket, SocketOption;
+import 'dart:io'
+    show
+        InternetAddressType,
+        SecureServerSocket,
+        SecurityContext,
+        ServerSocket,
+        Socket,
+        SocketOption;
 import 'dart:typed_data';
 
 import 'http.dart';
@@ -8,7 +14,12 @@ import 'parser.dart';
 import 'request.dart';
 import 'types.dart';
 
-Future<RequestImpl> parse(Server server, Socket socket) async {
+enum State {
+  request,
+  headers,
+}
+
+Future<Request> parse(Server server, Socket socket) async {
   if (socket.address.type != InternetAddressType.unix) {
     socket.setOption(SocketOption.tcpNoDelay, true);
   }
@@ -131,7 +142,8 @@ Future<RequestImpl> parse(Server server, Socket socket) async {
     return socket.close();
   }
 
-  return RequestImpl(controller.stream, socket, method, Uri.parse(url), version, headers, start, send, flush, close);
+  return Request(controller.stream, socket, method, Uri.parse(url), version, headers, start, send,
+      flush, close);
 }
 
 abstract class Server extends Stream<Request> {
@@ -147,7 +159,8 @@ abstract class Server extends Stream<Request> {
       {int backlog = 0, bool v6Only = false, bool shared = false, SecurityContext? context}) {
     return context == null
         ? ServerImpl.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared)
-        : SecureServerImpl.bind(address, port, context, v6Only: v6Only, backlog: backlog, shared: shared);
+        : SecureServerImpl.bind(address, port, context,
+            v6Only: v6Only, backlog: backlog, shared: shared);
   }
 }
 
@@ -191,15 +204,16 @@ abstract class ServerBase extends Server {
   StreamSubscription<Request> listen(void Function(Request event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     server.listen(parseSocket);
-    return subscription =
-        controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return subscription = controller.stream
+        .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 }
 
 class ServerImpl extends ServerBase {
   static Future<ServerImpl> bind(Object address, int port,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server = await ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared);
+    var server =
+        await ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared);
     return ServerImpl.listenOn(server);
   }
 
@@ -230,8 +244,8 @@ class ServerImpl extends ServerBase {
 class SecureServerImpl extends ServerBase {
   static Future<SecureServerImpl> bind(Object address, int port, SecurityContext context,
       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-    var server =
-        await SecureServerSocket.bind(address, port, context, backlog: backlog, v6Only: v6Only, shared: shared);
+    var server = await SecureServerSocket.bind(address, port, context,
+        backlog: backlog, v6Only: v6Only, shared: shared);
     return SecureServerImpl.listenOn(server);
   }
 

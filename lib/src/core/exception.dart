@@ -26,7 +26,8 @@ class HTTPException implements Exception {
     return '$buffer';
   }
 
-  static Future<Response> handler(Request request, Object error, StackTrace stackTrace) {
+  static Future<Response> handler(
+      Request request, Object error, StackTrace stackTrace) {
     var typed = error as HTTPException;
     Response response;
 
@@ -40,9 +41,12 @@ class HTTPException implements Exception {
   }
 }
 
-Application exception(Application application, Map<Object, ExceptionHandler> handlers) {
+Application exception(
+    Application application, Map<Object, ExceptionHandler> handlers) {
   var statusHandlers = <int, ExceptionHandler>{};
-  var exceptionHandlers = <Type, ExceptionHandler>{HTTPException: HTTPException.handler};
+  var exceptionHandlers = <Type, ExceptionHandler>{
+    HTTPException: HTTPException.handler
+  };
 
   for (var statusOrException in handlers.keys) {
     if (statusOrException is int) {
@@ -58,7 +62,8 @@ Application exception(Application application, Map<Object, ExceptionHandler> han
     var start = request.start;
     var responseStarted = false;
 
-    request.start = (int status, {String? reason, List<Header>? headers, bool buffer = true}) {
+    request.start = (int status,
+        {String? reason, List<Header>? headers, bool buffer = true}) {
       responseStarted = true;
       start(status, headers: headers, buffer: buffer);
     };
@@ -79,7 +84,8 @@ Application exception(Application application, Map<Object, ExceptionHandler> han
       }
 
       if (responseStarted) {
-        throw StateError('caught handled exception, but response already started');
+        throw StateError(
+            'caught handled exception, but response already started');
       }
 
       var response = await handler(request, error, stackTrace);

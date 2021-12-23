@@ -1,63 +1,41 @@
 import 'dart:io' show IOSink;
 
+import 'package:meta/meta.dart';
+
 import 'http.dart';
 import 'types.dart';
 
-abstract class Request {
-  String get version;
+class Request {
+  Request(this.stream, this.sink, this.method, this.uri, this.version,
+      this.headers, this.start, this.send, this.flusher, this.closer);
 
-  String get method;
-
-  Uri get url;
-
-  Headers get headers;
-
-  Stream<List<int>> get stream;
-
-  abstract Start start;
-
-  abstract Send send;
-
-  abstract Future<void> Function() flush;
-
-  abstract Future<void> Function() close;
-
-  @override
-  String toString() {
-    return 'Request($method, $url, $version)';
-  }
-}
-
-class RequestImpl extends Request {
-  RequestImpl(this.stream, this.sink, this.method, this.url, this.version, this.headers, this.start, this.send,
-      this.flush, this.close);
-
-  @override
   final Stream<List<int>> stream;
 
   final IOSink sink;
 
-  @override
   String method;
 
-  @override
-  Uri url;
+  Uri uri;
 
-  @override
   String version;
 
-  @override
   Headers headers;
 
-  @override
   Start start;
 
-  @override
   Send send;
 
-  @override
-  Future<void> Function() flush;
+  @protected
+  Future<void> Function() flusher;
 
-  @override
-  Future<void> Function() close;
+  @protected
+  Future<void> Function() closer;
+
+  Future<void> flush() {
+    return flusher();
+  }
+
+  Future<void> close() {
+    return closer();
+  }
 }

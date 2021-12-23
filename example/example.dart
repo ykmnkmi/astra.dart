@@ -4,7 +4,7 @@ import 'package:l/l.dart';
 Future<void> application(Request request) {
   Response response;
 
-  switch (request.url.path) {
+  switch (request.uri.path) {
     case '/':
       response = TextResponse('hello world!');
       break;
