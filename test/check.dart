@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:astra/src/core/http.dart' show MutableHeaders;
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart' show Response;
+import 'package:meta/meta.dart' show protected;
 
 const int lf = 10, cr = 13;
 
@@ -14,7 +16,13 @@ enum State {
 }
 
 class Parser {
-  Parser(this.socket) : subscription = socket.listen(null) {
+  Parser(this.socket)
+      : subscription = socket.listen(null),
+        request = PartialRequest(),
+        state = State.request,
+        carry = const <int>[],
+        skipLeadingLF = false,
+        newLinesCount = 0 {
     subscription
       ..pause()
       ..onData(onData)
@@ -28,11 +36,15 @@ class Parser {
 
   final Completer<Request> completer = Completer<Request>.sync();
 
-  List<int> carry = const <int>[];
+  final PartialRequest request;
 
-  bool skipLeadingLF = false;
+  State state;
 
-  int newLinesCount = 0;
+  List<int> carry;
+
+  bool skipLeadingLF;
+
+  int newLinesCount;
 
   Future<Request> get done {
     return completer.future;
@@ -103,12 +115,73 @@ class Parser {
       return;
     }
 
-    serve();
+    if (state == State.body) {
+      serve();
+    }
+
+    throw StateError('request not parsed');
   }
 
-  void parse(List<int> bytes) {}
+  void parse(List<int> bytes) {
+    switch (state) {
+      case State.request:
+        int start = 0, end = bytes.indexOf(32);
+
+        if (end == -1) {
+          throw StateError('parse method');
+        }
+
+        request.method = String.fromCharCodes(bytes.sublist(start, start = end));
+        end = bytes.indexOf(32, start += 1);
+
+        if (end == -1) {
+          throw StateError('parse path');
+        }
+
+        final String url = String.fromCharCodes(bytes.sublist(start, start = end));
+        request.uri = Uri.parse(url);
+
+        if (start + 9 != bytes.length ||
+            bytes[start += 1] != 72 ||
+            bytes[start += 1] != 84 ||
+            bytes[start += 1] != 84 ||
+            bytes[start += 1] != 80 ||
+            bytes[start += 1] != 47 ||
+            bytes[start += 1] != 49 ||
+            bytes[start + 1] != 46) {
+          throw StateError('parse version');
+        }
+
+        request.version = String.fromCharCodes(bytes.sublist(start));
+        state = State.headers;
+        return;
+
+      case State.headers:
+        if (bytes.isEmpty) {
+          state = State.body;
+          return;
+        }
+
+        final int index = bytes.indexOf(58);
+
+        if (index == -1) {
+          throw StateError('header field: $index, ${utf8.decode(bytes)}');
+        }
+
+        final String name = String.fromCharCodes(bytes.sublist(0, index));
+        final String value = String.fromCharCodes(bytes.sublist(index + 2));
+        (request.headers ??= MutableHeaders()).add(name.toLowerCase(), value);
+        break;
+
+      case State.body:
+        assert(false);
+        return;
+    }
+  }
 
   void serve() {
+    print(request.method);
+
     subscription
       ..pause()
       ..onDone(null)
@@ -118,106 +191,124 @@ class Parser {
   }
 }
 
-class Request extends Stream<List<int>> implements StreamSink<List<int>>, StringSink {
-  Request(this.socket, StreamSubscription<List<int>> subscription, {List<int>? carry})
-      : controller = StreamController<List<int>>(sync: true) {
-    if (carry != null) {
-      controller.add(carry);
-    }
+class PartialRequest {
+  String? method;
 
-    subscription
-      ..onData(controller.add)
-      ..onError(controller.addError)
-      ..onDone(controller.close)
-      ..resume();
+  Uri? uri;
+
+  String? version;
+
+  MutableHeaders? headers;
+}
+
+class Request extends PartialRequest {
+  Request(this.socket, this.subscription, {List<int>? carry}) : streamConsumed = false {
+    if (carry != null) {
+      getStream(carry);
+    }
   }
 
+  @protected
   final Socket socket;
 
-  final StreamController<List<int>> controller;
+  @protected
+  final StreamSubscription<List<int>> subscription;
 
-  @override
-  Future<void> get done {
-    return socket.done;
+  @protected
+  StreamController<List<int>>? controller;
+
+  @protected
+  List<int>? consumedBody;
+
+  bool streamConsumed;
+
+  Future<List<int>> get body {
+    List<int>? body = consumedBody;
+
+    if (body != null) {
+      return Future<List<int>>.value(body);
+    }
+
+    final Stream<List<int>> stream = this.stream;
+    body = consumedBody = <int>[];
+    return stream.fold(body, (List<int> previous, List<int> element) {
+      previous.addAll(element);
+      return previous;
+    });
   }
 
-  @override
-  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return controller.stream
-        .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  IOSink get sink {
+    return socket;
   }
 
-  @override
-  void add(List<int> event) {
-    socket.add(event);
+  Stream<List<int>> get stream {
+    final List<int>? body = consumedBody;
+
+    if (body != null) {
+      return Stream<List<int>>.value(body);
+    }
+
+    if (streamConsumed) {
+      throw StateError('Stream consumed');
+    }
+
+    streamConsumed = true;
+    return getStream();
   }
 
-  @override
-  void addError(Object error, [StackTrace? stackTrace]) {
-    socket.addError(error, stackTrace);
-  }
+  @protected
+  Stream<List<int>> getStream([List<int>? carry]) {
+    StreamController<List<int>>? controller = this.controller;
 
-  @override
-  Future<void> addStream(Stream<List<int>> stream) {
-    return socket.addStream(stream);
-  }
+    if (controller == null) {
+      controller = StreamController<List<int>>(sync: true);
 
-  @override
-  Future<void> close() {
-    return socket.close();
-  }
+      if (carry != null) {
+        controller.add(carry);
+      }
 
-  @override
-  void write(Object? object) {
-    socket.write(object);
-  }
+      subscription
+        ..onData(controller.add)
+        ..onError(controller.addError)
+        ..onDone(controller.close)
+        ..resume();
 
-  @override
-  void writeAll(Iterable<Object?> objects, [String separator = '']) {
-    socket.writeAll(objects);
-  }
+      this.controller = controller;
+    }
 
-  @override
-  void writeCharCode(int charCode) {
-    socket.writeCharCode(charCode);
-  }
-
-  @override
-  void writeln([Object? object = '']) {
-    socket.writeln(object);
+    return controller.stream;
   }
 }
 
-void main() {
-  const String host = 'localhost';
-  const int port = 3000;
+Future<void> main() async {
+  const host = 'localhost';
+  const port = 3000;
 
-  final Uri uri = Uri(scheme: 'http', host: host, port: port);
+  final uri = Uri(scheme: 'http', host: host, port: port);
+  final server = await ServerSocket.bind(host, port);
 
-  ServerSocket.bind(host, port).then<void>((ServerSocket server) {
-    server.listen((Socket socket) {
-      if (socket.address.type != InternetAddressType.unix) {
-        socket.setOption(SocketOption.tcpNoDelay, true);
-      }
+Timer.run(() async {
+  final response = await http.post(uri, body: 'ping');
+  print(response.body);
+  await server.close();
+});
 
-      final Parser parser = Parser(socket);
-      parser.done.then<void>((Request request) {
-        print('request');
-        request
-          ..write('HTTP/1.1 200 OK')
-          ..writeln()
-          ..writeln()
-          ..write('pong')
-          ..close();
-        utf8.decodeStream(request).then<void>(print);
-      });
-    });
+await for (final socket in server) {
+  if (socket.address.type != InternetAddressType.unix) {
+    socket.setOption(SocketOption.tcpNoDelay, true);
+  }
 
-    http.post(uri, body: 'ping').then<void>((Response response) {
-      print('response');
-      print(response.body);
-      server.close();
-    });
-  });
+  final parser = Parser(socket);
+  final request = await parser.done;
+
+  request.sink
+    ..write('HTTP/1.1 200 OK')
+    ..writeln()
+    ..writeln()
+    ..write('pong')
+    ..close();
+
+  final body = await request.body;
+  print(utf8.decode(body));
+}
 }
