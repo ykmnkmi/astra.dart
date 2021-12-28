@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:astra/src/core/http.dart' show MutableHeaders;
 import 'package:http/http.dart' as http;
-import 'package:http/http.dart' show Response;
 import 'package:meta/meta.dart' show protected;
 
 const int lf = 10, cr = 13;
@@ -51,11 +50,11 @@ class Parser {
   }
 
   void addLines(List<int> bytes, int start) {
-    int sliceStart = start, end = bytes.length;
-    int char = 0;
+    var sliceStart = start, end = bytes.length;
+    var char = 0;
 
-    for (int i = start; i < end; i += 1) {
-      int previousChar = char;
+    for (var i = start; i < end; i += 1) {
+      var previousChar = char;
       char = bytes[i];
 
       if (char != cr) {
@@ -90,7 +89,7 @@ class Parser {
   }
 
   void onData(List<int> bytes) {
-    int start = 0;
+    var start = 0;
 
     if (carry.isNotEmpty) {
       if (skipLeadingLF) {
@@ -125,7 +124,7 @@ class Parser {
   void parse(List<int> bytes) {
     switch (state) {
       case State.request:
-        int start = 0, end = bytes.indexOf(32);
+        var start = 0, end = bytes.indexOf(32);
 
         if (end == -1) {
           throw StateError('parse method');
@@ -138,7 +137,7 @@ class Parser {
           throw StateError('parse path');
         }
 
-        final String url = String.fromCharCodes(bytes.sublist(start, start = end));
+        var url = String.fromCharCodes(bytes.sublist(start, start = end));
         request.uri = Uri.parse(url);
 
         if (start + 9 != bytes.length ||
@@ -162,14 +161,14 @@ class Parser {
           return;
         }
 
-        final int index = bytes.indexOf(58);
+        var index = bytes.indexOf(58);
 
         if (index == -1) {
           throw StateError('header field: $index, ${utf8.decode(bytes)}');
         }
 
-        final String name = String.fromCharCodes(bytes.sublist(0, index));
-        final String value = String.fromCharCodes(bytes.sublist(index + 2));
+        var name = String.fromCharCodes(bytes.sublist(0, index));
+        var value = String.fromCharCodes(bytes.sublist(index + 2));
         (request.headers ??= MutableHeaders()).add(name.toLowerCase(), value);
         break;
 
@@ -180,8 +179,6 @@ class Parser {
   }
 
   void serve() {
-    print(request.method);
-
     subscription
       ..pause()
       ..onDone(null)
@@ -204,7 +201,7 @@ class PartialRequest {
 class Request extends PartialRequest {
   Request(this.socket, this.subscription, {List<int>? carry}) : streamConsumed = false {
     if (carry != null) {
-      getStream(carry);
+      getController(carry);
     }
   }
 
@@ -229,7 +226,7 @@ class Request extends PartialRequest {
       return Future<List<int>>.value(body);
     }
 
-    final Stream<List<int>> stream = this.stream;
+    var stream = this.stream;
     body = consumedBody = <int>[];
     return stream.fold(body, (List<int> previous, List<int> element) {
       previous.addAll(element);
@@ -242,23 +239,23 @@ class Request extends PartialRequest {
   }
 
   Stream<List<int>> get stream {
-    final List<int>? body = consumedBody;
+    var body = consumedBody;
 
     if (body != null) {
       return Stream<List<int>>.value(body);
     }
 
     if (streamConsumed) {
-      throw StateError('Stream consumed');
+      throw StateError('stream consumed');
     }
 
     streamConsumed = true;
-    return getStream();
+    return getController();
   }
 
   @protected
-  Stream<List<int>> getStream([List<int>? carry]) {
-    StreamController<List<int>>? controller = this.controller;
+  Stream<List<int>> getController([List<int>? carry]) {
+    var controller = this.controller;
 
     if (controller == null) {
       controller = StreamController<List<int>>(sync: true);
@@ -284,31 +281,31 @@ Future<void> main() async {
   const host = 'localhost';
   const port = 3000;
 
-  final uri = Uri(scheme: 'http', host: host, port: port);
-  final server = await ServerSocket.bind(host, port);
+  var uri = Uri(scheme: 'http', host: host, port: port);
+  var server = await ServerSocket.bind(host, port);
 
-Timer.run(() async {
-  final response = await http.post(uri, body: 'ping');
-  print(response.body);
-  await server.close();
-});
+  scheduleMicrotask(() async {
+    var response = await http.post(uri, body: 'ping');
+    print(response.body);
+    await server.close();
+  });
 
-await for (final socket in server) {
-  if (socket.address.type != InternetAddressType.unix) {
-    socket.setOption(SocketOption.tcpNoDelay, true);
+  await for (var socket in server) {
+    if (socket.address.type != InternetAddressType.unix) {
+      socket.setOption(SocketOption.tcpNoDelay, true);
+    }
+
+    var parser = Parser(socket);
+    var request = await parser.done;
+
+    request.sink
+      ..write('HTTP/1.1 200 OK')
+      ..writeln()
+      ..writeln()
+      ..write('pong')
+      ..close();
+
+    var body = await request.body;
+    print(utf8.decode(body));
   }
-
-  final parser = Parser(socket);
-  final request = await parser.done;
-
-  request.sink
-    ..write('HTTP/1.1 200 OK')
-    ..writeln()
-    ..writeln()
-    ..write('pong')
-    ..close();
-
-  final body = await request.body;
-  print(utf8.decode(body));
-}
 }
