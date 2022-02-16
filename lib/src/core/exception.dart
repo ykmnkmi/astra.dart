@@ -1,6 +1,4 @@
 import 'http.dart';
-import 'request.dart';
-import 'response.dart';
 import 'types.dart';
 
 class HTTPException implements Exception {
@@ -23,7 +21,7 @@ class HTTPException implements Exception {
     }
 
     buffer.write(')');
-    return '$buffer';
+    return buffer.toString();
   }
 
   static Future<Response> handler(
@@ -34,7 +32,7 @@ class HTTPException implements Exception {
     if (typed.status == 204 || typed.status == 304) {
       response = Response(status: typed.status);
     } else {
-      response = TextResponse(typed.message ?? '', status: error.status);
+      response = TextResponse(typed.message ?? '', statusCode: error.status);
     }
 
     return Future<Response>.value(response);

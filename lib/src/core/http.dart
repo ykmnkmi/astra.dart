@@ -1,6 +1,5 @@
-import 'dart:io' show HttpHeaders, HttpStatus;
-
-import 'package:http_parser/http_parser.dart' show parseHttpDate;
+import 'dart:io';
+import 'package:http_parser/http_parser.dart';
 
 abstract class MediaTypes {
   static const String text = 'text/plain; charset=utf-8';
@@ -28,20 +27,14 @@ class Header {
 class Headers {
   static const String accept = 'accept';
   static const String acceptEncoding = 'accept-encoding';
-  static const String accessControlAllowCredentials =
-      'access-control-allow-credentials';
-  static const String accessControlAllowHeaders =
-      'access-control-allow-headers';
-  static const String accessControlAllowMethods =
-      'access-control-allow-methods';
+  static const String accessControlAllowCredentials = 'access-control-allow-credentials';
+  static const String accessControlAllowHeaders = 'access-control-allow-headers';
+  static const String accessControlAllowMethods = 'access-control-allow-methods';
   static const String accessControlAllowOrigin = 'access-control-allow-origin';
-  static const String accessControlExposeHeaders =
-      'access-control-expose-headers';
+  static const String accessControlExposeHeaders = 'access-control-expose-headers';
   static const String accessControlMaxAge = 'access-control-max-age';
-  static const String accessControlRequestHeaders =
-      'access-control-request-headers';
-  static const String accessControlRequestMethod =
-      'access-control-request-method';
+  static const String accessControlRequestHeaders = 'access-control-request-headers';
+  static const String accessControlRequestMethod = 'access-control-request-method';
   static const String allow = 'allow';
   static const String authorization = 'authorization';
   static const String connection = 'connection';
@@ -49,8 +42,7 @@ class Headers {
   static const String contentEncoding = 'content-encoding';
   static const String contentLength = 'content-length';
   static const String contentSecurityPolicy = 'content-security-policy';
-  static const String contentSecurityPolicyReportOnly =
-      'content-security-policy-report-only';
+  static const String contentSecurityPolicyReportOnly = 'content-security-policy-report-only';
   static const String contentType = 'content-type';
   static const String cookie = 'cookie';
   static const String ifModifiedSince = 'if-modified-since';
@@ -187,165 +179,5 @@ class MutableHeaders extends Headers {
   @override
   MutableHeaders toMutable() {
     return this;
-  }
-}
-
-abstract class Message {
-  const Message();
-}
-
-class DataMessage extends Message {
-  static const DataMessage eos = DataMessage.empty(end: true);
-
-  const DataMessage(this.bytes, {this.end = false});
-
-  const DataMessage.empty({this.end = false}) : bytes = const <int>[];
-
-  final List<int> bytes;
-
-  final bool end;
-
-  @override
-  String toString() {
-    return 'DataMessage(end: $end, bytes: ${bytes.take(10)})';
-  }
-}
-
-abstract class ReasonPhrases {
-  static const String continue_ = 'Continue';
-  static const String switchingProtocols = 'Switching Protocols';
-  static const String ok = 'OK';
-  static const String created = 'Created';
-  static const String accepted = 'Accepted';
-  static const String nonAuthoritativeInformation =
-      'Non-Authoritative Information';
-  static const String noContent = 'No Content';
-  static const String resetContent = 'Reset Content';
-  static const String partialContent = 'Partial Content';
-  static const String multipleChoices = 'Multiple Choices';
-  static const String movedPermanently = 'Moved Permanently';
-  static const String found = 'Found';
-  static const String seeOther = 'See Other';
-  static const String notModified = 'Not Modified';
-  static const String useProxy = 'Use Proxy';
-  static const String temporaryRedirect = 'Temporary Redirect';
-  static const String badRequest = 'Bad Request';
-  static const String unauthorized = 'Unauthorized';
-  static const String paymentRequired = 'Payment Required';
-  static const String forbidden = 'Forbidden';
-  static const String notFound = 'Not Found';
-  static const String methodNotAllowed = 'Method Not Allowed';
-  static const String notAcceptable = 'Not Acceptable';
-  static const String proxyAuthenticationRequired =
-      'Proxy Authentication Required';
-  static const String conflict = 'Conflict';
-  static const String gone = 'Gone';
-  static const String lengthRequired = 'Length Required';
-  static const String preconditionFailed = 'Precondition Failed';
-  static const String requestEntityTooLarge = 'Request Entity Too Large';
-  static const String unsupportedMediaType = 'Unsupported Media Type';
-  static const String requestedRangeNotSatisfiable =
-      'Requested range not satisfiable';
-  static const String expectationFailed = 'Expectation Failed';
-  static const String upgradeRequired = 'Upgrade Required';
-  static const String internalServerError = 'Internal Server Error';
-  static const String notImplemented = 'Not Implemented';
-  static const String badGateway = 'Bad Gateway';
-  static const String serviceUnavailable = 'Service Unavailable';
-  static const String httpVersionNotSupported = 'HTTP Version not supported';
-
-  static String to(int status) {
-    switch (status) {
-      case HttpStatus.continue_:
-        return continue_;
-      case HttpStatus.switchingProtocols:
-        return switchingProtocols;
-      case HttpStatus.ok:
-        return ok;
-      case HttpStatus.created:
-        return created;
-      case HttpStatus.accepted:
-        return accepted;
-      case HttpStatus.nonAuthoritativeInformation:
-        return nonAuthoritativeInformation;
-      case HttpStatus.noContent:
-        return noContent;
-      case HttpStatus.resetContent:
-        return resetContent;
-      case HttpStatus.partialContent:
-        return partialContent;
-      case HttpStatus.multipleChoices:
-        return multipleChoices;
-      case HttpStatus.movedPermanently:
-        return movedPermanently;
-      case HttpStatus.found:
-        return found;
-      case HttpStatus.seeOther:
-        return seeOther;
-      case HttpStatus.notModified:
-        return notModified;
-      case HttpStatus.useProxy:
-        return useProxy;
-      case HttpStatus.temporaryRedirect:
-        return temporaryRedirect;
-      case HttpStatus.badRequest:
-        return badRequest;
-      case HttpStatus.unauthorized:
-        return unauthorized;
-      case HttpStatus.paymentRequired:
-        return paymentRequired;
-      case HttpStatus.forbidden:
-        return forbidden;
-      case HttpStatus.notFound:
-        return notFound;
-      case HttpStatus.methodNotAllowed:
-        return methodNotAllowed;
-      case HttpStatus.notAcceptable:
-        return notAcceptable;
-      case HttpStatus.proxyAuthenticationRequired:
-        return proxyAuthenticationRequired;
-      case HttpStatus.conflict:
-        return conflict;
-      case HttpStatus.gone:
-        return gone;
-      case HttpStatus.lengthRequired:
-        return lengthRequired;
-      case HttpStatus.preconditionFailed:
-        return preconditionFailed;
-      case HttpStatus.requestEntityTooLarge:
-        return requestEntityTooLarge;
-      case HttpStatus.unsupportedMediaType:
-        return unsupportedMediaType;
-      case HttpStatus.requestedRangeNotSatisfiable:
-        return requestedRangeNotSatisfiable;
-      case HttpStatus.expectationFailed:
-        return expectationFailed;
-      case HttpStatus.upgradeRequired:
-        return upgradeRequired;
-      case HttpStatus.internalServerError:
-        return internalServerError;
-      case HttpStatus.notImplemented:
-        return notImplemented;
-      case HttpStatus.badGateway:
-        return badGateway;
-      case HttpStatus.serviceUnavailable:
-        return serviceUnavailable;
-      case HttpStatus.httpVersionNotSupported:
-        return httpVersionNotSupported;
-      default:
-        return '';
-    }
-  }
-}
-
-extension HeadersExtension on Headers {
-  DateTime? get ifModifiedSince {
-    var date = get(HttpHeaders.ifModifiedSinceHeader);
-
-    if (date == null) {
-      return null;
-    } else {
-      return parseHttpDate(date);
-    }
   }
 }

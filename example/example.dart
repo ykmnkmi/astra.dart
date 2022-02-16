@@ -1,23 +1,17 @@
 import 'package:astra/core.dart';
 import 'package:l/l.dart';
 
-Future<void> application(Request request) {
-  Response response;
-
-  switch (request.uri.path) {
+Response handler(Request request) {
+  switch (request.url.path) {
     case '/':
-      response = TextResponse('hello world!');
-      break;
+      return TextResponse.ok('hello world!');
     case '/readme':
-      response = FileResponse('README.md');
-      break;
+      return FileResponse.ok('README.md');
     case '/error':
       throw Exception('some message');
     default:
-      response = Response.notFound();
+      return Response.notFound(null);
   }
-
-  return response(request);
 }
 
 void logger(String message, bool isError) {
@@ -29,9 +23,8 @@ void logger(String message, bool isError) {
 }
 
 Future<void> main() async {
-  var server = await Server.bind('localhost', 3000);
-  print('serving at ${server.url}');
-  server.mount(error(log(application, logger: logger), debug: true));
+  var server = await serve(error(log(handler, logger: logger), debug: true), 'localhost', 3000);
+  print('serving at http://localhost:${server.port}');
 }
 
 // ignore_for_file: avoid_print

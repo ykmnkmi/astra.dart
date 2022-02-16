@@ -1,16 +1,10 @@
-import 'http.dart';
-import 'request.dart';
-import 'response.dart';
+import 'dart:async';
 
-typedef Start = void Function(int status, {List<Header>? headers, bool buffer});
+import 'package:shelf/shelf.dart' show Request, Response;
 
-typedef Send = void Function(List<int> bytes);
+export 'package:shelf/shelf.dart' show Request, Response;
 
-typedef Application = Future<void> Function(Request request);
+typedef Handler = FutureOr<Response?> Function(Request request);
 
-typedef Handler = Future<Response> Function(Request request);
-
-typedef ExceptionHandler = Future<Response> Function(
-    Request connection, Object error, StackTrace stackTrace);
-
-typedef Middleware = Handler Function(Handler handler);
+typedef ExceptionHandler = FutureOr<Response?> Function(
+    Request request, Object error, StackTrace stackTrace);
