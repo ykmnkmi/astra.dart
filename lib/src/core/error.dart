@@ -1,56 +1,59 @@
+import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:stack_trace/stack_trace.dart' show Trace;
 
-import 'types.dart';
+import 'exception.dart';
+import 'handler.dart';
+import 'middleware.dart';
+import 'request.dart';
+import 'response.dart';
 
-Handler error(Handler handler,
-    {bool debug = false, ExceptionHandler? exceptionHandler, Map<String, Object>? headers}) {
-  Map<String, Object>? htmlHeaders;
+Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Object>? headers}) {
+  var htmlHeaders = <String, Object>{...?headers, 'content-type': 'text/html; charset=utf-8'};
 
-  if (headers != null) {
-    htmlHeaders = <String, Object>{...headers, 'content-type': 'text/html; charset=utf-8'};
-  }
+  return (Handler handler) {
+    return (Request request) async {
+      try {
+        return await handler(request);
+      } catch (error, stackTrace) {
+        if (debug) {
+          var accept = request.headers['accept'];
 
-  return (Request request) async {
-    try {
-      return await handler(request);
-    } catch (error, stackTrace) {
-      if (debug) {
-        var accept = request.headers['accept'];
+          if (accept != null && accept.contains('text/html')) {
+            var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
+              switch (match[1]) {
+                case 'type':
+                  return error.toString();
+                case 'error':
+                  return error.toString();
+                case 'trace':
+                  return renderFrames(Trace.from(stackTrace));
+                default:
+                  return '';
+              }
+            });
 
-        if (accept != null && accept.contains('text/html')) {
-          var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
-            switch (match[1]) {
-              case 'type':
-                return error.toString();
-              case 'error':
-                return error.toString();
-              case 'trace':
-                return renderFrames(Trace.from(stackTrace));
-              default:
-                return '';
-            }
-          });
+            return Response.internalServerError(body: body, headers: htmlHeaders);
+          }
 
-          return Response.internalServerError(body: body, headers: htmlHeaders);
+          var trace = Trace.format(stackTrace);
+          return Response.internalServerError(body: '$error\n\n$trace', headers: headers);
         }
 
-        var trace = Trace.format(stackTrace);
-        return Response.internalServerError(body: '$error\n\n$trace', headers: headers);
-      }
+        if (errorHandler == null) {
+          return Response.internalServerError(body: 'Internal Server Error', headers: headers);
+        }
 
-      if (exceptionHandler == null) {
-        return Response.internalServerError(body: 'Internal Server Error', headers: headers);
+        return await errorHandler(request, error, stackTrace);
       }
-
-      return await exceptionHandler(request, error, stackTrace);
-    }
+    };
   };
 }
 
 const String template = '''
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <title>Astra Debugger</title>
     <style>
@@ -127,12 +130,8 @@ String renderFrames(Trace trace) {
 
     var member = frame.member;
 
-    if (member != null && member.contains('<fn>')) {
-      member = member.replaceAll('<fn>', 'closure');
-    }
-
     buffer
-      ..write(member)
+      ..write(htmlEscape.convert(member!))
       ..write('</span>');
 
     if (scheme == 'file' && frame.line != null) {
@@ -140,16 +139,48 @@ String renderFrames(Trace trace) {
 
       if (file.existsSync()) {
         var lines = file.readAsLinesSync();
-        var line = lines[frame.line! - 1];
+        var line = frame.line! - 4;
+        var column = frame.column! - 1;
+
+        buffer.write('\n        <br>\n        <pre>');
+
+        if (line++ > 0) {
+          writeLine(buffer, line, lines);
+        }
+
+        if (line++ > 0) {
+          writeLine(buffer, line, lines);
+        }
+
+        writeLine(buffer, ++line, lines);
+
         buffer
-          ..write('<br><pre style="">')
-          ..write(line)
-          ..write('</pre>');
+          ..write('\n    \t')
+          ..write(' ' * column)
+          ..write('^');
+
+        if (line++ < lines.length) {
+          writeLine(buffer, line, lines);
+        }
+
+        if (line++ < lines.length) {
+          writeLine(buffer, line, lines);
+        }
+
+        buffer.write('        </pre>');
       }
     }
 
-    buffer.write('      </div>');
+    buffer.write('\n      </div>\n');
   }
 
-  return buffer.toString();
+  return buffer.toString().trimRight();
+}
+
+void writeLine(StringBuffer buffer, int lineNo, List<String> lines) {
+  buffer
+    ..writeln()
+    ..write((lineNo + 1).toString().padLeft(4))
+    ..write('\t')
+    ..write(lines[lineNo]);
 }

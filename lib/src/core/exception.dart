@@ -1,5 +1,12 @@
-import 'http.dart';
-import 'types.dart';
+import 'dart:async';
+
+import 'handler.dart';
+import 'middleware.dart';
+import 'request.dart';
+import 'response.dart';
+
+typedef ErrorHandler = FutureOr<Response> Function(
+    Request request, Object error, StackTrace stackTrace);
 
 class HTTPException implements Exception {
   const HTTPException(this.status, [this.message]);
@@ -10,9 +17,7 @@ class HTTPException implements Exception {
 
   @override
   String toString() {
-    var buffer = StringBuffer(runtimeType)
-      ..write('(')
-      ..write(status);
+    var buffer = StringBuffer('HTTPException(')..write(status);
 
     if (message != null) {
       buffer
@@ -23,71 +28,45 @@ class HTTPException implements Exception {
     buffer.write(')');
     return buffer.toString();
   }
-
-  static Future<Response> handler(
-      Request request, Object error, StackTrace stackTrace) {
-    var typed = error as HTTPException;
-    Response response;
-
-    if (typed.status == 204 || typed.status == 304) {
-      response = Response(status: typed.status);
-    } else {
-      response = TextResponse(typed.message ?? '', statusCode: error.status);
-    }
-
-    return Future<Response>.value(response);
-  }
 }
 
-Application exception(
-    Application application, Map<Object, ExceptionHandler> handlers) {
-  var statusHandlers = <int, ExceptionHandler>{};
-  var exceptionHandlers = <Type, ExceptionHandler>{
-    HTTPException: HTTPException.handler
-  };
+Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? headers}) {
+  var statusHandlers = <int, ErrorHandler>{};
+  var exceptionHandlers = <bool Function(Object), ErrorHandler>{};
 
   for (var statusOrException in handlers.keys) {
     if (statusOrException is int) {
       statusHandlers[statusOrException] = handlers[statusOrException]!;
-    } else if (statusOrException is Type) {
+    } else if (statusOrException is bool Function(Object)) {
       exceptionHandlers[statusOrException] = handlers[statusOrException]!;
     } else {
-      throw ArgumentError.value(statusOrException);
+      throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
     }
   }
 
-  return (Request request) async {
-    var start = request.start;
-    var responseStarted = false;
+  return (Handler handler) {
+    return (Request request) async {
+      try {
+        return await handler(request);
+      } catch (error) {
+        ErrorHandler? handler;
 
-    request.start = (int status,
-        {String? reason, List<Header>? headers, bool buffer = true}) {
-      responseStarted = true;
-      start(status, headers: headers, buffer: buffer);
-    };
+        if (error is HTTPException) {
+          handler = statusHandlers[error.status];
+        } else {
+          for (var entry in exceptionHandlers.entries) {
+            if (entry.key(error)) {
+              handler = entry.value;
+            }
+          }
+        }
 
-    try {
-      await application(request);
-    } catch (error, stackTrace) {
-      ExceptionHandler? handler;
+        if (handler == null && error is HTTPException) {
+          return Response(error.status, headers: headers, body: error.message);
+        }
 
-      if (error is HTTPException) {
-        handler = statusHandlers[error.status];
-      }
-
-      handler ??= exceptionHandlers[error.runtimeType];
-
-      if (handler == null) {
         rethrow;
       }
-
-      if (responseStarted) {
-        throw StateError(
-            'caught handled exception, but response already started');
-      }
-
-      var response = await handler(request, error, stackTrace);
-      return response(request);
-    }
+    };
   };
 }

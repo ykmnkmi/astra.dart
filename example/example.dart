@@ -1,20 +1,23 @@
+import 'dart:io';
+
 import 'package:astra/core.dart';
+import 'package:astra/serve.dart';
 import 'package:l/l.dart';
 
-Response handler(Request request) {
+Response echo(Request request) {
   switch (request.url.path) {
-    case '/':
-      return TextResponse.ok('hello world!');
-    case '/readme':
-      return FileResponse.ok('README.md');
-    case '/error':
+    case '':
+      return Response.ok('hello world!');
+    case 'readme':
+      return Response.ok(File('README.md').openRead());
+    case 'error':
       throw Exception('some message');
     default:
-      return Response.notFound(null);
+      return Response.ok('Request for "${request.url}"');
   }
 }
 
-void logger(String message, bool isError) {
+void log(String message, bool isError) {
   if (isError) {
     l << message;
   } else {
@@ -23,7 +26,9 @@ void logger(String message, bool isError) {
 }
 
 Future<void> main() async {
-  var server = await serve(error(log(handler, logger: logger), debug: true), 'localhost', 3000);
+  var pipeline = Pipeline().addMiddleware(logger(log)).addMiddleware(error(debug: true));
+  var addHandler = pipeline.addHandler(echo);
+  var server = await serve(addHandler, 'localhost', 3000);
   print('serving at http://localhost:${server.port}');
 }
 
