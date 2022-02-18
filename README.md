@@ -1,40 +1,41 @@
-A custom web server framework (_work in progress_).
+A Shelf based web server framework.
 
-TODO: parsing and sending body properly.
+_WORK IN PROGRESS_
 
 ```dart
 // lib/[package].dart
+import 'dart:io';
 
 import 'package:astra/core.dart';
+import 'package:astra/serve.dart';
+import 'package:l/l.dart';
 
-Future<void> application(Request request) {
-  Response response;
-
+Response echo(Request request) {
   switch (request.url.path) {
-    case '/':
-      response = TextResponse('hello world!');
-      break;
-    case '/readme':
-      response = FileResponse('README.md');
-      break;
-    case '/error':
+    case '':
+      return Response.ok('hello world!');
+    case 'readme':
+      return Response.ok(File('README.md').openRead());
+    case 'error':
       throw Exception('some message');
     default:
-      response = Response.notFound();
+      return Response.ok('Request for "${request.url}"');
   }
-
-  return response(request);
 }
 
-void logger(String message, bool isError) {
-  print(message);
+void log(String message, bool isError) {
+  if (isError) {
+    l << message;
+  } else {
+    l < message;
+  }
 }
 
 Future<void> main() async {
-  var server = await Server.bind('localhost', 3000);
-  print('serving at ${server.url}');
-  server.mount(error(log(application, logger: logger)));
+  var pipeline = Pipeline().addMiddleware(logger(log)).addMiddleware(error(debug: true));
+  var handler = pipeline.addHandler(echo);
+  var server = await serve(handler, 'localhost', 3000);
+  print('serving at http://localhost:${server.port}');
 }
-
 ```
-(Not yet) Use `astra serve [[package]:application]`.
+(Not yet) Use `astra serve [[package|file:]application]`.

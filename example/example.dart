@@ -4,7 +4,7 @@ import 'package:astra/core.dart';
 import 'package:astra/serve.dart';
 import 'package:l/l.dart';
 
-Response echo(Request request) {
+Response application(Request request) {
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');
@@ -27,7 +27,7 @@ void log(String message, bool isError) {
 
 Future<void> main() async {
   var pipeline = Pipeline().addMiddleware(logger(log)).addMiddleware(error(debug: true));
-  var addHandler = pipeline.addHandler(echo);
+  var addHandler = pipeline.addHandler(application);
   var server = await serve(addHandler, 'localhost', 3000);
   print('serving at http://localhost:${server.port}');
 }
