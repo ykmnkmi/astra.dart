@@ -1,4 +1,4 @@
 /// Astra CLI tool.
 library dart.cli;
 
-export 'src/cli/runner.dart';
+export 'package:astra/src/cli/runner.dart';

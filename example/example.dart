@@ -5,6 +5,8 @@ import 'package:astra/serve.dart';
 import 'package:l/l.dart';
 
 Response application(Request request) {
+  print(request.url);
+
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');

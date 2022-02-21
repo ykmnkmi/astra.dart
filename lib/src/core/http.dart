@@ -1,16 +1,3 @@
-import 'dart:io';
-import 'package:http_parser/http_parser.dart';
-
-abstract class MediaTypes {
-  static const String text = 'text/plain; charset=utf-8';
-
-  static const String html = 'text/html; charset=utf-8';
-
-  static const String json = 'application/json; charset=utf-8';
-
-  static const String stream = 'application/octet-stream';
-}
-
 class Header {
   const Header(this.name, this.values);
 

@@ -1,9 +1,6 @@
 import 'dart:async';
 
-import 'handler.dart';
-import 'middleware.dart';
-import 'request.dart';
-import 'response.dart';
+import 'package:shelf/shelf.dart';
 
 typedef ErrorHandler = FutureOr<Response> Function(
     Request request, Object error, StackTrace stackTrace);

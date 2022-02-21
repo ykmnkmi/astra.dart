@@ -1,4 +1,4 @@
-A Shelf based web server framework.
+A Shelf based web server framework and CLI tool.
 
 _WORK IN PROGRESS_
 
@@ -38,4 +38,4 @@ Future<void> main() async {
   print('serving at http://localhost:${server.port}');
 }
 ```
-(Not yet) Use `astra serve [[package|file:]application]`.
+(Not yet) Use `astra serve [package|file]`.

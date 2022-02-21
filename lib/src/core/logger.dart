@@ -1,10 +1,7 @@
 import 'dart:io';
 
-import 'package:stack_trace/stack_trace.dart' show Trace;
-
-import 'handler.dart';
-import 'middleware.dart';
-import 'request.dart';
+import 'package:shelf/shelf.dart';
+import 'package:stack_trace/stack_trace.dart';
 
 typedef LoggerCallback = void Function(String message, bool isError);
 
