@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
 import 'package:path/path.dart';
@@ -37,11 +39,18 @@ class ServeCommand extends Command<int> with Project {
     return '$invocation [options] [pacakge|file]';
   }
 
-  String? get target {}
+  @override
+  ArgResults get argResults {
+    return super.argResults!;
+  }
+
+  String get target {
+    return argResults['target'] as String? ?? 'application';
+  }
 
   @override
   Future<int> run() async {
-    var rest = argResults!.rest;
+    var rest = argResults.rest;
     var length = rest.length;
 
     if (length == 0) {
@@ -52,8 +61,21 @@ class ServeCommand extends Command<int> with Project {
       usageException('Must specify one package or file to serve.');
     }
 
-    var path = toUri(absolute(rest[0])).toString();
-    var source = createScript(path, 'application');
+    var path = rest[0];
+
+    if (FileSystemEntity.isFileSync(path)) {
+      path = Uri.file(absolute(path)).toString();
+    } else {
+      if (!path.startsWith('package:')) {
+        path = 'package:$path';
+      }
+
+      if (!path.endsWith('.dart')) {
+        path = '$path.dart';
+      }
+    }
+
+    var source = createScript(path, target);
     var dataUri = Uri.dataFromString(source, mimeType: 'application/dart', encoding: utf8);
 
     var messagePort = ReceivePort();
@@ -74,7 +96,7 @@ class ServeCommand extends Command<int> with Project {
       var stackTrace = list[1];
       var trace = Trace.parse(stackTrace);
 
-      print(error);
+      print('error: $error');
       print(trace.terse);
 
       messagePort.close();
@@ -83,7 +105,6 @@ class ServeCommand extends Command<int> with Project {
     });
 
     exitPort.listen((Object? message) {
-      print('exitPort: $message');
       messagePort.close();
       errorPort.close();
       exitPort.close();
@@ -93,28 +114,19 @@ class ServeCommand extends Command<int> with Project {
     return 0;
   }
 
-  String createScript(String path, String symbol) {
+  String createScript(String path, String target) {
     return '''
-import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:astra/cli.dart';
 import 'package:astra/serve.dart';
 
-import '$path' show $symbol;
+import '$path' as application show $target;
 
 Future<void> main(List<String> arguments, SendPort sendPort) async {
-  await runZoned<Future<void>>(
-    () async {
-      await serve($symbol, 'localhost', 3000);
-    },
-    zoneSpecification: ZoneSpecification(
-      print: (Zone self, ZoneDelegate parent, Zone zone, String message) {
-        sendPort.send(message);
-      },
-    ),
-  );
-  throw Exception('hey');
+  var handler = await getHandler(application.$target);
+  await serve(handler, 'localhost', 3000);
 }
 
 ''';

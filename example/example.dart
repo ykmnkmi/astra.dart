@@ -2,11 +2,8 @@ import 'dart:io';
 
 import 'package:astra/core.dart';
 import 'package:astra/serve.dart';
-import 'package:l/l.dart';
 
 Response application(Request request) {
-  print(request.url);
-
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');
@@ -15,22 +12,28 @@ Response application(Request request) {
     case 'error':
       throw Exception('some message');
     default:
-      return Response.ok('Request for "${request.url}"');
+      return Response.notFound('Request for "${request.url}"');
   }
 }
 
-void log(String message, bool isError) {
-  if (isError) {
-    l << message;
-  } else {
-    l < message;
+Handler applicationFactory() {
+  void log(String message, [Object? error, StackTrace? stackTrace]) {
+    if (error == null) {
+      print(message);
+    } else {
+      print('$message\n$error\n$stackTrace');
+    }
   }
+
+  return const Pipeline()
+      .addMiddleware(error(debug: true))
+      .addMiddleware(logger(log))
+      .addHandler(application);
 }
 
 Future<void> main() async {
-  var pipeline = Pipeline().addMiddleware(logger(log)).addMiddleware(error(debug: true));
-  var addHandler = pipeline.addHandler(application);
-  var server = await serve(addHandler, 'localhost', 3000);
+  var handler = applicationFactory();
+  var server = await serve(handler, 'localhost', 3000);
   print('serving at http://localhost:${server.port}');
 }
 

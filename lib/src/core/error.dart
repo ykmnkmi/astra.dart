@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:io';
 
 import 'package:astra/src/core/exception.dart';
 import 'package:shelf/shelf.dart';
@@ -7,6 +7,7 @@ import 'package:stack_trace/stack_trace.dart';
 
 Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Object>? headers}) {
   var htmlHeaders = <String, Object>{...?headers, 'content-type': 'text/html; charset=utf-8'};
+
 
   return (Handler handler) {
     return (Request request) async {
