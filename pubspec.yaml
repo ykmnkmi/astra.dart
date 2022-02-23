@@ -1,6 +1,6 @@
 name: astra
 description: A Shelf based web server framework.
-version: 1.0.0-dev.62
+version: 1.0.0-dev.63
 # homepage: https://www.example.com
 
 environment:
@@ -9,11 +9,13 @@ environment:
 dependencies:
   analyzer: ^3.2.0
   args: ^2.3.0
+  collection: ^1.15.0
   http_parser: ^4.0.0
   logging: ^1.0.2
   meta: ^1.7.0
   shelf: ^1.2.0
   stack_trace: ^1.10.0
+  stream_channel: ^2.1.0
   yaml: ^3.1.0
 
 dev_dependencies:

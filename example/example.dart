@@ -32,7 +32,7 @@ Handler applicationFactory() {
 }
 
 Future<void> main() async {
-  var handler = applicationFactory();
+  var handler = await applicationFactory();
   var server = await serve(handler, 'localhost', 3000);
   print('serving at http://localhost:${server.port}');
 }

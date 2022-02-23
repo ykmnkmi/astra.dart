@@ -1,275 +1,202 @@
-export 'package:shelf/shelf_io.dart' show serve;
+import 'dart:async';
+import 'dart:io';
 
-// import 'dart:async' show StreamController, StreamSubscription;
-// import 'dart:io'
-//     show
-//         InternetAddressType,
-//         SecureServerSocket,
-//         SecurityContext,
-//         ServerSocket,
-//         Socket,
-//         SocketOption;
-// import 'dart:typed_data';
+import 'package:astra/core.dart';
+import 'package:collection/collection.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:stack_trace/stack_trace.dart';
+import 'package:stream_channel/stream_channel.dart';
 
-// import 'package:astra/core.dart';
+Future<HttpServer> serve(Handler handler, Object address, int port,
+    {SecurityContext? securityContext, int backlog = 0, bool shared = false}) async {
+  var server = await (securityContext == null
+      ? HttpServer.bind(address, port, backlog: backlog, shared: shared)
+      : HttpServer.bindSecure(address, port, securityContext, backlog: backlog, shared: shared));
+  serveRequests(server, handler);
+  return server;
+}
 
-// import 'src/serve/parser.dart';
+void serveRequests(Stream<HttpRequest> requests, Handler handler) {
+  catchTopLevelErrors(() {
+    requests.listen((request) => handleRequest(request, handler));
+  }, (error, stackTrace) {
+    logTopLevelError('Asynchronous error\n$error', stackTrace);
+  });
+}
 
-// enum State {
-//   request,
-//   headers,
-// }
+Future<void> handleRequest(HttpRequest request, Handler handler) async {
+  Request shelfRequest;
 
-// Future<Request> parse(Server server, Socket socket) async {
-//   if (socket.address.type != InternetAddressType.unix) {
-//     socket.setOption(SocketOption.tcpNoDelay, true);
-//   }
+  try {
+    shelfRequest = fromHttpRequest(request);
+  } on ArgumentError catch (error, stackTrace) {
+    if (error.name == 'method' || error.name == 'requestedUri') {
+      logTopLevelError('Error parsing request.\n$error', stackTrace);
 
-//   var controller = StreamController<List<int>>(sync: true);
-//   var state = State.request;
+      final response = Response(400,
+          body: 'Bad Request',
+          headers: <String, Object>{HttpHeaders.contentTypeHeader: 'text/plain'});
+      await writeResponse(response, request.response);
+    } else {
+      logTopLevelError('Error parsing request.\n$error', stackTrace);
 
-//   late String method;
-//   late String url;
-//   late String version;
-//   var headers = MutableHeaders();
+      final response = Response.internalServerError();
+      await writeResponse(response, request.response);
+    }
 
-//   await for (var bytes in Parser(socket, controller.sink)) {
-//     if (bytes.isEmpty) {
-//       break;
-//     }
+    return;
+  } catch (error, stackTrace) {
+    logTopLevelError('Error parsing request.\n$error', stackTrace);
+    final response = Response.internalServerError();
+    await writeResponse(response, request.response);
+    return;
+  }
 
-//     // TODO: update errors
-//     switch (state) {
-//       case State.request:
-//         var start = 0, end = bytes.indexOf(32);
+  Response? response;
 
-//         if (end == -1) {
-//           throw Exception('method');
-//         }
+  try {
+    response = await handler(shelfRequest);
+  } on HijackException catch (error, stackTrace) {
+    // A HijackException should bypass the response-writing logic entirely.
+    if (!shelfRequest.canHijack) {
+      return;
+    }
 
-//         method = String.fromCharCodes(bytes.sublist(start, start = end));
-//         end = bytes.indexOf(32, start += 1);
+    // If the request wasn't hijacked, we shouldn't be seeing this exception.
+    response = logError(
+        shelfRequest, 'Caught HijackException, but the request wasn\'t hijacked.', stackTrace);
+  } catch (error, stackTrace) {
+    response = logError(shelfRequest, 'Error thrown by handler.\n$error', stackTrace);
+  }
 
-//         if (end == -1) {
-//           throw Exception('uri');
-//         }
+  if ((response as Object?) == null) {
+    response = logError(shelfRequest, 'null response from handler.', StackTrace.current);
+    await writeResponse(response, request.response);
+    return;
+  }
 
-//         url = String.fromCharCodes(bytes.sublist(start, start = end));
+  if (shelfRequest.canHijack) {
+    await writeResponse(response, request.response);
+    return;
+  }
 
-//         if (start + 9 != bytes.length ||
-//             bytes[start += 1] != 72 ||
-//             bytes[start += 1] != 84 ||
-//             bytes[start += 1] != 84 ||
-//             bytes[start += 1] != 80 ||
-//             bytes[start += 1] != 47 ||
-//             bytes[start += 1] != 49 ||
-//             bytes[start + 1] != 46) {
-//           throw Exception('version');
-//         }
+  var message = StringBuffer('Got a response for hijacked request ')
+    ..writeln(shelfRequest.method)
+    ..writeln(' ')
+    ..writeln(shelfRequest.requestedUri)
+    ..writeln(':')
+    ..writeln(response.statusCode);
 
-//         version = String.fromCharCodes(bytes.sublist(start));
-//         state = State.headers;
-//         break;
+  response.headers.forEach((key, value) {
+    message
+      ..writeln(key)
+      ..writeln(': ')
+      ..writeln(value);
+  });
 
-//       case State.headers:
-//         var index = bytes.indexOf(58);
+  throw Exception(message.toString().trim());
+}
 
-//         if (index == -1) {
-//           throw Exception('header field');
-//         }
+Request fromHttpRequest(HttpRequest request) {
+  var headers = <String, List<String>>{};
 
-//         var name = String.fromCharCodes(bytes.sublist(0, index));
-//         var value = String.fromCharCodes(bytes.sublist(index + 2));
-//         headers.add(name.toLowerCase(), value);
-//         break;
+  request.headers.forEach((k, v) {
+    headers[k] = v;
+  });
 
-//       default:
-//         throw UnimplementedError();
-//     }
-//   }
+  // Remove the Transfer-Encoding header per the adapter requirements.
+  headers.remove(HttpHeaders.transferEncodingHeader);
 
-//   // TODO: implement buffering
-//   void start(int status, {List<Header>? headers, bool buffer = true}) {
-//     var builder = BytesBuilder();
-//     // socket.writeln('HTTP/$version $status ${ReasonPhrases.to(status)}');
-//     builder
-//       ..add(const <int>[72, 84, 84, 80, 47])
-//       ..add(version.codeUnits)
-//       ..addByte(32)
-//       ..add(status.toString().codeUnits)
-//       ..addByte(32)
-//       ..add(ReasonPhrases.to(status).codeUnits)
-//       ..addByte(13)
-//       ..addByte(10);
+  Future<void> onHijack(void Function(StreamChannel<List<int>>) callback) async {
+    var socket = await request.response.detachSocket(writeHeaders: false);
+    callback(StreamChannel(socket, socket));
+  }
 
-//     if (headers != null) {
-//       for (var header in headers) {
-//         builder
-//           ..add(header.name.codeUnits)
-//           ..addByte(58)
-//           ..addByte(32);
+  return Request(request.method, request.requestedUri,
+      protocolVersion: request.protocolVersion,
+      headers: headers,
+      body: request,
+      onHijack: onHijack,
+      context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
+}
 
-//         var values = header.values;
-//         builder.add(values[0].codeUnits);
+Future<void> writeResponse(Response response, HttpResponse httpResponse) {
+  if (response.context.containsKey('shelf.io.buffer_output')) {
+    httpResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
+  }
 
-//         for (var i = 1; i < values.length; i += 1) {
-//           builder
-//             ..addByte(44)
-//             ..addByte(32)
-//             ..add(values[i].codeUnits);
-//         }
+  httpResponse.statusCode = response.statusCode;
 
-//         builder
-//           ..addByte(13)
-//           ..addByte(10);
-//       }
-//     }
+  // An adapter must not add or modify the `Transfer-Encoding` parameter, but
+  // the Dart SDK sets it by default. Set this before we fill in
+  // [response.headers] so that the user or Shelf can explicitly override it if
+  // necessary.
+  httpResponse.headers.chunkedTransferEncoding = false;
 
-//     builder
-//       ..addByte(13)
-//       ..addByte(10);
-//     socket.add(builder.takeBytes());
-//   }
+  response.headersAll.forEach((header, value) {
+    httpResponse.headers.set(header, value);
+  });
 
-//   void send(List<int> bytes) {
-//     socket.add(bytes);
-//   }
+  var coding = response.headers['transfer-encoding'];
 
-//   Future<void> flush() {
-//     return socket.flush();
-//   }
+  if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
+    response = response.change(body: chunkedCoding.decoder.bind(response.read()));
+    httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
+  } else if (response.statusCode >= 200 &&
+      response.statusCode != 204 &&
+      response.statusCode != 304 &&
+      response.contentLength == null &&
+      response.mimeType != 'multipart/byteranges') {
+    // If the response isn't chunked yet and there's no other way to tell its
+    // length, enable `dart:io`'s chunked encoding.
+    httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
+  }
 
-//   Future<void> close() {
-//     return socket.close();
-//   }
+  if (!response.headers.containsKey(HttpHeaders.serverHeader)) {
+    httpResponse.headers.set(HttpHeaders.serverHeader, 'Astra with Shelf');
+  }
 
-//   return Request(controller.stream, socket, method, Uri.parse(url), version, headers, start, send,
-//       flush, close);
-// }
+  if (!response.headers.containsKey(HttpHeaders.dateHeader)) {
+    httpResponse.headers.date = DateTime.now().toUtc();
+  }
 
-// abstract class Server extends Stream<Request> {
-//   Uri get url;
+  return response.read().pipe(httpResponse);
+}
 
-//   Future<void> close({bool force = false});
+Response logError(Request request, String message, StackTrace stackTrace) {
+  var buffer = StringBuffer(request.method)
+    ..write(' ')
+    ..write(request.requestedUri.path);
 
-//   void mount(Application application);
+  if (request.requestedUri.query.isNotEmpty) {
+    buffer
+      ..write('?')
+      ..write(request.requestedUri.query);
+  }
 
-//   void handle(Handler handler);
+  buffer
+    ..writeln()
+    ..write(message);
 
-//   static Future<Server> bind(Object address, int port,
-//       {int backlog = 0, bool v6Only = false, bool shared = false, SecurityContext? context}) {
-//     return context == null
-//         ? ServerImpl.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared)
-//         : SecureServerImpl.bind(address, port, context,
-//             v6Only: v6Only, backlog: backlog, shared: shared);
-//   }
-// }
+  logTopLevelError(buffer.toString(), stackTrace);
+  return Response.internalServerError();
+}
 
-// abstract class ServerBase extends Server {
-//   ServerBase() : controller = StreamController<Request>(sync: true);
+void logTopLevelError(String message, StackTrace stackTrace) {
+  final chain = Chain.forTrace(stackTrace)
+      .foldFrames((frame) => frame.isCore || frame.package == 'shelf')
+      .terse;
 
-//   final StreamController<Request> controller;
+  stderr.writeln('ERROR - ${DateTime.now()}');
+  stderr.writeln(message);
+  stderr.writeln(chain);
+}
 
-//   StreamSubscription<Request>? subscription;
+void catchTopLevelErrors(
+    void Function() callback, void Function(Object error, StackTrace stackTrace) onError) {
+  if (Zone.current.inSameErrorZone(Zone.root)) {
+    return runZonedGuarded(callback, onError);
+  }
 
-//   Stream<Socket> get server;
-
-//   @override
-//   Future<void> close({bool force = false});
-
-//   @override
-//   void handle(Handler handler) {
-//     mount((request) async {
-//       var response = await handler(request);
-//       return response(request);
-//     });
-//   }
-
-//   @override
-//   void mount(Application application) {
-//     var subscription = this.subscription;
-
-//     if (subscription == null) {
-//       this.subscription = listen(application);
-//     } else {
-//       subscription.onData(application);
-//     }
-//   }
-
-//   Future<void> parseSocket(Socket socket) async {
-//     var request = await parse(this, socket);
-//     controller.add(request);
-//   }
-
-//   @override
-//   StreamSubscription<Request> listen(void Function(Request event)? onData,
-//       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-//     server.listen(parseSocket);
-//     return subscription = controller.stream
-//         .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
-//   }
-// }
-
-// class ServerImpl extends ServerBase {
-//   static Future<ServerImpl> bind(Object address, int port,
-//       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-//     var server =
-//         await ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared);
-//     return ServerImpl.listenOn(server);
-//   }
-
-//   ServerImpl.listenOn(this.server) : super();
-
-//   @override
-//   final ServerSocket server;
-
-//   @override
-//   Uri get url {
-//     if (server.address.isLoopback) {
-//       return Uri(scheme: 'http', host: 'localhost', port: server.port);
-//     }
-
-//     if (server.address.type == InternetAddressType.IPv6) {
-//       return Uri(scheme: 'http', host: '[${server.address.address}]', port: server.port);
-//     }
-
-//     return Uri(scheme: 'http', host: server.address.address, port: server.port);
-//   }
-
-//   @override
-//   Future<void> close({bool force = false}) {
-//     return server.close();
-//   }
-// }
-
-// class SecureServerImpl extends ServerBase {
-//   static Future<SecureServerImpl> bind(Object address, int port, SecurityContext context,
-//       {int backlog = 0, bool v6Only = false, bool shared = false}) async {
-//     var server = await SecureServerSocket.bind(address, port, context,
-//         backlog: backlog, v6Only: v6Only, shared: shared);
-//     return SecureServerImpl.listenOn(server);
-//   }
-
-//   SecureServerImpl.listenOn(this.server) : super();
-
-//   @override
-//   final SecureServerSocket server;
-
-//   @override
-//   Uri get url {
-//     if (server.address.isLoopback) {
-//       return Uri(scheme: 'https', host: 'localhost', port: server.port);
-//     }
-
-//     if (server.address.type == InternetAddressType.IPv6) {
-//       return Uri(scheme: 'https', host: '[${server.address.address}]', port: server.port);
-//     }
-
-//     return Uri(scheme: 'https', host: server.address.address, port: server.port);
-//   }
-
-//   @override
-//   Future<void> close({bool force = false}) {
-//     return server.close();
-//   }
-// }
+  return callback();
+}
