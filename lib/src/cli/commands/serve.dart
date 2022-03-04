@@ -1,16 +1,20 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
-import 'package:path/path.dart';
+import 'package:astra/src/cli/utils.dart';
 import 'package:stack_trace/stack_trace.dart';
 
 class ServeCommand extends Command<int> with Project {
   ServeCommand() {
-    argParser.addOption('target', abbr: 't');
+    argParser
+      ..addOption('target', abbr: 't')
+      ..addFlag('reload', abbr: 'r');
   }
 
   @override
@@ -39,13 +43,18 @@ class ServeCommand extends Command<int> with Project {
     return '$invocation [options] [pacakge|file]';
   }
 
+  String get target {
+    return argResults['target'] as String? ?? 'application';
+  }
+
+  bool get hotReload {
+    var reload = argResults['reload'] as bool?;
+    return reload == true;
+  }
+
   @override
   ArgResults get argResults {
     return super.argResults!;
-  }
-
-  String get target {
-    return argResults['target'] as String? ?? 'application';
   }
 
   @override
@@ -62,10 +71,19 @@ class ServeCommand extends Command<int> with Project {
     }
 
     var path = rest[0];
+    File file;
+    Uri uri;
+
+    stdout.write('Running $path\n');
 
     if (FileSystemEntity.isFileSync(path)) {
-      path = Uri.file(absolute(path)).toString();
+      file = File(path);
+      uri = file.absolute.uri;
     } else {
+      if (!path.contains('/')) {
+        path = '$path/$path';
+      }
+
       if (!path.startsWith('package:')) {
         path = 'package:$path';
       }
@@ -73,14 +91,38 @@ class ServeCommand extends Command<int> with Project {
       if (!path.endsWith('.dart')) {
         path = '$path.dart';
       }
+
+      uri = Uri.parse(path);
+
+      var resolvedPackageUri = await Isolate.resolvePackageUri(uri);
+
+      if (resolvedPackageUri == null) {
+        throw Exception();
+      }
+
+      file = File.fromUri(resolvedPackageUri);
+      uri = file.uri;
     }
 
-    var source = createScript(path, target);
+    if (file.existsSync()) {
+      // TODO: check target
+    } else {
+      throw Exception('file not found');
+    }
+
+    var source = createScript(uri, target);
     var dataUri = Uri.dataFromString(source, mimeType: 'application/dart', encoding: utf8);
+
+    var shutdownCallbacks = <FutureOr<void> Function()>[];
 
     var messagePort = ReceivePort();
     var errorPort = ReceivePort();
     var exitPort = ReceivePort();
+
+    shutdownCallbacks
+      ..add(messagePort.close)
+      ..add(errorPort.close)
+      ..add(exitPort.close);
 
     var isolate = await Isolate.spawnUri(dataUri, <String>[], messagePort.sendPort,
         onError: errorPort.sendPort,
@@ -88,7 +130,7 @@ class ServeCommand extends Command<int> with Project {
         packageConfig: Uri.file('.dart_tool/package_config.json'),
         paused: true);
 
-    messagePort.listen(print);
+    messagePort.listen(stdout.writeln);
 
     errorPort.listen((Object? message) {
       var list = (message as List<Object?>).cast<String>();
@@ -96,8 +138,9 @@ class ServeCommand extends Command<int> with Project {
       var stackTrace = list[1];
       var trace = Trace.parse(stackTrace);
 
-      print('error: $error');
-      print(trace.terse);
+      stderr
+        ..writeln('error: $error')
+        ..writeln('${trace.terse}');
 
       messagePort.close();
       errorPort.close();
@@ -110,11 +153,52 @@ class ServeCommand extends Command<int> with Project {
       exitPort.close();
     });
 
+    if (hotReload) {
+      var isolateID = Service.getIsolateID(isolate);
+
+      if (isolateID == null) {
+        throw Exception('don\'t supported');
+      }
+
+      var service = await getService();
+      shutdownCallbacks.add(service.dispose);
+
+      Directory directory;
+
+      if (uri.scheme.startsWith('package')) {
+        // TODO: resolve package directory
+        throw UnimplementedError('package');
+      } else {
+        directory = Directory.fromUri(uri.resolve('.'));
+      }
+
+      var watch = directory.watch(events: FileSystemEvent.modify, recursive: true).listen(null);
+      shutdownCallbacks.add(watch.cancel);
+
+      watch.onData((event) async {
+        stdout.write('Reloading...');
+
+        var result = await service.reloadSources(isolateID);
+        stdout.writeln('\rReloading: ${result.type}');
+      });
+    }
+
+    var sigint = ProcessSignal.sigint.watch().listen(null);
+    sigint.onData((signal) {
+      stdout.writeln('Graceful shutdown...');
+
+      for (var callback in shutdownCallbacks) {
+        callback();
+      }
+
+      sigint.cancel();
+    });
+
     isolate.resume(isolate.pauseCapability!);
     return 0;
   }
 
-  String createScript(String path, String target) {
+  String createScript(Uri uri, String target) {
     return '''
 import 'dart:io';
 import 'dart:isolate';
@@ -122,9 +206,11 @@ import 'dart:isolate';
 import 'package:astra/cli.dart';
 import 'package:astra/serve.dart';
 
-import '$path' as application show $target;
+import '$uri' as application show $target;
 
-Future<void> main(List<String> arguments, SendPort sendPort) async {
+Future<void> main() async {
+  ApplicationManager.init();
+
   var handler = await getHandler(application.$target);
   await serve(handler, 'localhost', 3000);
 }

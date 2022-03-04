@@ -1,89 +1,108 @@
+// Modified version of serve from shelf package.
+library astra.serve;
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
+import 'package:astra/src/serve/error.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:stack_trace/stack_trace.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 Future<HttpServer> serve(Handler handler, Object address, int port,
-    {SecurityContext? securityContext, int backlog = 0, bool shared = false}) async {
+    {SecurityContext? securityContext,
+    int backlog = 0,
+    bool shared = false,
+    bool debug = false,
+    ErrorHandler? errorHandler,
+    Map<String, Object>? errorHeaders}) async {
   var server = await (securityContext == null
       ? HttpServer.bind(address, port, backlog: backlog, shared: shared)
       : HttpServer.bindSecure(address, port, securityContext, backlog: backlog, shared: shared));
+
+  if (debug) {
+    handler = error(debug: true, errorHandler: errorHandler, headers: errorHeaders).handle(handler);
+  }
+
   serveRequests(server, handler);
   return server;
 }
 
 void serveRequests(Stream<HttpRequest> requests, Handler handler) {
   catchTopLevelErrors(() {
-    requests.listen((request) => handleRequest(request, handler));
+    requests.listen((request) {
+      handleRequest(request, handler);
+    });
   }, (error, stackTrace) {
     logTopLevelError('Asynchronous error\n$error', stackTrace);
   });
 }
 
-Future<void> handleRequest(HttpRequest request, Handler handler) async {
-  Request shelfRequest;
+Future<void> handleRequest(HttpRequest ioRequest, Handler handler) async {
+  Request request;
 
   try {
-    shelfRequest = fromHttpRequest(request);
+    request = fromHttpRequest(ioRequest);
   } on ArgumentError catch (error, stackTrace) {
     if (error.name == 'method' || error.name == 'requestedUri') {
       logTopLevelError('Error parsing request.\n$error', stackTrace);
 
-      final response = Response(400,
+      var response = Response(400,
           body: 'Bad Request',
           headers: <String, Object>{HttpHeaders.contentTypeHeader: 'text/plain'});
-      await writeResponse(response, request.response);
+      await writeResponse(response, ioRequest.response);
     } else {
       logTopLevelError('Error parsing request.\n$error', stackTrace);
 
-      final response = Response.internalServerError();
-      await writeResponse(response, request.response);
+      var response = Response.internalServerError();
+      await writeResponse(response, ioRequest.response);
     }
 
     return;
   } catch (error, stackTrace) {
     logTopLevelError('Error parsing request.\n$error', stackTrace);
-    final response = Response.internalServerError();
-    await writeResponse(response, request.response);
+
+    var response = Response.internalServerError();
+    await writeResponse(response, ioRequest.response);
     return;
   }
 
   Response? response;
 
   try {
-    response = await handler(shelfRequest);
+    response = await handler(request);
   } on HijackException catch (error, stackTrace) {
     // A HijackException should bypass the response-writing logic entirely.
-    if (!shelfRequest.canHijack) {
+    if (!request.canHijack) {
       return;
     }
 
     // If the request wasn't hijacked, we shouldn't be seeing this exception.
-    response = logError(
-        shelfRequest, 'Caught HijackException, but the request wasn\'t hijacked.', stackTrace);
+    var message = 'Caught HijackException, but the request wasn\'t hijacked.';
+    response = logError(request, message, stackTrace);
   } catch (error, stackTrace) {
-    response = logError(shelfRequest, 'Error thrown by handler.\n$error', stackTrace);
+    var message = 'Error thrown by handler.\n$error';
+    response = logError(request, message, stackTrace);
   }
 
-  if ((response as Object?) == null) {
-    response = logError(shelfRequest, 'null response from handler.', StackTrace.current);
-    await writeResponse(response, request.response);
+  // ignore: unnecessary_null_comparison
+  if (response == null) {
+    response = logError(request, 'null response from handler.', StackTrace.current);
+    await writeResponse(response, ioRequest.response);
     return;
   }
 
-  if (shelfRequest.canHijack) {
-    await writeResponse(response, request.response);
+  if (request.canHijack) {
+    await writeResponse(response, ioRequest.response);
     return;
   }
 
   var message = StringBuffer('Got a response for hijacked request ')
-    ..writeln(shelfRequest.method)
+    ..writeln(request.method)
     ..writeln(' ')
-    ..writeln(shelfRequest.requestedUri)
+    ..writeln(request.requestedUri)
     ..writeln(':')
     ..writeln(response.statusCode);
 

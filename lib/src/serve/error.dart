@@ -8,7 +8,6 @@ import 'package:stack_trace/stack_trace.dart';
 Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Object>? headers}) {
   var htmlHeaders = <String, Object>{...?headers, 'content-type': 'text/html; charset=utf-8'};
 
-
   return (Handler handler) {
     return (Request request) async {
       try {

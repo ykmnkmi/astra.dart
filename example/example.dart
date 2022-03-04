@@ -3,20 +3,31 @@ import 'dart:io';
 import 'package:astra/core.dart';
 import 'package:astra/serve.dart';
 
-Response application(Request request) {
-  switch (request.url.path) {
-    case '':
-      return Response.ok('hello world!');
-    case 'readme':
-      return Response.ok(File('README.md').openRead());
-    case 'error':
-      throw Exception('some message');
-    default:
-      return Response.notFound('Request for "${request.url}"');
+class Hello extends Application {
+  int counter = 0;
+
+  @override
+  Response call(Request request) {
+    switch (request.url.path) {
+      case '':
+        counter += 1;
+        return Response.ok('counter: $counter!');
+      case 'readme':
+        return Response.ok(File('README.md').openRead());
+      case 'error':
+        throw Exception('some message');
+      default:
+        return Response.notFound('Request for "${request.url}"');
+    }
+  }
+
+  @override
+  void reassemble() {
+    counter = 0;
   }
 }
 
-Handler applicationFactory() {
+Handler application() {
   void log(String message, [Object? error, StackTrace? stackTrace]) {
     if (error == null) {
       print(message);
@@ -25,14 +36,11 @@ Handler applicationFactory() {
     }
   }
 
-  return const Pipeline()
-      .addMiddleware(error(debug: true))
-      .addMiddleware(logger(log))
-      .addHandler(application);
+  return logger(log).link(Hello());
 }
 
 Future<void> main() async {
-  var handler = await applicationFactory();
+  var handler = application();
   var server = await serve(handler, 'localhost', 3000);
   print('serving at http://localhost:${server.port}');
 }

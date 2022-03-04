@@ -4,7 +4,7 @@ import 'package:yaml/yaml.dart';
 
 mixin Project {
   Directory get directory {
-    return Directory.current.absolute;
+    return Directory.current;
   }
 
   File get specificationFile {
