@@ -9,12 +9,14 @@ import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
 import 'package:astra/src/cli/utils.dart';
 import 'package:stack_trace/stack_trace.dart';
+import 'package:stream_transform/stream_transform.dart';
 
 class ServeCommand extends Command<int> with Project {
   ServeCommand() {
     argParser
       ..addOption('target', abbr: 't')
-      ..addFlag('reload', abbr: 'r');
+      ..addFlag('reload', abbr: 'r')
+      ..addFlag('verbose', abbr: 'v');
   }
 
   @override
@@ -52,6 +54,11 @@ class ServeCommand extends Command<int> with Project {
     return reload == true;
   }
 
+  bool get verbose {
+    var reload = argResults['verbose'] as bool?;
+    return reload == true;
+  }
+
   @override
   ArgResults get argResults {
     return super.argResults!;
@@ -59,6 +66,8 @@ class ServeCommand extends Command<int> with Project {
 
   @override
   Future<int> run() async {
+    print(Platform.executableArguments);
+
     var rest = argResults.rest;
     var length = rest.length;
 
@@ -110,7 +119,7 @@ class ServeCommand extends Command<int> with Project {
       throw Exception('file not found');
     }
 
-    var source = createScript(uri, target);
+    var source = createSource(uri, target);
     var dataUri = Uri.dataFromString(source, mimeType: 'application/dart', encoding: utf8);
 
     var shutdownCallbacks = <FutureOr<void> Function()>[];
@@ -172,21 +181,23 @@ class ServeCommand extends Command<int> with Project {
         directory = Directory.fromUri(uri.resolve('.'));
       }
 
-      var watch = directory.watch(events: FileSystemEvent.modify, recursive: true).listen(null);
-      shutdownCallbacks.add(watch.cancel);
-
-      watch.onData((event) async {
-        stdout.write('Reloading...');
+      Future<void> reloader(FileSystemEvent event) async {
+        stdout.writeln('Reloading...');
 
         var result = await service.reloadSources(isolateID);
-        stdout.writeln('\rReloading: ${result.type}');
-      });
+        stdout.writeln('Reloading success: ${result.success}');
+      }
+
+      var watch = directory
+          .watch(events: FileSystemEvent.modify, recursive: true)
+          .throttle(Duration(seconds: 1))
+          .asyncMapSample<void>(reloader)
+          .listen(null);
+      shutdownCallbacks.add(watch.cancel);
     }
 
     var sigint = ProcessSignal.sigint.watch().listen(null);
     sigint.onData((signal) {
-      stdout.writeln('Graceful shutdown...');
-
       for (var callback in shutdownCallbacks) {
         callback();
       }
@@ -198,7 +209,7 @@ class ServeCommand extends Command<int> with Project {
     return 0;
   }
 
-  String createScript(Uri uri, String target) {
+  String createSource(Uri uri, String target) {
     return '''
 import 'dart:io';
 import 'dart:isolate';
