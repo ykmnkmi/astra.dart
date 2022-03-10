@@ -7,7 +7,8 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
 import 'package:stream_transform/stream_transform.dart';
-import 'package:vm_service/vm_service_io.dart';
+import 'package:vm_service/vm_service.dart' show Log;
+import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends Command<int> with Project {
   ServeCommand() {
@@ -128,18 +129,19 @@ class ServeCommand extends Command<int> with Project {
       arguments
         ..add('--enable-vm-service=$servicePort')
         ..add('--disable-service-auth-codes')
-        ..add('--no-serve-devtools');
+        ..add('--no-serve-devtools')
+        ..add('--no-dds');
     }
 
-    var dartTool = Directory.fromUri(Uri(path: '${directory.uri.path}/.dart_tool/astra'));
+    var dartTool = Directory.fromUri(directory.uri.resolveUri(Uri(path: '.dart_tool/astra')));
     dartTool.createSync(recursive: true);
-    var script = File.fromUri(Uri(path: ('${dartTool.uri.path}/$package.dart')));
+    var script = File.fromUri(dartTool.uri.resolveUri(Uri(path: '$package.dart')));
     script.writeAsStringSync(source);
     shutdownCallbacks.add(() => dartTool.deleteSync(recursive: true));
     arguments.add(script.path);
 
     var completer = Completer<int>();
-    var process = await Process.start(Platform.resolvedExecutable, arguments);
+    var process = await Process.start(Platform.executable, arguments);
     process.stderr.listen(stderr.add);
     shutdownCallbacks.add(process.kill);
 
@@ -162,7 +164,7 @@ class ServeCommand extends Command<int> with Project {
           ..resume();
       });
 
-      var service = await vmServiceConnectUri('ws://127.0.0.1:$servicePort/ws');
+      var service = await vmServiceConnectUri('ws://localhost:$servicePort/ws', log: StdoutLog());
       shutdownCallbacks.add(service.dispose);
 
       var vm = await service.getVM();
@@ -180,12 +182,6 @@ class ServeCommand extends Command<int> with Project {
         throw UnimplementedError('package');
       } else {
         directory = Directory.fromUri(uri.resolve('.'));
-      }
-
-      var config = await Isolate.packageConfig;
-
-      if (config == null) {
-        throw Exception();
       }
 
       Future<void> reloader(FileSystemEvent event) async {
@@ -228,16 +224,27 @@ import 'dart:isolate';
 import 'package:astra/cli.dart';
 import 'package:astra/serve.dart';
 
-import '$uri' as application show $target;
+import '$uri' as _;
 
 Future<void> main() async {
   ApplicationManager.init();
 
-  var handler = await getHandler(application.$target);
-  await serve(handler, 'localhost', 3000);
+  await serve(_.$target, 'localhost', 3000);
   print('serving at http://localhost:3000');
 }
 
 ''';
+  }
+}
+
+class StdoutLog implements Log {
+  @override
+  void severe(String message) {
+    stdout.writeln(message);
+  }
+
+  @override
+  void warning(String message) {
+    stdout.writeln(message);
   }
 }

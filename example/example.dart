@@ -8,9 +8,10 @@ class Hello extends Application {
 
   @override
   Response call(Request request) {
+    counter += 1;
+
     switch (request.url.path) {
       case '':
-        counter += 1;
         return Response.ok('counter: $counter!');
       case 'readme':
         return Response.ok(File('README.md').openRead());
@@ -40,8 +41,7 @@ Handler application() {
 }
 
 Future<void> main() async {
-  var handler = application();
-  await serve(handler, 'localhost', 3000);
+  await serve(application, 'localhost', 3000);
   print('serving at http://localhost:3000');
 }
 

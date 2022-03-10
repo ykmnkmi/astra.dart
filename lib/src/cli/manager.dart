@@ -15,9 +15,13 @@ class ApplicationManager {
   static void init() {
     instance = ApplicationManager();
 
-    registerExtension('ext.astra.reasemble', (isolateId, data) {
-      reasemble();
-      return Future<ServiceExtensionResponse>.value(ServiceExtensionResponse.result(''));
+    registerExtension('ext.astra.reasemble', (isolateId, data) async {
+      try {
+        reasemble();
+        return ServiceExtensionResponse.result('Done');
+      } catch (error) {
+        return ServiceExtensionResponse.error(0, '$error');
+      }
     });
   }
 

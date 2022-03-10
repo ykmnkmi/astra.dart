@@ -1,6 +1,6 @@
 name: astra
 description: A Shelf based web server framework.
-version: 1.0.0-dev.66
+version: 1.0.0-dev.67
 # homepage: https://www.example.com
 
 environment:
@@ -18,7 +18,7 @@ dependencies:
   stack_trace: ^1.10.0
   stream_channel: ^2.1.0
   stream_transform: ^2.0.0
-  vm_service: ^8.2.0
+  vm_service: ^8.2.1
   yaml: ^3.1.0
 
 dev_dependencies:
