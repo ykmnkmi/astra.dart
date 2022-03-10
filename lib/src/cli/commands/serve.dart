@@ -1,21 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
-import 'package:astra/src/cli/utils.dart';
-import 'package:stack_trace/stack_trace.dart';
 import 'package:stream_transform/stream_transform.dart';
+import 'package:vm_service/vm_service_io.dart';
 
 class ServeCommand extends Command<int> with Project {
   ServeCommand() {
     argParser
       ..addOption('target', abbr: 't')
       ..addFlag('reload', abbr: 'r')
+      ..addOption('service-port')
       ..addFlag('verbose', abbr: 'v');
   }
 
@@ -54,6 +53,11 @@ class ServeCommand extends Command<int> with Project {
     return reload == true;
   }
 
+  String get servicePort {
+    var servicePort = argResults['service-port'] as String?;
+    return servicePort ?? '8181';
+  }
+
   bool get verbose {
     var reload = argResults['verbose'] as bool?;
     return reload == true;
@@ -66,8 +70,6 @@ class ServeCommand extends Command<int> with Project {
 
   @override
   Future<int> run() async {
-    print(Platform.executableArguments);
-
     var rest = argResults.rest;
     var length = rest.length;
 
@@ -82,8 +84,6 @@ class ServeCommand extends Command<int> with Project {
     var path = rest[0];
     File file;
     Uri uri;
-
-    stdout.write('Running $path\n');
 
     if (FileSystemEntity.isFileSync(path)) {
       file = File(path);
@@ -120,57 +120,58 @@ class ServeCommand extends Command<int> with Project {
     }
 
     var source = createSource(uri, target);
-    var dataUri = Uri.dataFromString(source, mimeType: 'application/dart', encoding: utf8);
 
     var shutdownCallbacks = <FutureOr<void> Function()>[];
-
-    var messagePort = ReceivePort();
-    var errorPort = ReceivePort();
-    var exitPort = ReceivePort();
-
-    shutdownCallbacks
-      ..add(messagePort.close)
-      ..add(errorPort.close)
-      ..add(exitPort.close);
-
-    var isolate = await Isolate.spawnUri(dataUri, <String>[], messagePort.sendPort,
-        onError: errorPort.sendPort,
-        onExit: exitPort.sendPort,
-        packageConfig: Uri.file('.dart_tool/package_config.json'),
-        paused: true);
-
-    messagePort.listen(stdout.writeln);
-
-    errorPort.listen((Object? message) {
-      var list = (message as List<Object?>).cast<String>();
-      var error = list[0];
-      var stackTrace = list[1];
-      var trace = Trace.parse(stackTrace);
-
-      stderr
-        ..writeln('error: $error')
-        ..writeln('${trace.terse}');
-
-      messagePort.close();
-      errorPort.close();
-      exitPort.close();
-    });
-
-    exitPort.listen((Object? message) {
-      messagePort.close();
-      errorPort.close();
-      exitPort.close();
-    });
+    var arguments = <String>['run'];
 
     if (hotReload) {
-      var isolateID = Service.getIsolateID(isolate);
+      arguments
+        ..add('--enable-vm-service=$servicePort')
+        ..add('--disable-service-auth-codes')
+        ..add('--no-serve-devtools');
+    }
 
-      if (isolateID == null) {
-        throw Exception('don\'t supported');
-      }
+    var dartTool = Directory.fromUri(Uri(path: '${directory.uri.path}/.dart_tool/astra'));
+    dartTool.createSync(recursive: true);
+    var script = File.fromUri(Uri(path: ('${dartTool.uri.path}/$package.dart')));
+    script.writeAsStringSync(source);
+    shutdownCallbacks.add(() => dartTool.deleteSync(recursive: true));
+    arguments.add(script.path);
 
-      var service = await getService();
+    var completer = Completer<int>();
+    var process = await Process.start(Platform.resolvedExecutable, arguments);
+    process.stderr.listen(stderr.add);
+    shutdownCallbacks.add(process.kill);
+
+    if (hotReload) {
+      var output = process.stdout.listen(null);
+      output.onData((bytes) {
+        output.pause();
+
+        var message = utf8.decode(bytes);
+
+        if (message.startsWith('Observatory') || message.startsWith('The Dart DevTools debugger')) {
+          output.resume();
+          return;
+        }
+
+        stdout.add(bytes);
+
+        output
+          ..onData(stdout.add)
+          ..resume();
+      });
+
+      var service = await vmServiceConnectUri('ws://127.0.0.1:$servicePort/ws');
       shutdownCallbacks.add(service.dispose);
+
+      var vm = await service.getVM();
+      var isolateRef = vm.isolates![0];
+      var isolateId = isolateRef.id;
+
+      if (isolateId == null) {
+        throw Exception('not reachable');
+      }
 
       Directory directory;
 
@@ -181,19 +182,29 @@ class ServeCommand extends Command<int> with Project {
         directory = Directory.fromUri(uri.resolve('.'));
       }
 
+      var config = await Isolate.packageConfig;
+
+      if (config == null) {
+        throw Exception();
+      }
+
       Future<void> reloader(FileSystemEvent event) async {
         stdout.writeln('Reloading...');
 
-        var result = await service.reloadSources(isolateID);
-        stdout.writeln('Reloading success: ${result.success}');
+        var result = await service.reloadSources(isolateId);
+
+        if (result.success == true) {
+          await service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
+        }
       }
 
       var watch = directory
           .watch(events: FileSystemEvent.modify, recursive: true)
           .throttle(Duration(seconds: 1))
-          .asyncMapSample<void>(reloader)
-          .listen(null);
+          .listen(reloader);
       shutdownCallbacks.add(watch.cancel);
+    } else {
+      process.stdout.listen(stdout.add);
     }
 
     var sigint = ProcessSignal.sigint.watch().listen(null);
@@ -203,10 +214,10 @@ class ServeCommand extends Command<int> with Project {
       }
 
       sigint.cancel();
+      completer.complete(130);
     });
 
-    isolate.resume(isolate.pauseCapability!);
-    return 0;
+    return completer.future;
   }
 
   String createSource(Uri uri, String target) {
@@ -224,6 +235,7 @@ Future<void> main() async {
 
   var handler = await getHandler(application.$target);
   await serve(handler, 'localhost', 3000);
+  print('serving at http://localhost:3000');
 }
 
 ''';

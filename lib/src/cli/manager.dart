@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:astra/core.dart';
 import 'package:meta/meta.dart';
 
@@ -12,6 +14,11 @@ class ApplicationManager {
 
   static void init() {
     instance = ApplicationManager();
+
+    registerExtension('ext.astra.reasemble', (isolateId, data) {
+      reasemble();
+      return Future<ServiceExtensionResponse>.value(ServiceExtensionResponse.result(''));
+    });
   }
 
   static void register(Application application) {

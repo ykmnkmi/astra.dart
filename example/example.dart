@@ -41,8 +41,8 @@ Handler application() {
 
 Future<void> main() async {
   var handler = application();
-  var server = await serve(handler, 'localhost', 3000);
-  print('serving at http://localhost:${server.port}');
+  await serve(handler, 'localhost', 3000);
+  print('serving at http://localhost:3000');
 }
 
 // ignore_for_file: avoid_print

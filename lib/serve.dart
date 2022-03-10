@@ -5,27 +5,18 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/error.dart';
+import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:stack_trace/stack_trace.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-Future<HttpServer> serve(Handler handler, Object address, int port,
-    {SecurityContext? securityContext,
-    int backlog = 0,
-    bool shared = false,
-    bool debug = false,
-    ErrorHandler? errorHandler,
-    Map<String, Object>? errorHeaders}) async {
+Future<HttpServer> serve(Object object, Object address, int port,
+    {SecurityContext? securityContext, int backlog = 0, bool shared = false}) async {
   var server = await (securityContext == null
       ? HttpServer.bind(address, port, backlog: backlog, shared: shared)
       : HttpServer.bindSecure(address, port, securityContext, backlog: backlog, shared: shared));
-
-  if (debug) {
-    handler = error(debug: true, errorHandler: errorHandler, headers: errorHeaders).handle(handler);
-  }
-
+  var handler = await getHandler(object);
   serveRequests(server, handler);
   return server;
 }
