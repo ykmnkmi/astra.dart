@@ -1,0 +1,16 @@
+name: example
+description: A Shelf based Astra application.
+version: 1.0.0
+
+environment:
+  sdk: '>=2.16.0 <3.0.0'
+
+dependencies:
+  astra: any
+
+dev_dependencies:
+  lints: ^1.0.1
+
+dependency_overrides:
+  astra:
+    path: ../

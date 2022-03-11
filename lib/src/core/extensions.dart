@@ -1,13 +1,8 @@
-import 'package:astra/src/core/application.dart';
 import 'package:shelf/shelf.dart';
 
 extension MiddlewareExtension on Middleware {
   Handler handle(Handler handler) {
     return this(handler);
-  }
-
-  Handler link(Application application) {
-    return this(application.call);
   }
 
   Middleware next(Middleware middleware) {

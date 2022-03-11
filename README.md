@@ -7,6 +7,7 @@ _WORK IN PROGRESS_
 import 'dart:io';
 
 import 'package:astra/core.dart';
+import 'package:astra/middlewares.dart';
 import 'package:astra/serve.dart';
 
 class Hello extends Application {
@@ -35,15 +36,7 @@ class Hello extends Application {
 }
 
 Handler application() {
-  void log(String message, [Object? error, StackTrace? stackTrace]) {
-    if (error == null) {
-      print(message);
-    } else {
-      print('$message\n$error\n$stackTrace');
-    }
-  }
-
-  return logger(log).link(Hello());
+  return logRequests().link(Hello());
 }
 
 Future<void> main() async {
@@ -51,4 +44,4 @@ Future<void> main() async {
   print('serving at http://localhost:3000');
 }
 ```
-(Not yet) Use `astra serve [package|file]`.
+(Not yet) Use `astra serve --reload`.

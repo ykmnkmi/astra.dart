@@ -1,7 +1,8 @@
 .dart_tool/
+.vscode/
 .DS_store
 .packages
-lib/astra.dart
+certificates/
 pubspec.lock
 **/**.dill
 **/**.jit

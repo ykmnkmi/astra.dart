@@ -10,8 +10,7 @@ class Parser extends Stream<Uint8List> {
       : controller = StreamController<Uint8List>(sync: true),
         skipLeadingLF = false,
         newLinesCount = 0 {
-    subscription =
-        socket.listen(onData, onError: controller.addError, onDone: onDone);
+    subscription = socket.listen(onData, onError: controller.addError, onDone: onDone);
   }
 
   final Socket socket;
@@ -31,8 +30,8 @@ class Parser extends Stream<Uint8List> {
   @override
   StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return controller.stream.listen(onData,
-        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return controller.stream
+        .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
   void switchToBody() {

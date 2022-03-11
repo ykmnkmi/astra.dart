@@ -11,14 +11,5 @@ FutureOr<Handler> getHandler(Object? object) async {
     return object();
   }
 
-  if (object is Application) {
-    return object.call;
-  }
-
-  if (object is FutureOr<Application> Function()) {
-    var application = await object();
-    return application.call;
-  }
-
   throw ArgumentError.value(object);
 }

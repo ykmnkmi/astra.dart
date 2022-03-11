@@ -1,22 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:astra/src/cli/project.dart';
 import 'package:stream_transform/stream_transform.dart';
-import 'package:vm_service/vm_service.dart' show Log;
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends Command<int> with Project {
   ServeCommand() {
     argParser
-      ..addOption('target', abbr: 't')
-      ..addFlag('reload', abbr: 'r')
-      ..addOption('service-port')
-      ..addFlag('verbose', abbr: 'v');
+      ..addSeparator('Server options:')
+      ..addOption('target',
+          abbr: 't', help: 'The name of the handler or factory to serve requests.')
+      ..addSeparator('Debugging options:')
+      ..addFlag('reload', abbr: 'r', negatable: false, help: '')
+      ..addOption('observe',
+          help: 'Enables the VM service on the specified port for connections.', valueHelp: '8181')
+      ..addFlag('verbose',
+          abbr: 'v', negatable: false, help: 'Output more informational messages.');
   }
 
   @override
@@ -26,42 +29,28 @@ class ServeCommand extends Command<int> with Project {
 
   @override
   String get description {
-    return 'Serve an file or package.';
-  }
-
-  @override
-  String get invocation {
-    var parents = <String>[name];
-    var command = parent;
-
-    while (command != null) {
-      parents.add(command.name);
-      command = command.parent;
-    }
-
-    parents.add(runner!.executableName);
-
-    var invocation = parents.reversed.join(' ');
-    return '$invocation [options] [pacakge|file]';
+    return 'Serve shelf application.';
   }
 
   String get target {
     return argResults['target'] as String? ?? 'application';
   }
 
-  bool get hotReload {
-    var reload = argResults['reload'] as bool?;
-    return reload == true;
+  bool get reload {
+    return argResults.wasParsed('reload');
   }
 
-  String get servicePort {
-    var servicePort = argResults['service-port'] as String?;
-    return servicePort ?? '8181';
+  bool get observe {
+    return argResults.wasParsed('observe');
+  }
+
+  String get observePort {
+    var observe = argResults['observe'] as String?;
+    return observe ?? '8181';
   }
 
   bool get verbose {
-    var reload = argResults['verbose'] as bool?;
-    return reload == true;
+    return argResults.wasParsed('verbose');
   }
 
   @override
@@ -71,88 +60,47 @@ class ServeCommand extends Command<int> with Project {
 
   @override
   Future<int> run() async {
-    var rest = argResults.rest;
-    var length = rest.length;
+    var file = File('lib${Platform.pathSeparator}$library');
 
-    if (length == 0) {
-      usageException('Must specify an package or file to serve.');
+    if (!file.existsSync()) {
+      throw Exception('file not found: $file');
     }
 
-    if (length > 1) {
-      usageException('Must specify one package or file to serve.');
-    }
-
-    var path = rest[0];
-    File file;
-    Uri uri;
-
-    if (FileSystemEntity.isFileSync(path)) {
-      file = File(path);
-      uri = file.absolute.uri;
-    } else {
-      if (!path.contains('/')) {
-        path = '$path/$path';
-      }
-
-      if (!path.startsWith('package:')) {
-        path = 'package:$path';
-      }
-
-      if (!path.endsWith('.dart')) {
-        path = '$path.dart';
-      }
-
-      uri = Uri.parse(path);
-
-      var resolvedPackageUri = await Isolate.resolvePackageUri(uri);
-
-      if (resolvedPackageUri == null) {
-        throw Exception();
-      }
-
-      file = File.fromUri(resolvedPackageUri);
-      uri = file.uri;
-    }
-
-    if (file.existsSync()) {
-      // TODO: check target
-    } else {
-      throw Exception('file not found');
-    }
-
+    var uri = file.absolute.uri;
     var source = createSource(uri, target);
-
     var shutdownCallbacks = <FutureOr<void> Function()>[];
     var arguments = <String>['run'];
 
-    if (hotReload) {
+    if (reload || observe) {
       arguments
-        ..add('--enable-vm-service=$servicePort')
+        ..add('--enable-vm-service=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
     }
 
-    var dartTool = Directory.fromUri(directory.uri.resolveUri(Uri(path: '.dart_tool/astra')));
+    var dartToolPath = '.dart_tool${Platform.pathSeparator}astra';
+    var dartTool = Directory(dartToolPath);
     dartTool.createSync(recursive: true);
-    var script = File.fromUri(dartTool.uri.resolveUri(Uri(path: '$package.dart')));
+
+    var script = File('$dartToolPath${Platform.pathSeparator}$package.dart');
     script.writeAsStringSync(source);
     shutdownCallbacks.add(() => dartTool.deleteSync(recursive: true));
     arguments.add(script.path);
 
     var completer = Completer<int>();
     var process = await Process.start(Platform.executable, arguments);
-    process.stderr.listen(stderr.add);
+    process.stderr.listen(stderr.add, onError: completer.completeError);
     shutdownCallbacks.add(process.kill);
 
-    if (hotReload) {
-      var output = process.stdout.listen(null);
+    if (reload) {
+      var output = process.stdout.listen(null, onError: completer.completeError);
       output.onData((bytes) {
         output.pause();
 
         var message = utf8.decode(bytes);
 
-        if (message.startsWith('Observatory') || message.startsWith('The Dart DevTools debugger')) {
+        if (message.startsWith('Observatory')) {
           output.resume();
           return;
         }
@@ -164,48 +112,52 @@ class ServeCommand extends Command<int> with Project {
           ..resume();
       });
 
-      var service = await vmServiceConnectUri('ws://localhost:$servicePort/ws', log: StdoutLog());
+      var service = await vmServiceConnectUri('ws://localhost:$observePort/ws');
       shutdownCallbacks.add(service.dispose);
 
       var vm = await service.getVM();
-      var isolateRef = vm.isolates![0];
-      var isolateId = isolateRef.id;
+      var isolateIds = <String>[];
+      var isolates = vm.isolates;
 
-      if (isolateId == null) {
-        throw Exception('not reachable');
+      if (isolates == null) {
+        throw Exception('WTF Dart?');
       }
 
-      Directory directory;
+      for (var isolateRef in isolates) {
+        var id = isolateRef.id;
 
-      if (uri.scheme.startsWith('package')) {
-        // TODO: resolve package directory
-        throw UnimplementedError('package');
-      } else {
-        directory = Directory.fromUri(uri.resolve('.'));
-      }
-
-      Future<void> reloader(FileSystemEvent event) async {
-        stdout.writeln('Reloading...');
-
-        var result = await service.reloadSources(isolateId);
-
-        if (result.success == true) {
-          await service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
+        if (id == null) {
+          throw Exception('WTF Dart?');
         }
+
+        isolateIds.add(id);
+      }
+
+      var directory = Directory.fromUri(uri.resolve('.'));
+
+      Future<void> reloader(FileSystemEvent event) {
+        stdout.writeln('Reloading...');
+        return Future.forEach<String>(isolateIds, (isolateId) async {
+          var result = await service.reloadSources(isolateId);
+
+          if (result.success == true) {
+            await service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
+          }
+        });
       }
 
       var watch = directory
           .watch(events: FileSystemEvent.modify, recursive: true)
-          .throttle(Duration(seconds: 1))
-          .listen(reloader);
+          .asyncMapSample(reloader)
+          .listen(null, onError: completer.completeError);
       shutdownCallbacks.add(watch.cancel);
     } else {
       process.stdout.listen(stdout.add);
     }
 
-    var sigint = ProcessSignal.sigint.watch().listen(null);
+    var sigint = ProcessSignal.sigint.watch().listen(null, onError: completer.completeError);
     sigint.onData((signal) {
-      for (var callback in shutdownCallbacks) {
+      for (var callback in shutdownCallbacks.reversed) {
         callback();
       }
 
@@ -216,7 +168,9 @@ class ServeCommand extends Command<int> with Project {
     return completer.future;
   }
 
-  String createSource(Uri uri, String target) {
+  String createSource(Uri uri, String target,
+      {bool secure = false, Object address = 'localhost', int port = 3000}) {
+    var scheme = secure ? 'https' : 'http';
     return '''
 import 'dart:io';
 import 'dart:isolate';
@@ -229,22 +183,10 @@ import '$uri' as _;
 Future<void> main() async {
   ApplicationManager.init();
 
-  await serve(_.$target, 'localhost', 3000);
-  print('serving at http://localhost:3000');
+  await serve(_.$target, 'localhost', $port);
+  print('serving at $scheme://$address:$port');
 }
 
 ''';
-  }
-}
-
-class StdoutLog implements Log {
-  @override
-  void severe(String message) {
-    stdout.writeln(message);
-  }
-
-  @override
-  void warning(String message) {
-    stdout.writeln(message);
   }
 }

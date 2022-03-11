@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/serve.dart';
+import 'package:astra/middlewares.dart';
 
 class Hello extends Application {
   int counter = 0;
@@ -29,20 +29,5 @@ class Hello extends Application {
 }
 
 Handler application() {
-  void log(String message, [Object? error, StackTrace? stackTrace]) {
-    if (error == null) {
-      print(message);
-    } else {
-      print('$message\n$error\n$stackTrace');
-    }
-  }
-
-  return logger(log).link(Hello());
+  return logRequests().handle(Hello());
 }
-
-Future<void> main() async {
-  await serve(application, 'localhost', 3000);
-  print('serving at http://localhost:3000');
-}
-
-// ignore_for_file: avoid_print

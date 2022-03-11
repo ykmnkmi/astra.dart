@@ -6,7 +6,7 @@ import 'package:shelf/shelf.dart';
 import 'package:stack_trace/stack_trace.dart';
 
 Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Object>? headers}) {
-  var htmlHeaders = <String, Object>{...?headers, 'content-type': 'text/html; charset=utf-8'};
+  var htmlHeaders = {...?headers, 'content-type': 'text/html; charset=utf-8'};
 
   return (Handler handler) {
     return (Request request) async {
@@ -18,11 +18,15 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
 
           if (accept != null && accept.contains('text/html')) {
             var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
+              var parts = error.toString().split(':');
+              var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
+              var message = parts.join(':').trim();
+
               switch (match[1]) {
                 case 'type':
-                  return error.toString();
-                case 'error':
-                  return error.toString();
+                  return type;
+                case 'message':
+                  return message;
                 case 'trace':
                   return renderFrames(Trace.from(stackTrace));
                 default:
@@ -33,8 +37,8 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
             return Response.internalServerError(body: body, headers: htmlHeaders);
           }
 
-          var trace = Trace.format(stackTrace);
-          return Response.internalServerError(body: '$error\n\n$trace', headers: headers);
+          return Response.internalServerError(
+              body: '$error\n${Trace.format(stackTrace)}', headers: headers);
         }
 
         if (errorHandler == null) {
@@ -51,7 +55,7 @@ const String template = '''
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Astra Debugger</title>
+    <title>{type}: {message}</title>
     <style>
       body {
         font-family: "JetBrains Mono", "Cascadia Mono", "Fira Mono", "Ubuntu Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace;
@@ -93,10 +97,10 @@ const String template = '''
     </style>
   </head>
   <body>
-    <h1>Astra: debugger</h1>
-    <h2>{error}</h2>
+    <h1>{type}</h1>
+    <h2>{message}</h2>
     <div class="traceback">
-      <p class="title">Traceback <span style="color:grey">(most recent call first)</span></p>
+      <p class="title">Traceback <span style="color:grey">(most recent call last)</span></p>
 {trace}
     </div>
   </body>
@@ -105,72 +109,72 @@ const String template = '''
 
 String renderFrames(Trace trace) {
   var buffer = StringBuffer();
+  var frames = trace.frames.reversed.toList();
+  var frame = frames.removeLast();
 
-  for (var frame in trace.frames) {
+  for (var frame in frames) {
     if (frame.isCore) {
       continue;
     }
 
-    var scheme = frame.uri.scheme;
-
-    buffer
-      ..write('      <div class="frame">\n        ')
-      ..write(scheme == 'file' ? 'File' : 'Package')
-      ..write('&nbsp;<span class="library">')
-      ..write(scheme == 'package' ? frame.library.replaceFirst('package:', '') : frame.library)
-      ..write('</span>, line&nbsp;<i>')
-      ..write(frame.line)
-      ..write('</i>,&nbsp;column&nbsp;<i>')
-      ..write(frame.column)
-      ..write('</i>, in&nbsp;<span class="member">');
-
-    var member = frame.member;
-
-    buffer
-      ..write(htmlEscape.convert(member!))
-      ..write('</span>');
-
-    if (scheme == 'file' && frame.line != null) {
-      var file = File.fromUri(frame.uri);
-
-      if (file.existsSync()) {
-        var lines = file.readAsLinesSync();
-        var line = frame.line! - 4;
-        var column = frame.column! - 1;
-
-        buffer.write('\n        <br>\n        <pre>');
-
-        if (line++ > 0) {
-          writeLine(buffer, line, lines);
-        }
-
-        if (line++ > 0) {
-          writeLine(buffer, line, lines);
-        }
-
-        writeLine(buffer, ++line, lines);
-
-        buffer
-          ..write('\n    \t')
-          ..write(' ' * column)
-          ..write('^');
-
-        if (line++ < lines.length) {
-          writeLine(buffer, line, lines);
-        }
-
-        if (line++ < lines.length) {
-          writeLine(buffer, line, lines);
-        }
-
-        buffer.write('        </pre>');
-      }
-    }
-
-    buffer.write('\n      </div>\n');
+    writeFrame(buffer, frame);
   }
 
+  writeFrame(buffer, frame, true);
   return buffer.toString().trimRight();
+}
+
+void writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
+  buffer
+    ..write('      <div class="frame">\n        ')
+    ..write('&nbsp;<span class="library">')
+    ..write(frame.library)
+    ..write('</span>, line&nbsp;<i>')
+    ..write(frame.line)
+    ..write('</i>,&nbsp;column&nbsp;<i>')
+    ..write(frame.column)
+    ..write('</i>, in&nbsp;<span class="member">');
+
+  var member = frame.member;
+
+  buffer
+    ..write(htmlEscape.convert(member!))
+    ..write('</span>');
+
+  if (full && frame.uri.scheme == 'file' && frame.line != null) {
+    var file = File.fromUri(frame.uri);
+    var lines = file.readAsLinesSync();
+    var line = frame.line! - 4;
+    var column = frame.column! - 1;
+    buffer.write('\n        <br>\n        <pre>');
+
+    if (line++ > 0) {
+      writeLine(buffer, line, lines);
+    }
+
+    if (line++ > 0) {
+      writeLine(buffer, line, lines);
+    }
+
+    writeLine(buffer, ++line, lines);
+
+    buffer
+      ..write('\n    \t')
+      ..write(' ' * column)
+      ..write('^');
+
+    if (line++ < lines.length) {
+      writeLine(buffer, line, lines);
+    }
+
+    if (line++ < lines.length) {
+      writeLine(buffer, line, lines);
+    }
+
+    buffer.write('</pre>');
+  }
+
+  buffer.write('\n      </div>\n');
 }
 
 void writeLine(StringBuffer buffer, int lineNo, List<String> lines) {

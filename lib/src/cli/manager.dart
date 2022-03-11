@@ -18,7 +18,7 @@ class ApplicationManager {
     registerExtension('ext.astra.reasemble', (isolateId, data) async {
       try {
         reasemble();
-        return ServiceExtensionResponse.result('Done');
+        return ServiceExtensionResponse.result('{}');
       } catch (error) {
         return ServiceExtensionResponse.error(0, '$error');
       }

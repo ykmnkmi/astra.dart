@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:yaml/yaml.dart';
 
 mixin Project {
+  // TODO: `--directory` option
   Directory get directory {
     return Directory.current;
   }
@@ -31,11 +32,11 @@ mixin Project {
     throw Exception('Failed to locate pubspec.yaml in \'${directory.path}\'');
   }
 
-  String? get package {
-    return specification['name'] as String?;
+  String get package {
+    return specification['name'] as String;
   }
 
-  String? get library {
-    return package;
+  String get library {
+    return '$package.dart';
   }
 }
