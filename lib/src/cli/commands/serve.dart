@@ -2,16 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:args/args.dart';
-import 'package:args/command_runner.dart';
-import 'package:astra/src/cli/project.dart';
+import 'package:astra/src/cli/command.dart';
+import 'package:astra/src/cli/path.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
-class ServeCommand extends Command<int> with Project {
+class ServeCommand extends AstraCommand {
   ServeCommand() {
     argParser
-      ..addSeparator('Server options:')
+      ..addSeparator('Application options:')
       ..addOption('target',
           abbr: 't', help: 'The name of the handler or factory to serve requests.')
       ..addSeparator('Debugging options:')
@@ -33,7 +32,8 @@ class ServeCommand extends Command<int> with Project {
   }
 
   String get target {
-    return argResults['target'] as String? ?? 'application';
+    var target = argResults['target'] as String?;
+    return target ?? 'application';
   }
 
   bool get reload {
@@ -49,24 +49,9 @@ class ServeCommand extends Command<int> with Project {
     return observe ?? '8181';
   }
 
-  bool get verbose {
-    return argResults.wasParsed('verbose');
-  }
-
-  @override
-  ArgResults get argResults {
-    return super.argResults!;
-  }
-
   @override
   Future<int> run() async {
-    var file = File('lib${Platform.pathSeparator}$library');
-
-    if (!file.existsSync()) {
-      throw Exception('file not found: $file');
-    }
-
-    var uri = file.absolute.uri;
+    var uri = libraryFile.absolute.uri;
     var source = createSource(uri, target);
     var shutdownCallbacks = <FutureOr<void> Function()>[];
     var arguments = <String>['run'];
@@ -133,7 +118,7 @@ class ServeCommand extends Command<int> with Project {
         isolateIds.add(id);
       }
 
-      var directory = Directory.fromUri(uri.resolve('.'));
+      var directory = Directory(join(this.directory.path, 'lib'));
 
       Future<void> reloader(FileSystemEvent event) {
         stdout.writeln('Reloading...');
@@ -148,6 +133,7 @@ class ServeCommand extends Command<int> with Project {
 
       var watch = directory
           .watch(events: FileSystemEvent.modify, recursive: true)
+          .throttle(Duration(seconds: 1))
           .asyncMapSample(reloader)
           .listen(null, onError: completer.completeError);
       shutdownCallbacks.add(watch.cancel);
