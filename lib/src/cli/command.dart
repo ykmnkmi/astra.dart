@@ -9,7 +9,8 @@ abstract class AstraCommand extends Command<int> {
   AstraCommand() {
     argParser
       ..addSeparator('Common options:')
-      ..addOption('directory', abbr: 'd', help: 'Run this in the directory', valueHelp: 'dir');
+      ..addOption('directory', abbr: 'd', valueHelp: 'example', help: 'Run this in the directory.')
+      ..addFlag('verbose', negatable: false, help: 'Output more informational messages.');
   }
 
   @override
@@ -34,6 +35,7 @@ abstract class AstraCommand extends Command<int> {
       return directory;
     }
 
+    // TODO: update error
     throw Exception('directory not found: $path');
   }
 
@@ -58,6 +60,7 @@ abstract class AstraCommand extends Command<int> {
       return yaml.cast<String, Object?>();
     }
 
+    // TODO: update error
     throw Exception('failed to locate ${file.path}');
   }
 
@@ -81,6 +84,15 @@ abstract class AstraCommand extends Command<int> {
       return libraryFile;
     }
 
+    // TODO: update error
     throw Exception('failed to locate ${libraryFile.path}');
+  }
+
+  bool get verbose {
+    return wasParsed('verbose');
+  }
+
+  bool wasParsed(String name) {
+    return argResults.wasParsed(name);
   }
 }

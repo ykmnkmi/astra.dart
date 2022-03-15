@@ -1,24 +1,29 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/path.dart';
 import 'package:stream_transform/stream_transform.dart';
-import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
+import 'package:vm_service/vm_service_io.dart';
 
 class ServeCommand extends AstraCommand {
   ServeCommand() {
     argParser
       ..addSeparator('Application options:')
-      ..addOption('target',
-          abbr: 't', help: 'The name of the handler or factory to serve requests.')
+      ..addOption('target', help: 'The name of the handler or factory.', valueHelp: 'application')
+      ..addSeparator('Server options:')
+      ..addOption('host', help: 'Socket bind host.', valueHelp: 'localhost')
+      ..addOption('port', help: 'Socket bind port.', valueHelp: '3000')
+      ..addOption('backlog', help: 'Socket listen backlog.', valueHelp: '0')
+      ..addFlag('shared', negatable: false, help: 'Socket connections distributing.')
+      ..addFlag('v6Only', negatable: false, help: 'Restrict socket to version 6.')
+      ..addOption('concurrency', help: 'The number of concurrent servers to serve.', valueHelp: '1')
+      ..addOption('ssl-cert', help: 'SSL certificate file.')
+      ..addOption('ssl-key', help: 'SSL key file.')
+      ..addOption('ssl-key-password', help: 'SSL keyfile password.')
       ..addSeparator('Debugging options:')
-      ..addFlag('reload', abbr: 'r', negatable: false, help: '')
-      ..addOption('observe',
-          help: 'Enables the VM service on the specified port for connections.', valueHelp: '8181')
-      ..addFlag('verbose',
-          abbr: 'v', negatable: false, help: 'Output more informational messages.');
+      ..addFlag('reload', negatable: false, help: 'Enable hot-reload.')
+      ..addOption('observe', help: 'Enables the VM Observer.', valueHelp: '8181');
   }
 
   @override
@@ -36,12 +41,76 @@ class ServeCommand extends AstraCommand {
     return target ?? 'application';
   }
 
+  String get host {
+    var host = argResults['host'] as String?;
+    return host ?? 'localhost';
+  }
+
+  int get port {
+    var port = argResults['port'] as String?;
+
+    if (port == null) {
+      return 3000;
+    }
+
+    return int.parse(port);
+  }
+
+  int get backlog {
+    var backlog = argResults['backlog'] as String?;
+
+    if (backlog == null) {
+      return 3000;
+    }
+
+    return int.parse(backlog);
+  }
+
+  bool get shared {
+    return wasParsed('shared');
+  }
+
+  bool get v6Only {
+    return wasParsed('v6Only');
+  }
+
+  int get concurrency {
+    var concurrency = argResults['concurrency'] as String?;
+
+    if (concurrency == null) {
+      return 1;
+    }
+
+    return int.parse(concurrency);
+  }
+
+  // TODO: check relative or absolute path
+  // TODO: validate values
+  String? get context {
+    if (wasParsed('ssl-cert')) {
+      if (wasParsed('ssl-key')) {
+        if (wasParsed('ssl-key-password')) {
+          var certfile = argResults['ssl-cert'] as String;
+          var keyfile = argResults['ssl-key'] as String;
+          var password = argResults['ssl-key-password'] as String;
+          return 'SecurityContext()..useCertificateChain(\'$certfile\')..usePrivateKey(\'$keyfile\', password: \'$password\')';
+        }
+
+        throw Exception('usage');
+      }
+
+      throw Exception('usage');
+    }
+
+    return '';
+  }
+
   bool get reload {
-    return argResults.wasParsed('reload');
+    return wasParsed('reload');
   }
 
   bool get observe {
-    return argResults.wasParsed('observe');
+    return wasParsed('observe');
   }
 
   String get observePort {
@@ -49,11 +118,38 @@ class ServeCommand extends AstraCommand {
     return observe ?? '8181';
   }
 
+  String createSource() {
+    var path = libraryFile.absolute.uri.toString();
+    var scheme = context == null ? 'http' : 'https';
+    return '''
+import 'dart:io';
+import 'dart:isolate';
+
+import 'package:astra/cli.dart';
+import 'package:astra/serve.dart';
+
+import '$path' as _;
+
+Future<void> main() async {
+  ApplicationManager.init();
+
+  await serve(_.$target, '$host', $port,
+    context: $context,
+    concurrency: $concurrency,
+    backlog: $backlog,
+    shared: $shared,
+    v6Only: $v6Only);
+  print('serving at $scheme://$host:$port');
+}
+
+''';
+  }
+
   @override
   Future<int> run() async {
-    var uri = libraryFile.absolute.uri;
-    var source = createSource(uri, target);
-    var shutdownCallbacks = <FutureOr<void> Function()>[];
+    var source = createSource();
+
+    var shutdown = <FutureOr<void> Function()>[];
     var arguments = <String>['run'];
 
     if (reload || observe) {
@@ -64,26 +160,45 @@ class ServeCommand extends AstraCommand {
         ..add('--no-dds');
     }
 
-    var dartToolPath = '.dart_tool${Platform.pathSeparator}astra';
-    var dartTool = Directory(dartToolPath);
-    dartTool.createSync(recursive: true);
-
-    var script = File('$dartToolPath${Platform.pathSeparator}$package.dart');
-    script.writeAsStringSync(source);
-    shutdownCallbacks.add(() => dartTool.deleteSync(recursive: true));
+    var script = File(join(directory.path, '.dart_tool', 'astra-$package.dart'));
+    await script.writeAsString(source);
+    shutdown.add(() => script.delete());
     arguments.add(script.path);
 
     var completer = Completer<int>();
     var process = await Process.start(Platform.executable, arguments);
-    process.stderr.listen(stderr.add, onError: completer.completeError);
-    shutdownCallbacks.add(process.kill);
+
+    void onExit(int code) {
+      if (completer.isCompleted) {
+        return;
+      }
+
+      completer.complete(code);
+    }
+
+    process.exitCode.then<void>(onExit);
+
+    void onError(List<int> bytes) async {
+      stderr.add(bytes);
+      await shutAll(shutdown);
+
+      if (completer.isCompleted) {
+        return;
+      }
+
+      completer.complete(1);
+    }
+
+    process.stderr.listen(onError, onError: completer.completeError);
+    shutdown.add(process.kill);
 
     if (reload) {
       var output = process.stdout.listen(null, onError: completer.completeError);
-      output.onData((bytes) {
+
+      void onOut(List<int> bytes) {
         output.pause();
 
-        var message = utf8.decode(bytes);
+        var message = String.fromCharCodes(bytes);
 
         if (message.startsWith('Observatory')) {
           output.resume();
@@ -95,16 +210,19 @@ class ServeCommand extends AstraCommand {
         output
           ..onData(stdout.add)
           ..resume();
-      });
+      }
+
+      output.onData(onOut);
 
       var service = await vmServiceConnectUri('ws://localhost:$observePort/ws');
-      shutdownCallbacks.add(service.dispose);
+      shutdown.add(service.dispose);
 
       var vm = await service.getVM();
       var isolateIds = <String>[];
       var isolates = vm.isolates;
 
       if (isolates == null) {
+        // TODO: update error
         throw Exception('WTF Dart?');
       }
 
@@ -112,6 +230,7 @@ class ServeCommand extends AstraCommand {
         var id = isolateRef.id;
 
         if (id == null) {
+          // TODO: update error
           throw Exception('WTF Dart?');
         }
 
@@ -120,59 +239,48 @@ class ServeCommand extends AstraCommand {
 
       var directory = Directory(join(this.directory.path, 'lib'));
 
-      Future<void> reloader(FileSystemEvent event) {
-        stdout.writeln('Reloading...');
-        return Future.forEach<String>(isolateIds, (isolateId) async {
+      Future<void> reload(FileSystemEvent event) {
+        stdout.writeln('reloading...');
+
+        Future<void> onEach(String isolateId) async {
           var result = await service.reloadSources(isolateId);
 
           if (result.success == true) {
-            await service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
+            service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
           }
-        });
+        }
+
+        return Future.forEach<String>(isolateIds, onEach);
       }
 
       var watch = directory
           .watch(events: FileSystemEvent.modify, recursive: true)
           .throttle(Duration(seconds: 1))
-          .asyncMapSample(reloader)
+          .asyncMapSample(reload)
           .listen(null, onError: completer.completeError);
-      shutdownCallbacks.add(watch.cancel);
+      shutdown.add(watch.cancel);
     } else {
       process.stdout.listen(stdout.add);
     }
 
     var sigint = ProcessSignal.sigint.watch().listen(null, onError: completer.completeError);
-    sigint.onData((signal) {
-      for (var callback in shutdownCallbacks.reversed) {
-        callback();
+
+    void onSignal(ProcessSignal signal) async {
+      await shutAll(shutdown);
+      await sigint.cancel();
+
+      if (completer.isCompleted) {
+        return;
       }
 
-      sigint.cancel();
-      completer.complete(130);
-    });
+      completer.complete(2);
+    }
 
+    sigint.onData(onSignal);
     return completer.future;
   }
 
-  String createSource(Uri uri, String target,
-      {bool secure = false, Object address = 'localhost', int port = 3000}) {
-    var scheme = secure ? 'https' : 'http';
-    return '''
-import 'dart:io';
-import 'dart:isolate';
-
-import 'package:astra/cli.dart';
-import 'package:astra/serve.dart';
-
-import '$uri' as _;
-
-Future<void> main() async {
-  ApplicationManager.init();
-
-  await serve(_.$target, 'localhost', $port);
-  print('serving at $scheme://$address:$port');
-}
-
-''';
+  static Future<void> shutAll(List<void Function()> shutdown) {
+    return Future.forEach<FutureOr<void> Function()>(shutdown.reversed, (callback) => callback());
   }
 }
