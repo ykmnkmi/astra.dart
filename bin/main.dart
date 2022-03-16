@@ -5,37 +5,21 @@ import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
 import 'package:astra/serve.dart';
 
-class Hello extends Application {
-  Hello(this.name);
-
-  final String name;
-
-  int counter = 0;
-
-  @override
-  Future<Response> call(Request request) async {
-    counter += 1;
-
-    switch (request.url.path) {
-      case '':
-        return Response.ok('$name: $counter!');
-      case 'readme':
-        return Response.ok(File('README.md').openRead());
-      case 'error':
-        throw Exception('some message');
-      default:
-        return Response.notFound('Request for "${request.url}"');
-    }
-  }
-
-  @override
-  void reassemble() {
-    counter = 0;
+Response hello(Request request) {
+  switch (request.url.path) {
+    case '':
+      return Response.ok('hello world!');
+    case 'readme':
+      return Response.ok(File('README.md').openRead());
+    case 'error':
+      throw Exception('some message');
+    default:
+      return Response.notFound(null);
   }
 }
 
 Handler application(String name) {
-  return logRequests().handle(Hello(name));
+  return logRequests().handle(hello);
 }
 
 Future<void> startServer(String name) async {

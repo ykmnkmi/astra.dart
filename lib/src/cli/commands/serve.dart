@@ -167,6 +167,7 @@ Future<void> main() async {
 
     var completer = Completer<int>();
     var process = await Process.start(Platform.executable, arguments);
+    process.stderr.listen(stderr.add, onError: completer.completeError);
 
     void onExit(int code) {
       if (completer.isCompleted) {
@@ -177,19 +178,6 @@ Future<void> main() async {
     }
 
     process.exitCode.then<void>(onExit);
-
-    void onError(List<int> bytes) async {
-      stderr.add(bytes);
-      await shutAll(shutdown);
-
-      if (completer.isCompleted) {
-        return;
-      }
-
-      completer.complete(1);
-    }
-
-    process.stderr.listen(onError, onError: completer.completeError);
     shutdown.add(process.kill);
 
     if (reload) {
@@ -234,8 +222,8 @@ Future<void> main() async {
           throw Exception('WTF Dart?');
         }
 
-        isolateIds.add(id);
         await service.setName(id, 'astra/isolate/${i + 1}');
+        isolateIds.add(id);
       }
 
       var directory = Directory(join(this.directory.path, 'lib'));
