@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:astra/cli.dart';
+import 'package:astra/src/core/manager.dart';
 import 'package:shelf/shelf.dart';
 
 abstract class Application {

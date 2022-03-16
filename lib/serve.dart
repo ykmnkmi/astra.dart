@@ -1,3 +1,5 @@
 library astra.serve;
 
-export 'src/serve/serve.dart';
+export 'package:astra/src/serve/serve.dart';
+export 'package:astra/src/serve/server.dart';
+export 'package:shelf/shelf.dart' show Server;

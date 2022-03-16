@@ -128,14 +128,17 @@ import 'package:astra/serve.dart';
 
 import '$path' as _;
 
-Future<void> main() async {
-  ApplicationManager.init();
-
-  await serve(_.$target, '$host', $port,
+Future<Server> startServer() {
+  ApplicationManager.setup();
+  return serve(_.$target, '$host', $port,
     context: $context,
     backlog: $backlog,
     shared: $shared,
     v6Only: $v6Only);
+}
+
+Future<void> main() async {
+  await startServer();
 }
 
 ''';

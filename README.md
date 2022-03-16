@@ -7,7 +7,6 @@ _WORK IN PROGRESS_
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/middlewares.dart';
 import 'package:astra/serve.dart';
 
 Response application(Request request) {
