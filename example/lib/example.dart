@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
 
 class Hello extends Application {
+  Hello(this.name);
+
+  final String name;
+
   int counter = 0;
 
   @override
@@ -12,7 +17,7 @@ class Hello extends Application {
 
     switch (request.url.path) {
       case '':
-        return Response.ok('counter: $counter!');
+        return Response.ok('$name: $counter!');
       case 'readme':
         return Response.ok(File('README.md').openRead());
       case 'error':
@@ -29,5 +34,6 @@ class Hello extends Application {
 }
 
 Handler application() {
-  return logRequests().handle(Hello());
+  var isolate = Isolate.current;
+  return logRequests().handle(Hello(isolate.debugName ?? isolate.toString()));
 }

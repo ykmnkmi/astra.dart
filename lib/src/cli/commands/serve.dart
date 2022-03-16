@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/src/cli/command.dart';
-import 'package:astra/src/cli/path.dart';
+import 'package:path/path.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:vm_service/vm_service_io.dart';
 
@@ -18,9 +18,9 @@ class ServeCommand extends AstraCommand {
       ..addFlag('shared', negatable: false, help: 'Socket connections distributing.')
       ..addFlag('v6Only', negatable: false, help: 'Restrict socket to version 6.')
       ..addOption('concurrency', help: 'The number of concurrent servers to serve.', valueHelp: '1')
-      ..addOption('ssl-cert', help: 'SSL certificate file.')
-      ..addOption('ssl-key', help: 'SSL key file.')
-      ..addOption('ssl-key-password', help: 'SSL keyfile password.')
+      ..addOption('ssl-cert', help: 'SSL certificate file.', valueHelp: 'path-to-file')
+      ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'path-to-file')
+      ..addOption('ssl-key-password', help: 'SSL keyfile password.', valueHelp: 'password')
       ..addSeparator('Debugging options:')
       ..addFlag('reload', negatable: false, help: 'Enable hot-reload.')
       ..addOption('observe', help: 'Enables the VM Observer.', valueHelp: '8181');
@@ -84,25 +84,24 @@ class ServeCommand extends AstraCommand {
     return int.parse(concurrency);
   }
 
-  // TODO: check relative or absolute path
   // TODO: validate values
   String? get context {
-    if (wasParsed('ssl-cert')) {
-      if (wasParsed('ssl-key')) {
-        if (wasParsed('ssl-key-password')) {
-          var certfile = argResults['ssl-cert'] as String;
-          var keyfile = argResults['ssl-key'] as String;
-          var password = argResults['ssl-key-password'] as String;
-          return 'SecurityContext()..useCertificateChain(\'$certfile\')..usePrivateKey(\'$keyfile\', password: \'$password\')';
-        }
+    var certFilePath = argResults['ssl-cert'] as String?;
 
-        throw Exception('usage');
-      }
-
-      throw Exception('usage');
+    if (certFilePath == null) {
+      return null;
     }
 
-    return '';
+    var keyFilePath = argResults['ssl-key'] as String?;
+
+    if (keyFilePath == null) {
+      return null;
+    }
+
+    var password = argResults['ssl-key-password'] as String?;
+    certFilePath = toUri(normalize(certFilePath)).toFilePath(windows: false);
+    keyFilePath = toUri(normalize(keyFilePath)).toFilePath(windows: false);
+    return 'SecurityContext()..useCertificateChain(\'$certFilePath\')..usePrivateKey(\'$keyFilePath\', password: \'$password\')';
   }
 
   bool get reload {
@@ -120,7 +119,6 @@ class ServeCommand extends AstraCommand {
 
   String createSource() {
     var path = libraryFile.absolute.uri.toString();
-    var scheme = context == null ? 'http' : 'https';
     return '''
 import 'dart:io';
 import 'dart:isolate';
@@ -135,11 +133,9 @@ Future<void> main() async {
 
   await serve(_.$target, '$host', $port,
     context: $context,
-    concurrency: $concurrency,
     backlog: $backlog,
     shared: $shared,
     v6Only: $v6Only);
-  print('serving at $scheme://$host:$port');
 }
 
 ''';
@@ -160,8 +156,9 @@ Future<void> main() async {
         ..add('--no-dds');
     }
 
-    var script = File(join(directory.path, '.dart_tool', 'astra-$package.dart'));
+    var script = File(join(directory.path, '.dart_tool', '$package.astra.dart'));
     await script.writeAsString(source);
+    await Process.run(Platform.executable, <String>['format', script.path]);
     shutdown.add(() => script.delete());
     arguments.add(script.path);
 
@@ -226,8 +223,8 @@ Future<void> main() async {
         throw Exception('WTF Dart?');
       }
 
-      for (var isolateRef in isolates) {
-        var id = isolateRef.id;
+      for (var i = 0; i < isolates.length; i += 1) {
+        var id = isolates[i].id;
 
         if (id == null) {
           // TODO: update error
@@ -235,12 +232,13 @@ Future<void> main() async {
         }
 
         isolateIds.add(id);
+        await service.setName(id, 'astra/isolate/${i + 1}');
       }
 
       var directory = Directory(join(this.directory.path, 'lib'));
 
-      Future<void> reload(FileSystemEvent event) {
-        stdout.writeln('reloading...');
+      Future<void> reload(FileSystemEvent event) async {
+        stdout.writeln('* reloading...');
 
         Future<void> onEach(String isolateId) async {
           var result = await service.reloadSources(isolateId);
@@ -250,7 +248,8 @@ Future<void> main() async {
           }
         }
 
-        return Future.forEach<String>(isolateIds, onEach);
+        await Future.forEach<String>(isolateIds, onEach);
+        stdout.writeln('  done');
       }
 
       var watch = directory
@@ -259,6 +258,7 @@ Future<void> main() async {
           .asyncMapSample(reload)
           .listen(null, onError: completer.completeError);
       shutdown.add(watch.cancel);
+      stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
     } else {
       process.stdout.listen(stdout.add);
     }
@@ -277,6 +277,9 @@ Future<void> main() async {
     }
 
     sigint.onData(onSignal);
+
+    var scheme = context == null ? 'http' : 'https';
+    stdout.writeln('* serving at $scheme://$host:$port');
     return completer.future;
   }
 

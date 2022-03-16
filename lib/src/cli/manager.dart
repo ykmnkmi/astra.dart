@@ -1,13 +1,10 @@
 import 'dart:developer';
 
 import 'package:astra/core.dart';
-import 'package:meta/meta.dart';
 
 class ApplicationManager {
-  @internal
   static ApplicationManager? instance;
 
-  @internal
   ApplicationManager() : applications = <Application>{};
 
   final Set<Application> applications;

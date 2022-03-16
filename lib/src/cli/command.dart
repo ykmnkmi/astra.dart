@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
-import 'package:astra/src/cli/path.dart';
+import 'package:path/path.dart';
 import 'package:yaml/yaml.dart';
 
 abstract class AstraCommand extends Command<int> {
@@ -28,7 +28,7 @@ abstract class AstraCommand extends Command<int> {
     }
 
     var path = argResults['directory'] as String?;
-    directory = path == null ? Directory.current : Directory(path);
+    directory = path == null ? Directory.current : Directory(normalize(path));
 
     if (directory.existsSync()) {
       cachedDirectory = directory;
