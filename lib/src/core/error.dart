@@ -12,9 +12,9 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
   };
 
   return (Handler handler) {
-    return (Request request) async {
+    return (Request request) {
       try {
-        return await handler(request);
+        return handler(request);
       } catch (error, stackTrace) {
         if (debug) {
           var accept = request.headers['accept'];
@@ -40,8 +40,8 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
             return Response.internalServerError(body: body, headers: htmlHeaders);
           }
 
-          return Response.internalServerError(
-              body: '$error\n${Trace.format(stackTrace)}', headers: headers);
+          var trace = Trace.format(stackTrace);
+          return Response.internalServerError(body: '$error\n$trace', headers: headers);
         }
 
         if (errorHandler == null) {

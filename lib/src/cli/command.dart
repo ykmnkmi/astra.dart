@@ -9,8 +9,14 @@ abstract class AstraCommand extends Command<int> {
   AstraCommand() {
     argParser
       ..addSeparator('Common options:')
-      ..addOption('directory', abbr: 'd', valueHelp: 'example', help: 'Run this in the directory.')
-      ..addFlag('verbose', negatable: false, help: 'Output more informational messages.');
+      ..addOption('directory', //
+          abbr: 'd',
+          valueHelp: 'example',
+          help: 'Run this in the directory.')
+      ..addFlag('verbose', //
+          abbr: 'v',
+          negatable: false,
+          help: 'Output more informational messages.');
   }
 
   @override

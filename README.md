@@ -7,7 +7,6 @@ _WORK IN PROGRESS_
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/serve.dart';
 
 Response application(Request request) {
   switch (request.url.path) {
@@ -22,9 +21,19 @@ Response application(Request request) {
   }
 }
 
+// bin/main.dart
+import 'package:astra/serve.dart';
+import 'package:[package]/[package].dart';
+
 Future<void> main() async {
   await serve(application, 'localhost', 3000);
   print('serving at http://localhost:3000');
 }
 ```
-(Not yet) Use `astra serve --reload`.
+
+(Not yet) Use `astra serve --reload --concurrency 2`.
+
+TODO:
+- logger
+- hot reload
+- docs

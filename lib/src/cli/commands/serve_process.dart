@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
-import 'dart:math' show min, max;
 
 import 'package:astra/src/cli/command.dart';
-import 'package:astra/src/serve/supervisor.dart';
 import 'package:path/path.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:vm_service/vm_service_io.dart';
@@ -13,50 +10,20 @@ class ServeCommand extends AstraCommand {
   ServeCommand() {
     argParser
       ..addSeparator('Application options:')
-      ..addOption('target', //
-          abbr: 't',
-          help: 'The name of the handler or factory.',
-          valueHelp: 'application')
+      ..addOption('target', help: 'The name of the handler or factory.', valueHelp: 'application')
       ..addSeparator('Server options:')
-      ..addOption('host', //
-          abbr: 'a',
-          help: 'Socket bind host.',
-          valueHelp: 'localhost')
-      ..addOption('port', //
-          abbr: 'p',
-          help: 'Socket bind port.',
-          valueHelp: '3000')
-      ..addOption('backlog', //
-          help: 'Socket listen backlog.',
-          valueHelp: '0')
-      ..addFlag('shared', //
-          negatable: false,
-          help: 'Socket connections distributing.')
-      ..addFlag('v6Only', //
-          negatable: false,
-          help: 'Restrict socket to version 6.')
-      ..addOption('concurrency', //
-          abbr: 'j',
-          help: 'The number of concurrent servers to serve.',
-          defaultsTo: '0',
-          valueHelp: '4')
-      ..addOption('ssl-cert', //
-          help: 'SSL certificate file.',
-          valueHelp: 'path-to-file')
-      ..addOption('ssl-key', //
-          help: 'SSL key file.',
-          valueHelp: 'path-to-file')
-      ..addOption('ssl-key-password', //
-          help: 'SSL keyfile password.',
-          valueHelp: 'password')
+      ..addOption('host', help: 'Socket bind host.', valueHelp: 'localhost')
+      ..addOption('port', help: 'Socket bind port.', valueHelp: '3000')
+      ..addOption('backlog', help: 'Socket listen backlog.', valueHelp: '0')
+      ..addFlag('shared', negatable: false, help: 'Socket connections distributing.')
+      ..addFlag('v6Only', negatable: false, help: 'Restrict socket to version 6.')
+      ..addOption('concurrency', help: 'The number of concurrent servers to serve.', valueHelp: '1')
+      ..addOption('ssl-cert', help: 'SSL certificate file.', valueHelp: 'path-to-file')
+      ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'path-to-file')
+      ..addOption('ssl-key-password', help: 'SSL keyfile password.', valueHelp: 'password')
       ..addSeparator('Debugging options:')
-      ..addFlag('reload', //
-          abbr: 'r',
-          negatable: false,
-          help: 'Enable hot-reload.')
-      ..addOption('observe', //
-          abbr: 'o',
-          help: 'Enables the VM Observer.');
+      ..addFlag('reload', negatable: false, help: 'Enable hot-reload.')
+      ..addOption('observe', help: 'Enables the VM Observer.', valueHelp: '8181');
   }
 
   @override
@@ -100,7 +67,7 @@ class ServeCommand extends AstraCommand {
   }
 
   bool get shared {
-    return wasParsed('shared') || concurrency > 1;
+    return wasParsed('shared');
   }
 
   bool get v6Only {
@@ -114,11 +81,7 @@ class ServeCommand extends AstraCommand {
       return 1;
     }
 
-    if (concurrency == '0') {
-      return Platform.numberOfProcessors - 1;
-    }
-
-    return min(max(1, int.parse(concurrency)), Platform.numberOfProcessors - 1);
+    return int.parse(concurrency);
   }
 
   // TODO: validate values
@@ -165,16 +128,17 @@ import 'package:astra/serve.dart';
 
 import '$path' as _;
 
-Future<void> main(List<String> arguments, SendPort sendPort) async {
+Future<Server> startServer() {
   ApplicationManager.setup();
+  return serve(_.$target, '$host', $port,
+    context: $context,
+    backlog: $backlog,
+    shared: $shared,
+    v6Only: $v6Only);
+}
 
-  var handler = await getHandler(_.$target);
-  IsolateServer(sendPort, handler, '$host', $port, //
-      context: $context,
-      backlog: $backlog,
-      shared: $shared,
-      v6Only: $v6Only,
-      launch: true);
+Future<void> main() async {
+  await startServer();
 }
 
 ''';
@@ -182,63 +146,83 @@ Future<void> main(List<String> arguments, SendPort sendPort) async {
 
   @override
   Future<int> run() async {
-    if (reload || observe) {
-      var info = await Service.controlWebServer(enable: true, silenceOutput: true);
-
-      if (observe) {
-        var uri = info.serverUri;
-
-        if (uri == null) {
-          // TODO: update error
-          throw StateError('observe: no server uri');
-        }
-
-        stdout.writeln('* observatory listening on $uri');
-      }
-    }
-
     var source = createSource();
-    var scriptUri = Uri.dataFromString(source, mimeType: 'application/dart');
 
     var shutdown = <FutureOr<void> Function()>[];
-    var supervisors = <IsolateSupervisor>[];
+    var arguments = <String>['run'];
 
-    for (var i = 1; i <= concurrency; i += 1) {
-      var supervisor = IsolateSupervisor(scriptUri, 'isolate/$i');
-      stdout.writeln('* starting isolate/$i');
-      await supervisor.start();
-      supervisors.add(supervisor);
-      shutdown.add(supervisor.stop);
+    if (reload || observe) {
+      arguments
+        ..add('--enable-vm-service=$observePort')
+        ..add('--disable-service-auth-codes')
+        ..add('--no-serve-devtools')
+        ..add('--no-dds');
     }
 
-    if (concurrency > 1) {
-      stdout.writeln('* all isolates started');
-    }
+    var script = File(join(directory.path, '.dart_tool', '$package.astra.dart'));
+    await script.writeAsString(source);
+    await Process.run(Platform.executable, <String>['format', script.path]);
+    shutdown.add(() => script.delete());
+    arguments.add(script.path);
 
     var completer = Completer<int>();
+    var process = await Process.start(Platform.executable, arguments);
+    process.stderr.listen(stderr.add, onError: completer.completeError);
 
-    if (reload) {
-      var info = await Service.getInfo();
-      var uri = info.serverWebSocketUri;
-
-      if (uri == null) {
-        // TODO: update error
-        throw StateError('reload: no vm service ws uri');
+    void onExit(int code) {
+      if (completer.isCompleted) {
+        return;
       }
 
-      var service = await vmServiceConnectUri(uri.toString());
+      completer.complete(code);
+    }
+
+    process.exitCode.then<void>(onExit);
+    shutdown.add(process.kill);
+
+    if (reload) {
+      var output = process.stdout.listen(null, onError: completer.completeError);
+
+      void onOut(List<int> bytes) {
+        output.pause();
+
+        var message = String.fromCharCodes(bytes);
+
+        if (message.startsWith('Observatory')) {
+          output.resume();
+          return;
+        }
+
+        stdout.add(bytes);
+
+        output
+          ..onData(stdout.add)
+          ..resume();
+      }
+
+      output.onData(onOut);
+
+      var service = await vmServiceConnectUri('ws://localhost:$observePort/ws');
       shutdown.add(service.dispose);
 
+      var vm = await service.getVM();
       var isolateIds = <String>[];
+      var isolates = vm.isolates;
 
-      for (var supervisor in supervisors) {
-        var id = Service.getIsolateID(supervisor.isolate);
+      if (isolates == null) {
+        // TODO: update error
+        throw Exception('WTF Dart?');
+      }
+
+      for (var i = 0; i < isolates.length; i += 1) {
+        var id = isolates[i].id;
 
         if (id == null) {
           // TODO: update error
-          throw StateError('${supervisor.name} id == null');
+          throw Exception('WTF Dart?');
         }
 
+        await service.setName(id, 'astra/isolate/${i + 1}');
         isolateIds.add(id);
       }
 
@@ -255,7 +239,8 @@ Future<void> main(List<String> arguments, SendPort sendPort) async {
           }
         }
 
-        return Future.forEach<String>(isolateIds, onEach);
+        await Future.forEach<String>(isolateIds, onEach);
+        stdout.writeln('  done');
       }
 
       var watch = directory
@@ -265,12 +250,15 @@ Future<void> main(List<String> arguments, SendPort sendPort) async {
           .listen(null, onError: completer.completeError);
       shutdown.add(watch.cancel);
       stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
+    } else {
+      process.stdout.listen(stdout.add);
     }
 
     var sigint = ProcessSignal.sigint.watch().listen(null, onError: completer.completeError);
 
     void onSignal(ProcessSignal signal) async {
       await shutAll(shutdown);
+      await sigint.cancel();
 
       if (completer.isCompleted) {
         return;
@@ -280,7 +268,6 @@ Future<void> main(List<String> arguments, SendPort sendPort) async {
     }
 
     sigint.onData(onSignal);
-    shutdown.add(sigint.cancel);
 
     var scheme = context == null ? 'http' : 'https';
     stdout.writeln('* serving at $scheme://$host:$port');

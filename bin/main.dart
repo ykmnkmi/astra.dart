@@ -18,19 +18,11 @@ Response hello(Request request) {
   }
 }
 
-Handler application(String name) {
+Handler application() {
   return logRequests().handle(hello);
 }
 
-Future<void> startServer(String name) async {
-  await serve(application(name), 'localhost', 3000, shared: true);
-  print('$name: serving at http://localhost:3000');
-}
-
-Future<void> main() async {
-  await startServer('isolate/0');
-
-  for (var i = 1; i < Platform.numberOfProcessors; i += 1) {
-    await Isolate.spawn(startServer, 'isolate/$i');
-  }
+Future<void> main(List<String> arguments, SendPort sendPort) async {
+  var handler = await getHandler(application);
+  IsolateServer(sendPort, handler, InternetAddress.loopbackIPv4, 3000);
 }
