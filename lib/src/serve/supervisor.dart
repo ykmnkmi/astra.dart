@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:isolate';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.script, this.name);
+  IsolateSupervisor(this.create, this.name);
 
-  final Uri script;
+  final FutureOr<void> Function(SendPort sendPort) create;
 
   final String name;
 
@@ -12,29 +12,11 @@ class IsolateSupervisor {
 
   late ReceivePort receive;
 
-  SendPort? server;
+  late SendPort server;
 
   Completer<void>? launchCompleter;
 
   Completer<void>? stopCompleter;
-
-  Future<void> start() async {
-    if (server != null) {
-      // TODO: update error
-      throw StateError('supervisor: stop before start');
-    }
-
-    launchCompleter = Completer<void>();
-    receive = ReceivePort();
-    receive.listen(listener);
-
-    isolate = await Isolate.spawnUri(script, <String>[], receive.sendPort, //
-        onError: receive.sendPort,
-        errorsAreFatal: false,
-        debugName: name);
-
-    return launchCompleter!.future;
-  }
 
   void listener(Object? message) {
     if (message is SendPort) {
@@ -68,9 +50,20 @@ class IsolateSupervisor {
     }
   }
 
+  Future<void> resume() async {
+    launchCompleter = Completer<void>();
+    receive = ReceivePort();
+    receive.listen(listener);
+    isolate = await Isolate.spawn<SendPort>(create, receive.sendPort, //
+        errorsAreFatal: false,
+        onError: receive.sendPort,
+        debugName: name);
+    return launchCompleter!.future;
+  }
+
   Future<void> stop() async {
     stopCompleter = Completer();
-    server!.send('stop');
+    server.send('stop');
     await stopCompleter!.future;
     receive.close();
   }

@@ -11,8 +11,8 @@ abstract class AstraCommand extends Command<int> {
       ..addSeparator('Common options:')
       ..addOption('directory', //
           abbr: 'd',
-          valueHelp: 'example',
-          help: 'Run this in the directory.')
+          help: 'Run this in the directory.',
+          valueHelp: 'path')
       ..addFlag('verbose', //
           abbr: 'v',
           negatable: false,
@@ -21,7 +21,14 @@ abstract class AstraCommand extends Command<int> {
 
   @override
   ArgResults get argResults {
-    return super.argResults!;
+    var argResults = super.argResults;
+
+    if (argResults == null) {
+      // TODO: update error
+      throw StateError('run is not called.');
+    }
+
+    return argResults;
   }
 
   Directory? cachedDirectory;

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/server.dart';
+import 'package:astra/src/serve/io.dart';
 import 'package:astra/src/serve/utils.dart';
 
 Future<Server> serve(Object application, Object host, int port, //
@@ -24,11 +24,9 @@ Future<Server> serve(Object application, Object host, int port, //
     throw TypeError();
   }
 
-  var server = IOServer(handler, address, port, //
+  return IOServer.bind(handler, address, port, //
       context: context,
       backlog: backlog,
       shared: shared,
       v6Only: v6Only);
-  await server.start();
-  return server;
 }

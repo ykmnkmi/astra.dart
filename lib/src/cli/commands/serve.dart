@@ -1,13 +1,9 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
-import 'dart:math' show min, max;
+import 'dart:isolate';
 
 import 'package:astra/src/cli/command.dart';
-import 'package:astra/src/serve/supervisor.dart';
 import 'package:path/path.dart';
-import 'package:stream_transform/stream_transform.dart';
-import 'package:vm_service/vm_service_io.dart';
 
 class ServeCommand extends AstraCommand {
   ServeCommand() {
@@ -16,19 +12,23 @@ class ServeCommand extends AstraCommand {
       ..addOption('target', //
           abbr: 't',
           help: 'The name of the handler or factory.',
-          valueHelp: 'application')
+          valueHelp: 'name',
+          defaultsTo: 'application')
       ..addSeparator('Server options:')
       ..addOption('host', //
           abbr: 'a',
           help: 'Socket bind host.',
-          valueHelp: 'localhost')
+          valueHelp: 'internet-address',
+          defaultsTo: 'localhost')
       ..addOption('port', //
           abbr: 'p',
           help: 'Socket bind port.',
-          valueHelp: '3000')
+          valueHelp: 'port',
+          defaultsTo: '3000')
       ..addOption('backlog', //
           help: 'Socket listen backlog.',
-          valueHelp: '0')
+          valueHelp: 'count',
+          defaultsTo: '0')
       ..addFlag('shared', //
           negatable: false,
           help: 'Socket connections distributing.')
@@ -38,14 +38,14 @@ class ServeCommand extends AstraCommand {
       ..addOption('concurrency', //
           abbr: 'j',
           help: 'The number of concurrent servers to serve.',
-          defaultsTo: '0',
-          valueHelp: '4')
+          valueHelp: 'count',
+          defaultsTo: '1')
       ..addOption('ssl-cert', //
           help: 'SSL certificate file.',
-          valueHelp: 'path-to-file')
+          valueHelp: 'path')
       ..addOption('ssl-key', //
           help: 'SSL key file.',
-          valueHelp: 'path-to-file')
+          valueHelp: 'path')
       ..addOption('ssl-key-password', //
           help: 'SSL keyfile password.',
           valueHelp: 'password')
@@ -56,7 +56,9 @@ class ServeCommand extends AstraCommand {
           help: 'Enable hot-reload.')
       ..addOption('observe', //
           abbr: 'o',
-          help: 'Enables the VM Observer.');
+          help: 'Enables the VM Observer.',
+          valueHelp: 'port',
+          defaultsTo: '3001');
   }
 
   @override
@@ -96,6 +98,7 @@ class ServeCommand extends AstraCommand {
       return 3000;
     }
 
+    // TODO: validate value
     return int.parse(backlog);
   }
 
@@ -115,10 +118,11 @@ class ServeCommand extends AstraCommand {
     }
 
     if (concurrency == '0') {
-      return Platform.numberOfProcessors - 1;
+      return Platform.numberOfProcessors;
     }
 
-    return min(max(1, int.parse(concurrency)), Platform.numberOfProcessors - 1);
+    // TODO: validate value
+    return int.parse(concurrency);
   }
 
   // TODO: validate values
@@ -136,8 +140,8 @@ class ServeCommand extends AstraCommand {
     }
 
     var password = argResults['ssl-key-password'] as String?;
-    certFilePath = toUri(normalize(certFilePath)).toFilePath(windows: false);
-    keyFilePath = toUri(normalize(keyFilePath)).toFilePath(windows: false);
+    certFilePath = absolute(normalize(certFilePath));
+    keyFilePath = absolute(normalize(keyFilePath));
     return 'SecurityContext()..useCertificateChain(\'$certFilePath\')..usePrivateKey(\'$keyFilePath\', password: \'$password\')';
   }
 
@@ -154,140 +158,107 @@ class ServeCommand extends AstraCommand {
     return observe ?? '8181';
   }
 
-  String createSource() {
-    var path = libraryFile.absolute.uri.toString();
-    return '''
-import 'dart:io';
-import 'dart:isolate';
+  Future<String> createSource() async {
+    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart.template');
+    var uri = await Isolate.resolvePackageUri(templateUri);
 
-import 'package:astra/core.dart';
-import 'package:astra/serve.dart';
+    if (uri == null) {
+      // TODO: update error
+      throw StateError('serve template not found');
+    }
 
-import '$path' as _;
+    var template = await File.fromUri(uri).readAsString();
 
-Future<void> main(List<String> arguments, SendPort sendPort) async {
-  ApplicationManager.setup();
+    var package = 'package:${this.package}/${this.package}.dart';
+    var port = '${this.port}';
+    var context = '${this.context}';
+    var backlog = '${this.backlog}';
+    var shared = '${this.shared}';
+    var v6Only = '${this.v6Only}';
+    var reload = '${this.reload}';
+    var observe = '${this.observe}';
+    var concurrency = '${this.concurrency}';
+    var directory = this.directory.path;
+    var scheme = context == 'null' ? 'http' : 'https';
 
-  var handler = await getHandler(_.$target);
-  IsolateServer(sendPort, handler, '$host', $port, //
-      context: $context,
-      backlog: $backlog,
-      shared: $shared,
-      v6Only: $v6Only,
-      launch: true);
-}
+    return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), (match) {
+      var variable = match.group(1);
 
-''';
+      switch (variable) {
+        case 'PACKAGE':
+          return package;
+        case 'TARGET':
+          return target;
+        case 'HOST':
+          return host;
+        case 'PORT':
+          return port;
+        case 'CONTEXT':
+          return context;
+        case 'BACKLOG':
+          return backlog;
+        case 'SHARED':
+          return shared;
+        case 'V6ONLY':
+          return v6Only;
+        case 'RELOAD':
+          return reload;
+        case 'OBSERVE':
+          return observe;
+        case 'CONCURRENCY':
+          return concurrency;
+        case 'DIRECTORY':
+          return directory;
+        case 'SCHEME':
+          return scheme;
+        default:
+          // TODO: update error
+          throw UnsupportedError('template variable: $variable');
+      }
+    });
   }
 
   @override
   Future<int> run() async {
+    var source = await createSource();
+    var path = join('.dart_tool', 'astra.serve.dart');
+    var script = File(join(directory.path, path));
+    await script.writeAsString(source);
+
+    var arguments = <String>[];
+
     if (reload || observe) {
-      var info = await Service.controlWebServer(enable: true, silenceOutput: true);
-
-      if (observe) {
-        var uri = info.serverUri;
-
-        if (uri == null) {
-          // TODO: update error
-          throw StateError('observe: no server uri');
-        }
-
-        stdout.writeln('* observatory listening on $uri');
-      }
+      arguments.add('-DSILENT_OBSERVATORY=true');
     }
 
-    var source = createSource();
-    var scriptUri = Uri.dataFromString(source, mimeType: 'application/dart');
+    arguments.add('run');
 
-    var shutdown = <FutureOr<void> Function()>[];
-    var supervisors = <IsolateSupervisor>[];
-
-    for (var i = 1; i <= concurrency; i += 1) {
-      var supervisor = IsolateSupervisor(scriptUri, 'isolate/$i');
-      stdout.writeln('* starting isolate/$i');
-      await supervisor.start();
-      supervisors.add(supervisor);
-      shutdown.add(supervisor.stop);
+    if (reload || observe) {
+      arguments
+        ..add('--enable-vm-service=$observePort')
+        ..add('--disable-service-auth-codes')
+        ..add('--no-serve-devtools')
+        ..add('--no-dds');
     }
 
-    if (concurrency > 1) {
-      stdout.writeln('* all isolates started');
-    }
+    arguments.add(path);
 
-    var completer = Completer<int>();
+    var process = await Process.start('dart', arguments, workingDirectory: directory.path);
+    stdin.pipe(process.stdin);
+    process.stdout.pipe(stdout);
+    process.stderr.pipe(stderr);
 
-    if (reload) {
-      var info = await Service.getInfo();
-      var uri = info.serverWebSocketUri;
+    var sigint = ProcessSignal.sigint.watch().listen(null);
 
-      if (uri == null) {
-        // TODO: update error
-        throw StateError('reload: no vm service ws uri');
-      }
-
-      var service = await vmServiceConnectUri(uri.toString());
-      shutdown.add(service.dispose);
-
-      var isolateIds = <String>[];
-
-      for (var supervisor in supervisors) {
-        var id = Service.getIsolateID(supervisor.isolate);
-
-        if (id == null) {
-          // TODO: update error
-          throw StateError('${supervisor.name} id == null');
-        }
-
-        isolateIds.add(id);
-      }
-
-      var directory = Directory(join(this.directory.path, 'lib'));
-
-      Future<void> reload(FileSystemEvent event) async {
-        stdout.writeln('* reloading...');
-
-        Future<void> onEach(String isolateId) async {
-          var result = await service.reloadSources(isolateId);
-
-          if (result.success == true) {
-            service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
-          }
-        }
-
-        return Future.forEach<String>(isolateIds, onEach);
-      }
-
-      var watch = directory
-          .watch(events: FileSystemEvent.modify, recursive: true)
-          .throttle(Duration(seconds: 1))
-          .asyncMapSample(reload)
-          .listen(null, onError: completer.completeError);
-      shutdown.add(watch.cancel);
-      stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
-    }
-
-    var sigint = ProcessSignal.sigint.watch().listen(null, onError: completer.completeError);
-
-    void onSignal(ProcessSignal signal) async {
-      await shutAll(shutdown);
-
-      if (completer.isCompleted) {
-        return;
-      }
-
-      completer.complete(2);
+    void onSignal(ProcessSignal signal) {
+      sigint.cancel();
+      process.kill(ProcessSignal.sigint);
     }
 
     sigint.onData(onSignal);
-    shutdown.add(sigint.cancel);
 
-    var scheme = context == null ? 'http' : 'https';
-    stdout.writeln('* serving at $scheme://$host:$port');
-    return completer.future;
-  }
-
-  static Future<void> shutAll(List<void Function()> shutdown) {
-    return Future.forEach<FutureOr<void> Function()>(shutdown.reversed, (callback) => callback());
+    var code = await process.exitCode;
+    sigint.cancel();
+    return code;
   }
 }

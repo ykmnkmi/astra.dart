@@ -1,7 +1,6 @@
 .dart_tool/
 .DS_store
 .packages
-lib/astra.dart
 pubspec.lock
 **/**.dill
 **/**.jit

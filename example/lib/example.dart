@@ -35,5 +35,11 @@ class Hello extends Application {
 
 Handler application() {
   var isolate = Isolate.current;
-  return logRequests().handle(Hello(isolate.debugName ?? isolate.toString()));
+  var name = isolate.debugName ?? isolate.toString();
+
+  void logger(String message, bool isError) {
+    print('$name: $message');
+  }
+
+  return logRequests(logger: logger).handle(Hello(name));
 }
