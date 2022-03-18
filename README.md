@@ -5,66 +5,82 @@ Astra is an Shelf server application framework with CLI tool.
 
 **WORK IN PROGRESS**
 
-## TODO:
+### TODO:
 * Docs (I'm here)
+* Verbose output (and there)
 * Logger (help wanted)
 * Manual hot reload & hot restart (help wanted)
-* Colors (help wanted)
-* Replace HttpServer with Shelf Request/Response first server implementation.
+* CLI Colors (help wanted)
+* Replace HttpServer with Shelf Request/Response first server implementation. (experimenting here )
 
-## Install
+## Quickstart
 
-Use the dart pub global command to install this into your system.
+Install using `dart pub`:
 
 ```console
 $ dart pub global activate astra
 ```
 
-## Use
-
-If you have [modified your PATH][path], you can run this from any local directory.
-
-```console
-$ astra serve
-```
-
-Otherwise you can use the `dart pub global` command.
-
-```console
-$ dart pub global run astra serve
-```
-
-## Example
+Create an application, in `lib/[package].dart`:
 
 ```dart
-// lib/[package].dart
 import 'dart:io';
 
 import 'package:astra/core.dart';
 
 Response application(Request request) {
-  switch (request.url.path) {
-    case '':
-      return Response.ok('counter: $counter!');
-    case 'readme':
-      return Response.ok(File('README.md').openRead());
-    case 'error':
-      throw Exception('some message');
-    default:
-      return Response.notFound('Request for "${request.url}"');
-  }
-}
-
-// bin/main.dart
-import 'package:astra/serve.dart';
-import 'package:[package]/[package].dart';
-
-Future<void> main() async {
-  await serve(application, 'localhost', 3000);
-  print('serving at http://localhost:3000');
+  return Response.ok('hello world!');
 }
 ```
 
-Use `astra serve -r -j 2`.
+Run the server:
+
+```console
+$ astra serve
+```
+
+## Usage
+
+The astra command line tool is the easiest way to run your application...
+
+### Command line options
+
+```console
+$ astra serve -h
+Serve application.
+
+Usage: astra serve [arguments]
+-h, --help                           Print this usage information.
+
+Common options:
+-d, --directory=<path>               Run this in the directory.
+-v, --verbose                        Output more informational messages.
+
+Application options:
+-t, --target=<name>                  The name of the handler or factory.
+                                     (defaults to "application")
+
+Server options:
+-a, --host=<internet-address>        Socket bind host.
+                                     (defaults to "localhost")
+-p, --port=<port>                    Socket bind port.
+                                     (defaults to "3000")
+    --backlog=<count>                Socket listen backlog.
+                                     (defaults to "0")
+    --shared                         Socket connections distributing.
+    --v6Only                         Restrict socket to version 6.
+-j, --concurrency=<count>            The number of concurrent servers to serve.
+                                     (defaults to "1")
+    --ssl-cert=<path>                SSL certificate file.
+    --ssl-key=<path>                 SSL key file.
+    --ssl-key-password=<password>    SSL keyfile password.
+
+Debugging options:
+-r, --reload                         Enable hot-reload.
+-o, --observe=<port>                 Enable VM Observer.
+                                     (defaults to "3001")
+
+Run "astra help" to see global options.
+```
 
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path

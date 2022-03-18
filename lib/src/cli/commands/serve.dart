@@ -56,7 +56,7 @@ class ServeCommand extends AstraCommand {
           help: 'Enable hot-reload.')
       ..addOption('observe', //
           abbr: 'o',
-          help: 'Enables the VM Observer.',
+          help: 'Enable VM Observer.',
           valueHelp: 'port',
           defaultsTo: '3001');
   }
@@ -68,7 +68,7 @@ class ServeCommand extends AstraCommand {
 
   @override
   String get description {
-    return 'Serve shelf application.';
+    return 'Serve application.';
   }
 
   String get target {
