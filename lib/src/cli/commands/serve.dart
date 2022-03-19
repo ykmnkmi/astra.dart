@@ -159,7 +159,7 @@ class ServeCommand extends AstraCommand {
   }
 
   Future<String> createSource() async {
-    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart.template');
+    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart');
     var uri = await Isolate.resolvePackageUri(templateUri);
 
     if (uri == null) {

@@ -5,13 +5,13 @@ Astra is an Shelf server application framework with CLI tool.
 
 **WORK IN PROGRESS**
 
-### TODO:
-* Docs (I'm here)
-* Verbose output (and there)
+### Current status:
+* Error handling and verbose output (I'm here)
+* API Documentation (if you see there are places to correct or you has better suggestion)
 * Logger (help wanted)
 * Manual hot reload & hot restart (help wanted)
 * CLI Colors (help wanted)
-* Replace HttpServer with Shelf Request/Response first server implementation. (experimenting here )
+* Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 
 ## Quickstart
 
@@ -82,5 +82,54 @@ Debugging options:
 
 Run "astra help" to see global options.
 ```
+
+### Running programmatically
+
+To run astra directly from your application...
+
+`bin/main.dart`
+
+```dart
+import 'package:astra/serve.dart';
+import 'package:example/example.dart';
+
+Future<void> main() async {
+  await serve(application, 'localhost', 3000);
+  print('serving at http://localhost:3000');
+}
+```
+
+### Application factories
+
+The `--target` option also allows loading the application from a factory function,
+rather than a handler or an application instance directly.
+The factory will be called with no arguments and should return a `FutureOr<Handler>`.
+
+```dart
+class Hello extends Application {
+  Hello(this.db);
+
+  ...
+
+  @override
+  Response call(Request request) {
+    return Response.ok('hello world!');
+  }
+}
+
+Future<Handler> createApplication() async {
+  var db = await loadDB();
+  ...
+  return logRequests().handle(Hello(db));
+}
+```
+
+```console
+$ astra serve --target createApplication
+```
+
+## Why Astra?
+
+__WIP__
 
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path

@@ -1,6 +1,6 @@
 name: astra
 description: Astra is an Shelf server application framework with CLI tool.
-version: 1.0.0-dev.76
+version: 1.0.0-dev.77
 repository: https://github.com/ykmnkmi/astra.dart
 
 environment:

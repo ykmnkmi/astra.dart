@@ -42,7 +42,7 @@ Future<void> main() async {
   for (var i = 0; i < __CONCURRENCY__; i += 1) {
     var supervisor = IsolateSupervisor(create, 'isolate/${i + 1}');
     stdout.writeln('* starting isolate/${i + 1}');
-    await supervisor.resume();
+    await supervisor.init();
     supervisors.add(supervisor);
     shutdown.add(supervisor.stop);
   }
@@ -93,7 +93,11 @@ Future<void> main() async {
     }
 
     void reloaded(Object? message) {
-      stdout.writeln('* __CONCURRENCY__ isolate(s) reloaded');
+      if (__CONCURRENCY__ > 1) {
+        stdout.writeln('* __CONCURRENCY__ isolate(s) reloaded');
+      } else {
+        stdout.writeln('* isolate reloaded');
+      }
     }
 
     var watch = directory

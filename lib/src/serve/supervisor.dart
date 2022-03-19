@@ -50,7 +50,7 @@ class IsolateSupervisor {
     }
   }
 
-  Future<void> resume() async {
+  Future<void> init() async {
     launchCompleter = Completer<void>();
     receive = ReceivePort();
     receive.listen(listener);
