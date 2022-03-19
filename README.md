@@ -1,17 +1,24 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is an Shelf server application framework with CLI tool.
+Astra is a [Shelf][shelf] web server implementation with multi-threaded support and hot reload.
 
 **WORK IN PROGRESS**
 
-### Current status:
+### Progress status:
 * Error handling and verbose output (I'm here)
-* API Documentation (if you see there are places to correct or you has better suggestion)
-* Logger (help wanted)
-* Manual hot reload & hot restart (help wanted)
-* CLI Colors (help wanted)
+* Tests (and there)
+* API Documentation
+* Logging
+* Manual hot reload & hot restart
+* Middlewares:
+  * CORS
+  * JWT
+  * Trailing Slash
+  * ...
+* ...
 * Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
+* Application framework on top of this
 
 ## Quickstart
 
@@ -132,4 +139,5 @@ $ astra serve --target createApplication
 
 __WIP__
 
+[shelf]: https://pub.dev/packages/shelf
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path
