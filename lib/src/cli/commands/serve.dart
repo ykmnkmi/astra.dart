@@ -169,48 +169,36 @@ class ServeCommand extends AstraCommand {
 
     var template = await File.fromUri(uri).readAsString();
 
-    var package = 'package:${this.package}/${this.package}.dart';
-    var port = '${this.port}';
-    var context = '${this.context}';
-    var backlog = '${this.backlog}';
-    var shared = '${this.shared}';
-    var v6Only = '${this.v6Only}';
-    var reload = '${this.reload}';
-    var observe = '${this.observe}';
-    var concurrency = '${this.concurrency}';
-    var directory = this.directory.path;
-    var scheme = context == 'null' ? 'http' : 'https';
-
     return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), (match) {
       var variable = match.group(1);
 
       switch (variable) {
         case 'PACKAGE':
-          return package;
+          return 'package:$package/$package.dart';
         case 'TARGET':
           return target;
         case 'HOST':
           return host;
         case 'PORT':
-          return port;
+          return '$port';
         case 'CONTEXT':
-          return context;
+          return '$context';
         case 'BACKLOG':
-          return backlog;
+          return '$backlog';
         case 'SHARED':
-          return shared;
+          return '$shared';
         case 'V6ONLY':
-          return v6Only;
+          return '$v6Only';
         case 'RELOAD':
-          return reload;
+          return '$reload';
         case 'OBSERVE':
-          return observe;
+          return '$observe';
         case 'CONCURRENCY':
-          return concurrency;
+          return '$concurrency';
         case 'DIRECTORY':
-          return directory;
+          return directory.path;
         case 'SCHEME':
-          return scheme;
+          return context == null ? 'http' : 'https';
         default:
           // TODO: update error
           throw UnsupportedError('template variable: $variable');

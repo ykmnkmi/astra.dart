@@ -16,11 +16,12 @@ Future<void> create(SendPort sendPort) async {
   ApplicationManager.setup();
 
   var handler = await getHandler(_.__TARGET__);
-  IsolateServer.start(sendPort, handler, '__HOST__', __PORT__, //
+  var server = await IsolateServer.start(sendPort, '__HOST__', __PORT__, //
       context: __CONTEXT__,
       backlog: __BACKLOG__,
       shared: __SHARED__,
       v6Only: __V6ONLY__);
+  server.mount(handler);
 }
 
 Future<void> main() async {

@@ -12,26 +12,27 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
   };
 
   return (Handler handler) {
-    return (Request request) {
+    return (Request request) async {
       try {
-        return handler(request);
+        return await handler(request);
       } catch (error, stackTrace) {
         if (debug) {
           var accept = request.headers['accept'];
 
           if (accept != null && accept.contains('text/html')) {
-            var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
-              var parts = error.toString().split(':');
-              var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
-              var message = parts.join(':').trim();
+            var parts = error.toString().split(':');
+            var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
+            var message = parts.join(':').trim();
+            var trace = renderFrames(Trace.from(stackTrace));
 
+            var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
               switch (match[1]) {
                 case 'type':
                   return type;
                 case 'message':
                   return message;
                 case 'trace':
-                  return renderFrames(Trace.from(stackTrace));
+                  return trace;
                 default:
                   return '';
               }

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:astra/core.dart';
 
-FutureOr<Handler> getHandler(Object? object) async {
-  if (object is Handler) {
+FutureOr<Handler> getHandler(Object? object) {
+  if (object is FutureOr<Handler>) {
     return object;
   }
 

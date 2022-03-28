@@ -42,9 +42,9 @@ Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? h
   }
 
   return (Handler handler) {
-    return (Request request) {
+    return (Request request) async {
       try {
-        return handler(request);
+        return await handler(request);
       } catch (error) {
         ErrorHandler? handler;
 
@@ -54,6 +54,7 @@ Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? h
           for (var entry in exceptionHandlers.entries) {
             if (entry.key(error)) {
               handler = entry.value;
+              break;
             }
           }
         }

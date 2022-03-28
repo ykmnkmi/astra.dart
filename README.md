@@ -6,19 +6,17 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 **WORK IN PROGRESS**
 
 ### Progress status:
-* Error handling and verbose output (I'm here)
-* Tests (and there)
+* Errors, error handling and verbose output (I'm here)
+* Tests
 * API Documentation
 * Logging
 * Manual hot reload & hot restart
 * Middlewares:
-  * CORS
-  * JWT
-  * Trailing Slash
   * ...
 * ...
 * Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 * Application framework on top of this
+* Cookbook
 
 ## Quickstart
 
@@ -92,7 +90,7 @@ Run "astra help" to see global options.
 
 ### Running programmatically
 
-To run astra directly from your application...
+To run astra directly from your application:
 
 `bin/main.dart`
 
@@ -108,9 +106,10 @@ Future<void> main() async {
 
 ### Application factories
 
-The `--target` option also allows loading the application from a factory function,
-rather than a handler or an application instance directly.
-The factory will be called with no arguments and should return a `FutureOr<Handler>`.
+The `--target` option also allows loading the application from a factory
+function, rather than a handler or an application instance directly.
+The factory will be called with no arguments and should return a `Handler`,
+`Application` or corresponding `Future`s.
 
 ```dart
 class Hello extends Application {
@@ -134,10 +133,6 @@ Future<Handler> createApplication() async {
 ```console
 $ astra serve --target createApplication
 ```
-
-## Why Astra?
-
-__WIP__
 
 [shelf]: https://pub.dev/packages/shelf
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path
