@@ -1,4 +1,3 @@
-/// Astra CLI tool.
 library dart.cli;
 
 export 'package:astra/src/cli/commands/serve.dart';

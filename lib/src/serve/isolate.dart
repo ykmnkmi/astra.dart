@@ -12,7 +12,7 @@ class IsolateServer implements Server {
     sendPort.send(receivePort.sendPort);
   }
 
-  final IOServer server;
+  final H11Server server;
 
   final SendPort sendPort;
 
@@ -48,7 +48,7 @@ class IsolateServer implements Server {
       int backlog = 0,
       bool shared = false,
       bool v6Only = false}) async {
-    var server = await IOServer.bind(address, port, //
+    var server = await H11Server.bind(address, port, //
         context: context,
         backlog: backlog,
         shared: shared,

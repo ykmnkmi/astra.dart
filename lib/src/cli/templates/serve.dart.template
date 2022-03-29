@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
+import 'package:astra/isolate.dart';
 import 'package:astra/serve.dart';
 import 'package:path/path.dart';
 import 'package:stream_transform/stream_transform.dart';

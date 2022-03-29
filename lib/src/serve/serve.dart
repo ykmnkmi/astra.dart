@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/io.dart';
+import 'package:astra/src/serve/h11.dart';
 import 'package:astra/src/serve/utils.dart';
 
 Future<Server> serve(Object application, Object address, int port, //
@@ -12,7 +12,7 @@ Future<Server> serve(Object application, Object address, int port, //
     bool requestClientCertificate = false,
     bool v6Only = false}) async {
   var handler = await getHandler(application);
-  var server = await IOServer.bind(address, port, //
+  var server = await H11Server.bind(address, port, //
       context: context,
       backlog: backlog,
       shared: shared,

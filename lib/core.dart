@@ -1,4 +1,3 @@
-/// Astra core library.
 library astra.core;
 
 export 'package:astra/src/core/application.dart';

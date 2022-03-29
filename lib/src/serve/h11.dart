@@ -4,8 +4,8 @@ import 'package:astra/core.dart';
 import 'package:shelf/shelf_io.dart';
 
 /// A [Server] backed by a `dart:io` [HttpServer].
-class IOServer extends Server {
-  IOServer(this.server);
+class H11Server extends Server {
+  H11Server(this.server);
 
   /// The underlying [HttpServer].
   final HttpServer server;
@@ -35,8 +35,8 @@ class IOServer extends Server {
     return server.close();
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [IOServer].
-  static Future<IOServer> bind(Object address, int port, //
+  /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
+  static Future<H11Server> bind(Object address, int port, //
       {SecurityContext? context,
       int backlog = 0,
       bool shared = false,
@@ -57,6 +57,6 @@ class IOServer extends Server {
           v6Only: v6Only);
     }
 
-    return IOServer(server);
+    return H11Server(server);
   }
 }
