@@ -25,7 +25,7 @@ abstract class AstraCommand extends Command<int> {
 
     if (argResults == null) {
       // TODO: update error
-      throw StateError('run is not called.');
+      throw Exception('run is not called.');
     }
 
     return argResults;
@@ -102,10 +102,32 @@ abstract class AstraCommand extends Command<int> {
   }
 
   bool get verbose {
-    return wasParsed('verbose');
+    return getBoolean('verbose');
+  }
+}
+
+extension AstraCommandExtension on AstraCommand {
+  bool getBoolean(String name) {
+    return argResults.wasParsed(name);
   }
 
-  bool wasParsed(String name) {
-    return argResults.wasParsed(name);
+  int getPositive(String name, [int defaultValue = 0]) {
+    var value = argResults[name] as String?;
+
+    if (value == null) {
+      return defaultValue;
+    }
+
+    var parsed = int.parse(value);
+
+    if (parsed < 0) {
+      usageException('$name must be zero or positive');
+    }
+
+    return parsed;
+  }
+
+  String getString(String name, [String defaultValue = '']) {
+    return argResults[name] as String? ?? defaultValue;
   }
 }

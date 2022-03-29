@@ -16,7 +16,7 @@ Future<void> create(SendPort sendPort) async {
   ApplicationManager.setup();
 
   var handler = await getHandler(_.__TARGET__);
-  var server = await IsolateServer.start(sendPort, '__HOST__', __PORT__, //
+  var server = await IsolateServer.start(sendPort, '__ADDRESS__', __PORT__, //
       context: __CONTEXT__,
       backlog: __BACKLOG__,
       shared: __SHARED__,
@@ -58,7 +58,7 @@ Future<void> main() async {
 
     if (uri == null) {
       // TODO: update error
-      throw StateError('reload: no vm service ws uri');
+      throw Exception('reload: no vm service ws uri');
     }
 
     var service = await vmServiceConnectUri(uri.toString());
@@ -71,7 +71,7 @@ Future<void> main() async {
 
       if (id == null) {
         // TODO: update error
-        throw StateError('${supervisor.name} id == null');
+        throw Exception('${supervisor.name} id == null');
       }
 
       isolateIds.add(id);
@@ -120,5 +120,5 @@ Future<void> main() async {
 
   shutdown.add(sigint.cancel);
   sigint.onData(onSignal);
-  stdout.writeln('* serving at __SCHEME__://__HOST__:__PORT__');
+  stdout.writeln('* serving at __SCHEME__://__ADDRESS__:__PORT__');
 }

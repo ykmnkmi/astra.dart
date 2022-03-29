@@ -7,8 +7,8 @@ import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
   @visibleForTesting
-  IsolateServer(this.server, this.sendPort) : receivePort = ReceivePort() {
-    receivePort.listen(listener);
+  IsolateServer(this.server, this.sendPort) : receivePort = RawReceivePort() {
+    receivePort.handler = listener;
     sendPort.send(receivePort.sendPort);
   }
 
@@ -16,7 +16,7 @@ class IsolateServer implements Server {
 
   final SendPort sendPort;
 
-  final ReceivePort receivePort;
+  final RawReceivePort receivePort;
 
   @override
   Uri get url {
@@ -28,7 +28,7 @@ class IsolateServer implements Server {
       return close();
     }
 
-    throw UnimplementedError();
+    throw UnsupportedError('$message');
   }
 
   @override

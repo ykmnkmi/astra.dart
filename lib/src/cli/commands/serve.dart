@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:astra/src/cli/command.dart';
 import 'package:path/path.dart';
@@ -11,22 +12,27 @@ class ServeCommand extends AstraCommand {
       ..addSeparator('Application options:')
       ..addOption('target', //
           abbr: 't',
-          help: 'The name of the handler or factory.',
+          help: 'Application handler or factory.',
           valueHelp: 'name',
           defaultsTo: 'application')
+      ..addOption('concurrency', //
+          abbr: 'j',
+          help: 'Number of isolatas.',
+          valueHelp: 'count',
+          defaultsTo: '1')
       ..addSeparator('Server options:')
-      ..addOption('host', //
+      ..addOption('address', //
           abbr: 'a',
-          help: 'Socket bind host.',
+          help: 'Bind socket to this address.',
           valueHelp: 'internet-address',
           defaultsTo: 'localhost')
       ..addOption('port', //
           abbr: 'p',
-          help: 'Socket bind port.',
+          help: 'Bind socket to this port.',
           valueHelp: 'port',
           defaultsTo: '3000')
       ..addOption('backlog', //
-          help: 'Socket listen backlog.',
+          help: 'Maximum number of connections to hold in backlog.',
           valueHelp: 'count',
           defaultsTo: '0')
       ..addFlag('shared', //
@@ -35,11 +41,6 @@ class ServeCommand extends AstraCommand {
       ..addFlag('v6Only', //
           negatable: false,
           help: 'Restrict socket to version 6.')
-      ..addOption('concurrency', //
-          abbr: 'j',
-          help: 'The number of concurrent servers to serve.',
-          valueHelp: 'count',
-          defaultsTo: '1')
       ..addOption('ssl-cert', //
           help: 'SSL certificate file.',
           valueHelp: 'path')
@@ -72,60 +73,39 @@ class ServeCommand extends AstraCommand {
   }
 
   String get target {
-    var target = argResults['target'] as String?;
-    return target ?? 'application';
-  }
-
-  String get host {
-    var host = argResults['host'] as String?;
-    return host ?? 'localhost';
-  }
-
-  int get port {
-    var port = argResults['port'] as String?;
-
-    if (port == null) {
-      return 3000;
-    }
-
-    return int.parse(port);
-  }
-
-  int get backlog {
-    var backlog = argResults['backlog'] as String?;
-
-    if (backlog == null) {
-      return 3000;
-    }
-
-    // TODO: validate value
-    return int.parse(backlog);
-  }
-
-  bool get shared {
-    return wasParsed('shared') || concurrency > 1;
-  }
-
-  bool get v6Only {
-    return wasParsed('v6Only');
+    return getString('target', 'application');
   }
 
   int get concurrency {
-    var concurrency = argResults['concurrency'] as String?;
+    var positive = getPositive('concurrency', 1);
 
-    if (concurrency == null) {
-      return 1;
+    if (positive == 0) {
+      return max(1, Platform.numberOfProcessors - 1);
     }
 
-    if (concurrency == '0') {
-      return Platform.numberOfProcessors;
-    }
-
-    // TODO: validate value
-    return int.parse(concurrency);
+    return positive;
   }
 
-  // TODO: validate values
+  String get address {
+    return getString('address', 'localhost');
+  }
+
+  int get port {
+    return getPositive('port', 8080);
+  }
+
+  int get backlog {
+    return getPositive('backlog', 0);
+  }
+
+  bool get shared {
+    return getBoolean('shared');
+  }
+
+  bool get v6Only {
+    return getBoolean('v6Only');
+  }
+
   String? get context {
     var certFilePath = argResults['ssl-cert'] as String?;
 
@@ -142,32 +122,34 @@ class ServeCommand extends AstraCommand {
     var password = argResults['ssl-key-password'] as String?;
     certFilePath = absolute(normalize(certFilePath));
     keyFilePath = absolute(normalize(keyFilePath));
-    return 'SecurityContext()..useCertificateChain(\'$certFilePath\')..usePrivateKey(\'$keyFilePath\', password: \'$password\')';
+    return 'SecurityContext()'
+        '..useCertificateChain(\'$certFilePath\')'
+        '..usePrivateKey(\'$keyFilePath\', password: \'$password\')';
   }
 
   bool get reload {
-    return wasParsed('reload');
+    return getBoolean('reload');
   }
 
   bool get observe {
-    return wasParsed('observe');
+    return getBoolean('observe');
   }
 
-  String get observePort {
-    var observe = argResults['observe'] as String?;
-    return observe ?? '8181';
+  int get observePort {
+    return getPositive('observe', 8181);
   }
 
   Future<String> createSource() async {
-    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart');
+    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart.template');
     var uri = await Isolate.resolvePackageUri(templateUri);
 
     if (uri == null) {
-      // TODO: update error
-      throw StateError('serve template not found');
+      throw Exception('serve template uri not resolved');
     }
 
     var template = await File.fromUri(uri).readAsString();
+    var context = this.context;
+    var concurrency = this.concurrency;
 
     return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), (match) {
       var variable = match.group(1);
@@ -177,8 +159,10 @@ class ServeCommand extends AstraCommand {
           return 'package:$package/$package.dart';
         case 'TARGET':
           return target;
-        case 'HOST':
-          return host;
+        case 'CONCURRENCY':
+          return '$concurrency';
+        case 'ADDRESS':
+          return address;
         case 'PORT':
           return '$port';
         case 'CONTEXT':
@@ -186,22 +170,19 @@ class ServeCommand extends AstraCommand {
         case 'BACKLOG':
           return '$backlog';
         case 'SHARED':
-          return '$shared';
+          return '${shared || concurrency > 1}';
         case 'V6ONLY':
           return '$v6Only';
         case 'RELOAD':
           return '$reload';
         case 'OBSERVE':
           return '$observe';
-        case 'CONCURRENCY':
-          return '$concurrency';
         case 'DIRECTORY':
           return directory.path;
         case 'SCHEME':
           return context == null ? 'http' : 'https';
         default:
-          // TODO: update error
-          throw UnsupportedError('template variable: $variable');
+          throw StateError('template variable \'$variable\' not found.');
       }
     });
   }

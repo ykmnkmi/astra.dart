@@ -10,7 +10,7 @@ class IsolateSupervisor {
 
   late Isolate isolate;
 
-  late ReceivePort receive;
+  late RawReceivePort receive;
 
   late SendPort server;
 
@@ -52,8 +52,8 @@ class IsolateSupervisor {
 
   Future<void> init() async {
     launchCompleter = Completer<void>();
-    receive = ReceivePort();
-    receive.listen(listener);
+    receive = RawReceivePort();
+    receive.handler = listener;
     isolate = await Isolate.spawn<SendPort>(create, receive.sendPort, //
         errorsAreFatal: false,
         onError: receive.sendPort,
