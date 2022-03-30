@@ -5,18 +5,18 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 
 **WORK IN PROGRESS**
 
-### Progress status:
-- Errors, error handling and verbose output (I'm here)
+### ToDo:
+- Errors, error handling and verbose output
+- Application class based initialization
 - Environment variables
 - Tests
-- API Documentation
+- More API Documentation
 - Logging
-- Manual hot reload & hot restart
+- Manual hot reload (r) & hot restart (R)
 - Middlewares:
   - ...
 - ...
 - Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
-- Application framework on top of this
 - Cookbook
 
 ## Quickstart
@@ -63,20 +63,20 @@ Common options:
 -v, --verbose                        Output more informational messages.
 
 Application options:
--t, --target=<name>                  The name of the handler or factory.
+-t, --target=<name>                  Application handler or factory.
                                      (defaults to "application")
+-j, --concurrency=<count>            Number of isolates.
+                                     (defaults to "1")
 
 Server options:
--a, --host=<internet-address>        Socket bind host.
+-a, --address=<internet-address>     Bind socket to this address.
                                      (defaults to "localhost")
--p, --port=<port>                    Socket bind port.
+-p, --port=<port>                    Bind socket to this port.
                                      (defaults to "3000")
-    --backlog=<count>                Socket listen backlog.
+    --backlog=<count>                Maximum number of connections to hold in backlog.
                                      (defaults to "0")
     --shared                         Socket connections distributing.
     --v6Only                         Restrict socket to version 6.
--j, --concurrency=<count>            The number of concurrent servers to serve.
-                                     (defaults to "1")
     --ssl-cert=<path>                SSL certificate file.
     --ssl-key=<path>                 SSL key file.
     --ssl-key-password=<password>    SSL keyfile password.

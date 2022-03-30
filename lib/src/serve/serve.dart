@@ -12,7 +12,7 @@ Future<Server> serve(Object application, Object address, int port, //
     bool requestClientCertificate = false,
     bool v6Only = false}) async {
   var handler = await getHandler(application);
-  var server = await H11Server.bind(address, port, //
+  var server = await H11IOServer.bind(address, port, //
       context: context,
       backlog: backlog,
       shared: shared,

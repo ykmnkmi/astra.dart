@@ -13,17 +13,7 @@ import 'package:vm_service/vm_service_io.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
-Future<void> create(SendPort sendPort) async {
-  ApplicationManager.setup();
-
-  var handler = await getHandler(_.__TARGET__);
-  var server = await IsolateServer.start(sendPort, '__ADDRESS__', __PORT__, //
-      context: __CONTEXT__,
-      backlog: __BACKLOG__,
-      shared: __SHARED__,
-      v6Only: __V6ONLY__);
-  server.mount(handler);
-}
+__CREATE__
 
 Future<void> main() async {
   if (__OBSERVE__) {

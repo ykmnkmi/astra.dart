@@ -3,8 +3,24 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 
+import 'package:analyzer/dart/analysis/features.dart';
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/element/type_system.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:path/path.dart';
+
+enum TargetType {
+  instance,
+  controllerInstance,
+  applicationInstance,
+  type,
+  controller,
+  application,
+  hanlder,
+  syncFactory,
+  asyncFactory,
+}
 
 class ServeCommand extends AstraCommand {
   ServeCommand() {
@@ -12,12 +28,12 @@ class ServeCommand extends AstraCommand {
       ..addSeparator('Application options:')
       ..addOption('target', //
           abbr: 't',
-          help: 'Application handler or factory.',
+          help: 'Application handler, class or factory.',
           valueHelp: 'name',
           defaultsTo: 'application')
       ..addOption('concurrency', //
           abbr: 'j',
-          help: 'Number of isolatas.',
+          help: 'Number of isolates.',
           valueHelp: 'count',
           defaultsTo: '1')
       ..addSeparator('Server options:')
@@ -139,57 +155,117 @@ class ServeCommand extends AstraCommand {
     return getPositive('observe', 8181);
   }
 
-  Future<String> createSource() async {
-    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/serve.dart.template');
-    var uri = await Isolate.resolvePackageUri(templateUri);
+  TargetType getTargetType() {
+    var uri = libraryFile.absolute.uri;
+    var featureSet = FeatureSet.latestLanguageVersion();
+    var result = parseFile(path: uri.toFilePath(), featureSet: featureSet);
 
-    if (uri == null) {
+    if (result.errors.isNotEmpty) {
+      // TODO: update error
+      throw result.errors.first;
+    }
+
+    for (var declaration in result.unit.declarations) {
+      if (declaration is TopLevelVariableDeclaration) {
+        if (declaration.variables.isLate) {
+          // TODO: update error
+          throw Exception('aplication instance must be initialized.');
+        }
+
+        for (var variable in declaration.variables.variables) {
+          if (variable.name.name == target) {
+            // TODO: check target type
+            return TargetType.instance;
+          }
+        }
+      }
+
+      if (declaration is ClassDeclaration && declaration.name.name == target) {
+        // TODO: check if target Controller or Application
+        return TargetType.type;
+      }
+
+      if (declaration is FunctionDeclaration && declaration.name.name == target) {
+        if (declaration.isGetter || declaration.isSetter) {
+          // TODO: update error
+          throw Exception('$target is getter or setter.');
+        }
+
+        var type = declaration.returnType;
+
+        if (type == null) {
+          // TODO: update error
+          throw Exception('$target return type not set.');
+        }
+
+        var dartType = type.type;
+
+        if (dartType == null) {
+          // TODO: update error
+          throw Exception();
+        }
+
+        // TODO: check if target function is Handler or factory
+        return TargetType.hanlder;
+      }
+    }
+
+    // TODO: update error
+    throw Exception('$target not found');
+  }
+
+  Future<String> renderTemplate(String name, Map<String, String> data) async {
+    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/$name.template');
+    var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
+
+    if (templateResolvedUri == null) {
       throw Exception('serve template uri not resolved');
     }
 
-    var template = await File.fromUri(uri).readAsString();
-    var context = this.context;
-    var concurrency = this.concurrency;
-
+    var template = await File.fromUri(templateResolvedUri).readAsString();
     return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), (match) {
       var variable = match.group(1);
 
-      switch (variable) {
-        case 'PACKAGE':
-          return 'package:$package/$package.dart';
-        case 'TARGET':
-          return target;
-        case 'CONCURRENCY':
-          return '$concurrency';
-        case 'ADDRESS':
-          return address;
-        case 'PORT':
-          return '$port';
-        case 'CONTEXT':
-          return '$context';
-        case 'BACKLOG':
-          return '$backlog';
-        case 'SHARED':
-          return '${shared || concurrency > 1}';
-        case 'V6ONLY':
-          return '$v6Only';
-        case 'RELOAD':
-          return '$reload';
-        case 'OBSERVE':
-          return '$observe';
-        case 'DIRECTORY':
-          return directory.path;
-        case 'SCHEME':
-          return context == null ? 'http' : 'https';
-        default:
-          throw StateError('template variable \'$variable\' not found.');
+      if (variable == null) {
+        throw StateError('template variable \'$variable\' not found.');
       }
+
+      return data[variable]!;
     });
   }
 
+  Future<String> createSource(TargetType targetType) async {
+    var context = this.context;
+    var concurrency = this.concurrency;
+
+    var data = <String, String>{
+      'PACKAGE': 'package:$package/$package.dart',
+      'TARGET': target,
+      'CONCURRENCY': '$concurrency',
+      'ADDRESS': address,
+      'PORT': '$port',
+      'CONTEXT': '$context',
+      'BACKLOG': '$backlog',
+      'SHARED': '${shared || concurrency > 1}',
+      'V6ONLY': '$v6Only',
+      'RELOAD': '$reload',
+      'OBSERVE': '$observe',
+      'DIRECTORY': directory.path,
+      'SCHEME': context == null ? 'http' : 'https',
+    };
+
+    var create = await renderTemplate(targetType.name, data);
+    data['CREATE'] = create;
+    return renderTemplate('serve', data);
+  }
+
+  // TODO: check if target or application class exists
   @override
   Future<int> run() async {
-    var source = await createSource();
+    var memberType = getTargetType();
+    print(memberType);
+
+    var source = await createSource(memberType);
     var path = join('.dart_tool', 'astra.serve.dart');
     var script = File(join(directory.path, path));
     await script.writeAsString(source);

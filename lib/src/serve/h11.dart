@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:astra/core.dart';
 import 'package:shelf/shelf_io.dart';
 
-/// A [Server] backed by a `dart:io` [HttpServer].
-class H11Server extends Server {
-  H11Server(this.server);
+/// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
+class H11IOServer extends Server {
+  H11IOServer(this.server);
 
   /// The underlying [HttpServer].
   final HttpServer server;
@@ -35,8 +35,8 @@ class H11Server extends Server {
     return server.close();
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
-  static Future<H11Server> bind(Object address, int port, //
+  /// Calls [HttpServer.bind] and wraps the result in an [H11IOServer].
+  static Future<H11IOServer> bind(Object address, int port, //
       {SecurityContext? context,
       int backlog = 0,
       bool shared = false,
@@ -57,6 +57,16 @@ class H11Server extends Server {
           v6Only: v6Only);
     }
 
-    return H11Server(server);
+    return H11IOServer(server);
+  }
+
+  /// Serve a [Stream] of [HttpRequest]s.
+  ///
+  /// [HttpServer] implements [Stream<HttpRequest>] so it can be passed directly
+  /// to [serveRequests].
+  static void serveRequests(Stream<HttpRequest> requests, Handler handler) {
+    requests.listen((request) {
+      handleRequest(request, handler);
+    });
   }
 }

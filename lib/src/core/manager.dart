@@ -1,13 +1,13 @@
 import 'dart:developer';
 
-import 'package:astra/src/core/application.dart';
+import 'package:astra/src/core/controller.dart';
 
-class ApplicationManager {
-  static final ApplicationManager instance = ApplicationManager();
+class ControllerManager {
+  static final ControllerManager instance = ControllerManager();
 
-  ApplicationManager() : applications = <Application>{};
+  ControllerManager() : controllers = <Controller>{};
 
-  final Set<Application> applications;
+  final Set<Controller> controllers;
 
   static void setup() {
     registerExtension('ext.astra.reasemble', (isolateId, data) async {
@@ -20,12 +20,12 @@ class ApplicationManager {
     });
   }
 
-  static void register(Application application) {
-    instance.applications.add(application);
+  static void register(Controller controller) {
+    instance.controllers.add(controller);
   }
 
   static void reasemble() {
-    for (var application in instance.applications) {
+    for (var application in instance.controllers) {
       application.reassemble();
     }
   }
