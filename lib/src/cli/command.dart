@@ -81,24 +81,24 @@ abstract class AstraCommand extends Command<int> {
     return specification['name'] as String;
   }
 
-  File? cachedLibraryFile;
+  File? cachedLibrary;
 
-  File get libraryFile {
-    var libraryFile = cachedLibraryFile;
+  File get library {
+    var library = cachedLibrary;
 
-    if (libraryFile != null) {
-      return libraryFile;
+    if (library != null) {
+      return library;
     }
 
-    libraryFile = File(join(directory.path, 'lib', '$package.dart'));
+    library = File(join(directory.path, 'lib', '$package.dart'));
 
-    if (libraryFile.existsSync()) {
-      cachedLibraryFile = libraryFile;
-      return libraryFile;
+    if (library.existsSync()) {
+      cachedLibrary = library;
+      return library;
     }
 
     // TODO: update error
-    throw Exception('failed to locate ${libraryFile.path}');
+    throw Exception('failed to locate ${library.path}');
   }
 
   bool get verbose {

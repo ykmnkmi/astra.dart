@@ -16,8 +16,8 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 - Middlewares:
   - ...
 - ...
-- Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 - Cookbook
+- Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 
 ## Quickstart
 
@@ -105,7 +105,7 @@ Future<void> main() async {
 }
 ```
 
-### Application factories
+### Application class
 
 The `--target` option also allows loading the application from a factory
 function, rather than a handler or an application instance directly.
@@ -114,20 +114,10 @@ The factory will be called with no arguments and should return a `Handler`,
 
 ```dart
 class Hello extends Application {
-  Hello(this.db);
-
-  ...
-
   @override
   Response call(Request request) {
     return Response.ok('hello world!');
   }
-}
-
-Future<Handler> createApplication() async {
-  var db = await loadDB();
-  ...
-  return logRequests().handle(Hello(db));
 }
 ```
 

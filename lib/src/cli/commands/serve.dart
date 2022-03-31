@@ -3,23 +3,16 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 
-import 'package:analyzer/dart/analysis/features.dart';
-import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/element/type_system.dart';
+import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
+import 'package:analyzer/dart/analysis/results.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:path/path.dart';
 
 enum TargetType {
-  instance,
-  controllerInstance,
-  applicationInstance,
-  type,
-  controller,
+  handler,
   application,
-  hanlder,
-  syncFactory,
-  asyncFactory,
+  type,
 }
 
 class ServeCommand extends AstraCommand {
@@ -71,6 +64,11 @@ class ServeCommand extends AstraCommand {
           abbr: 'r',
           negatable: false,
           help: 'Enable hot-reload.')
+      ..addFlag('watch', //
+          abbr: 'w',
+          negatable: false,
+          // TODO: update help
+          help: '')
       ..addOption('observe', //
           abbr: 'o',
           help: 'Enable VM Observer.',
@@ -147,6 +145,10 @@ class ServeCommand extends AstraCommand {
     return getBoolean('reload');
   }
 
+  bool get watch {
+    return getBoolean('watch');
+  }
+
   bool get observe {
     return getBoolean('observe');
   }
@@ -155,62 +157,50 @@ class ServeCommand extends AstraCommand {
     return getPositive('observe', 8181);
   }
 
-  TargetType getTargetType() {
-    var uri = libraryFile.absolute.uri;
-    var featureSet = FeatureSet.latestLanguageVersion();
-    var result = parseFile(path: uri.toFilePath(), featureSet: featureSet);
+  Future<TargetType> getTargetType() async {
+    var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
+    var context = collection.contextFor(directory.absolute.path);
+    var session = context.currentSession;
+    var resolvedLibrary = await session.getResolvedLibrary(library.absolute.path);
 
-    if (result.errors.isNotEmpty) {
+    if (resolvedLibrary is! ResolvedLibraryResult) {
       // TODO: update error
-      throw result.errors.first;
+      throw Exception('library not resolved');
     }
 
-    for (var declaration in result.unit.declarations) {
-      if (declaration is TopLevelVariableDeclaration) {
-        if (declaration.variables.isLate) {
-          // TODO: update error
-          throw Exception('aplication instance must be initialized.');
-        }
+    for (var element in resolvedLibrary.element.topLevelElements) {
+      // if (declatation is TopLevelVariableDeclaration) {
+      //   if (declatation.variables.isLate) {
+      //     // TODO: update error
+      //     throw Exception('aplication instance must be initialized.');
+      //   }
 
-        for (var variable in declaration.variables.variables) {
-          if (variable.name.name == target) {
-            // TODO: check target type
-            return TargetType.instance;
-          }
-        }
-      }
+      //   for (var variable in declatation.variables.variables) {
+      //     if (variable.name.name == target) {
+      //       // TODO: check target type
+      //       return TargetType.instance;
+      //     }
+      //   }
+      // }
 
-      if (declaration is ClassDeclaration && declaration.name.name == target) {
-        // TODO: check if target Controller or Application
+      if (element is ClassElement && element.name == target) {
+        // TODO: check if target is Controller or Application
         return TargetType.type;
       }
 
-      if (declaration is FunctionDeclaration && declaration.name.name == target) {
-        if (declaration.isGetter || declaration.isSetter) {
+      if (element is FunctionElement && element.name == target) {
+        var returnTypeElement = element.returnType.element;
+
+        if (returnTypeElement == null) {
           // TODO: update error
-          throw Exception('$target is getter or setter.');
-        }
-
-        var type = declaration.returnType;
-
-        if (type == null) {
-          // TODO: update error
-          throw Exception('$target return type not set.');
-        }
-
-        var dartType = type.type;
-
-        if (dartType == null) {
-          // TODO: update error
-          throw Exception();
+          throw Exception('target function return type element is null');
         }
 
         // TODO: check if target function is Handler or factory
-        return TargetType.hanlder;
+        return TargetType.handler;
       }
     }
 
-    // TODO: update error
     throw Exception('$target not found');
   }
 
@@ -249,6 +239,7 @@ class ServeCommand extends AstraCommand {
       'SHARED': '${shared || concurrency > 1}',
       'V6ONLY': '$v6Only',
       'RELOAD': '$reload',
+      'WATCH': '$watch',
       'OBSERVE': '$observe',
       'DIRECTORY': directory.path,
       'SCHEME': context == null ? 'http' : 'https',
@@ -262,12 +253,10 @@ class ServeCommand extends AstraCommand {
   // TODO: check if target or application class exists
   @override
   Future<int> run() async {
-    var memberType = getTargetType();
-    print(memberType);
-
+    var memberType = await getTargetType();
     var source = await createSource(memberType);
-    var path = join('.dart_tool', 'astra.serve.dart');
-    var script = File(join(directory.path, path));
+    var astraServePath = join('.dart_tool', 'astra.serve.dart');
+    var script = File(join(directory.path, astraServePath));
     await script.writeAsString(source);
 
     var arguments = <String>[];
@@ -286,7 +275,7 @@ class ServeCommand extends AstraCommand {
         ..add('--no-dds');
     }
 
-    arguments.add(path);
+    arguments.add(astraServePath);
 
     var process = await Process.start('dart', arguments, workingDirectory: directory.path);
     stdin.pipe(process.stdin);
