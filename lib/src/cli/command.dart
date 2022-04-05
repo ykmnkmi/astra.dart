@@ -5,8 +5,8 @@ import 'package:args/command_runner.dart';
 import 'package:path/path.dart';
 import 'package:yaml/yaml.dart';
 
-abstract class AstraCommand extends Command<int> {
-  AstraCommand() {
+abstract class CLICommand extends Command<int> {
+  CLICommand() {
     argParser
       ..addSeparator('Common options:')
       ..addOption('directory', //
@@ -106,7 +106,7 @@ abstract class AstraCommand extends Command<int> {
   }
 }
 
-extension AstraCommandExtension on AstraCommand {
+extension AstraCommandExtension on CLICommand {
   bool getBoolean(String name) {
     return argResults.wasParsed(name);
   }

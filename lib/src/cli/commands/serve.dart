@@ -11,11 +11,11 @@ import 'package:path/path.dart';
 
 enum TargetType {
   handler,
-  application,
+  instance,
   type,
 }
 
-class ServeCommand extends AstraCommand {
+class ServeCommand extends CLICommand {
   ServeCommand() {
     argParser
       ..addSeparator('Application options:')

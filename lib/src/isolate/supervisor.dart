@@ -2,15 +2,13 @@ import 'dart:async';
 import 'dart:isolate';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.create, this.name);
+  IsolateSupervisor(this.isolate, this.receive, this.identifier);
 
-  final FutureOr<void> Function(SendPort sendPort) create;
+  final Isolate isolate;
 
-  final String name;
+  final RawReceivePort receive;
 
-  late Isolate isolate;
-
-  late RawReceivePort receive;
+  final int identifier;
 
   late SendPort server;
 
@@ -19,6 +17,8 @@ class IsolateSupervisor {
   Completer<void>? stopCompleter;
 
   void listener(Object? message) {
+    print('$identifier: $message');
+
     if (message is SendPort) {
       server = message;
       return;
@@ -50,14 +50,10 @@ class IsolateSupervisor {
     }
   }
 
-  Future<void> init() async {
+  Future<void> resume() async {
     launchCompleter = Completer<void>();
-    receive = RawReceivePort();
     receive.handler = listener;
-    isolate = await Isolate.spawn<SendPort>(create, receive.sendPort, //
-        errorsAreFatal: false,
-        onError: receive.sendPort,
-        debugName: name);
+    isolate.resume(isolate.pauseCapability!);
     return launchCompleter!.future;
   }
 
