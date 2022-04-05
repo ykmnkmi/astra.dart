@@ -5,15 +5,9 @@ import 'dart:math';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer/dart/element/element.dart';
 import 'package:astra/src/cli/command.dart';
+import 'package:astra/src/cli/type.dart';
 import 'package:path/path.dart';
-
-enum TargetType {
-  handler,
-  instance,
-  type,
-}
 
 class ServeCommand extends CLICommand {
   ServeCommand() {
@@ -157,53 +151,6 @@ class ServeCommand extends CLICommand {
     return getPositive('observe', 8181);
   }
 
-  Future<TargetType> getTargetType() async {
-    var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
-    var context = collection.contextFor(directory.absolute.path);
-    var session = context.currentSession;
-    var resolvedLibrary = await session.getResolvedLibrary(library.absolute.path);
-
-    if (resolvedLibrary is! ResolvedLibraryResult) {
-      // TODO: update error
-      throw Exception('library not resolved');
-    }
-
-    for (var element in resolvedLibrary.element.topLevelElements) {
-      // if (declatation is TopLevelVariableDeclaration) {
-      //   if (declatation.variables.isLate) {
-      //     // TODO: update error
-      //     throw Exception('aplication instance must be initialized.');
-      //   }
-
-      //   for (var variable in declatation.variables.variables) {
-      //     if (variable.name.name == target) {
-      //       // TODO: check target type
-      //       return TargetType.instance;
-      //     }
-      //   }
-      // }
-
-      if (element is ClassElement && element.name == target) {
-        // TODO: check if target is Controller or Application
-        return TargetType.type;
-      }
-
-      if (element is FunctionElement && element.name == target) {
-        var returnTypeElement = element.returnType.element;
-
-        if (returnTypeElement == null) {
-          // TODO: update error
-          throw Exception('target function return type element is null');
-        }
-
-        // TODO: check if target function is Handler or factory
-        return TargetType.handler;
-      }
-    }
-
-    throw Exception('$target not found');
-  }
-
   Future<String> renderTemplate(String name, Map<String, String> data) async {
     var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/$name.template');
     var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
@@ -253,7 +200,17 @@ class ServeCommand extends CLICommand {
   // TODO: check if target or application class exists
   @override
   Future<int> run() async {
-    var memberType = await getTargetType();
+    var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
+    var context = collection.contextFor(directory.absolute.path);
+    var session = context.currentSession;
+    var resolvedLibrary = await session.getResolvedLibrary(library.absolute.path);
+
+    if (resolvedLibrary is! ResolvedLibraryResult) {
+      // TODO: update error
+      throw Exception('library not resolved');
+    }
+
+    var memberType = getTargetType(target, resolvedLibrary.element);
     var source = await createSource(memberType);
     var astraServePath = join('.dart_tool', 'astra.serve.dart');
     var script = File(join(directory.path, astraServePath));
