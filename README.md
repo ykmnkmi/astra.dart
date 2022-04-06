@@ -6,8 +6,7 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 **WORK IN PROGRESS**
 
 ### ToDo:
-- Errors, error handling and verbose output
-- Application class based initialization
+- Errors, error handling and verbose output (here)
 - Environment variables
 - Tests
 - More API Documentation
@@ -15,8 +14,9 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 - Manual hot reload (r) & hot restart (R)
 - Middlewares:
   - ...
+- `build_runner` integration
 - ...
-- Cookbook
+- Tutorials, Cookbook, ...
 - Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 
 ## Quickstart
@@ -63,7 +63,7 @@ Common options:
 -v, --verbose                        Output more informational messages.
 
 Application options:
--t, --target=<name>                  Application handler or factory.
+-t, --target=<name>                  Application target.
                                      (defaults to "application")
 -j, --concurrency=<count>            Number of isolates.
                                      (defaults to "1")
@@ -79,7 +79,7 @@ Server options:
     --v6Only                         Restrict socket to version 6.
     --ssl-cert=<path>                SSL certificate file.
     --ssl-key=<path>                 SSL key file.
-    --ssl-key-password=<password>    SSL keyfile password.
+    --ssl-key-password=<password>    SSL key file password.
 
 Debugging options:
 -r, --reload                         Enable hot-reload.
@@ -91,7 +91,7 @@ Run "astra help" to see global options.
 
 ### Running programmatically
 
-To run astra directly from your application:
+To run server directly from your application:
 
 `bin/main.dart`
 
@@ -100,30 +100,41 @@ import 'package:astra/serve.dart';
 import 'package:example/example.dart';
 
 Future<void> main() async {
-  await serve(application, 'localhost', 3000);
-  print('serving at http://localhost:3000');
+  var server = await serve(application, 'localhost', 3000);
+  print('serving at ${server.url}');
 }
 ```
 
-### Application class
+### Application target
 
-The `--target` option also allows loading the application from a factory
-function, rather than a handler or an application instance directly.
-The factory will be called with no arguments and should return a `Handler`,
-`Application` or corresponding `Future`s.
+The `--target` option allows loading the application with different name and different types.
 
+`Handler` function:
 ```dart
-class Hello extends Application {
-  @override
-  Response call(Request request) {
-    return Response.ok('hello world!');
-  }
+// astra serve -t echo
+
+Response echo(Request request) {
+  return Response.ok('hello world!');
 }
 ```
 
+`Application` instance:
 ```console
-$ astra serve --target createApplication
+$ astra serve --target example
 ```
+```dart
+const Example example = Example();
+
+class Example extends Application {
+  // ...
+}
+```
+
+Not yet:
+- `Application` class
+- `Application` or `Handler` factory
+- `Handler` like callable class, instance and factory
+- package uri
 
 [shelf]: https://pub.dev/packages/shelf
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path

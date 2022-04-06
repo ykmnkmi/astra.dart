@@ -15,7 +15,7 @@ class ServeCommand extends CLICommand {
       ..addSeparator('Application options:')
       ..addOption('target', //
           abbr: 't',
-          help: 'Application handler, class or factory.',
+          help: 'Application target.',
           valueHelp: 'name',
           defaultsTo: 'application')
       ..addOption('concurrency', //
@@ -51,7 +51,7 @@ class ServeCommand extends CLICommand {
           help: 'SSL key file.',
           valueHelp: 'path')
       ..addOption('ssl-key-password', //
-          help: 'SSL keyfile password.',
+          help: 'SSL key file password.',
           valueHelp: 'password')
       ..addSeparator('Debugging options:')
       ..addFlag('reload', //
@@ -192,8 +192,7 @@ class ServeCommand extends CLICommand {
       'SCHEME': context == null ? 'http' : 'https',
     };
 
-    var create = await renderTemplate(targetType.name, data);
-    data['CREATE'] = create;
+    data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
     return renderTemplate('serve', data);
   }
 

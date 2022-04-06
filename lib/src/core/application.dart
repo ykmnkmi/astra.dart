@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:astra/core.dart';
 
 abstract class Application {
+  const Application();
+
   Handler get entryPoint;
 
   Future<void> prepare() async {}
 
-  void reload() {}
+  FutureOr<void> onReload() {}
 
-  Future<void> close() async {}
+  Future<void> onClose() async {}
 }

@@ -18,5 +18,5 @@ Future<void> main() async {
     exit(0);
   }
 
-  print(getTargetType('application', resolvedLibrary.element));
+  print(getTargetType('example', resolvedLibrary.element));
 }

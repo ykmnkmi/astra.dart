@@ -9,7 +9,7 @@ class ApplicationIsolateServer extends IsolateServer {
       : super(server, sendPort) {
     registerExtension('ext.astra.reload', (isolateId, data) async {
       try {
-        application.reload();
+        application.onReload();
         return ServiceExtensionResponse.result('{}');
       } catch (error) {
         return ServiceExtensionResponse.error(0, '$error');
@@ -27,6 +27,6 @@ class ApplicationIsolateServer extends IsolateServer {
   @override
   Future<void> close() async {
     await super.close();
-    await application.close();
+    await application.onClose();
   }
 }

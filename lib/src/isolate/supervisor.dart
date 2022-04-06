@@ -17,8 +17,6 @@ class IsolateSupervisor {
   Completer<void>? stopCompleter;
 
   void listener(Object? message) {
-    print('$identifier: $message');
-
     if (message is SendPort) {
       server = message;
       return;

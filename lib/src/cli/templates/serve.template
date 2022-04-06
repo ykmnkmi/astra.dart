@@ -32,9 +32,15 @@ Future<void> main() async {
   var supervisors = <IsolateSupervisor>[];
 
   for (var i = 0; i < __CONCURRENCY__; i += 1) {
-    var supervisor = IsolateSupervisor(create, 'isolate/${i + 1}');
+    var rescivePort = RawReceivePort();
+    var isolate = await Isolate.spawn(create, rescivePort.sendPort, //
+        paused: true,
+        errorsAreFatal: false,
+        onError: rescivePort.sendPort,
+        debugName: 'isolate/${i + 1}');
+    var supervisor = IsolateSupervisor(isolate, rescivePort, i);
     stdout.writeln('* starting isolate/${i + 1}');
-    await supervisor.init();
+    await supervisor.resume();
     supervisors.add(supervisor);
     shutdown.add(supervisor.stop);
   }
@@ -62,7 +68,7 @@ Future<void> main() async {
 
       if (id == null) {
         // TODO: update error
-        throw Exception('${supervisor.name} id == null');
+        throw Exception('isolate/${supervisor.identifier} id == null');
       }
 
       isolateIds.add(id);
@@ -77,7 +83,7 @@ Future<void> main() async {
         var result = await service.reloadSources(isolateId);
 
         if (result.success == true) {
-          await service.callServiceExtension('ext.astra.reasemble', isolateId: isolateId);
+          await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
         }
       }
 
