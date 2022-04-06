@@ -23,9 +23,9 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
             var parts = error.toString().split(':');
             var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
             var message = parts.join(':').trim();
-            var trace = renderFrames(Trace.from(stackTrace));
+            var trace = _renderFrames(Trace.from(stackTrace));
 
-            var body = template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
+            var body = _template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
               switch (match[1]) {
                 case 'type':
                   return type;
@@ -55,7 +55,7 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
   };
 }
 
-const String template = '''
+const String _template = '''
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -111,7 +111,7 @@ const String template = '''
 </html>
 ''';
 
-String renderFrames(Trace trace) {
+String _renderFrames(Trace trace) {
   var buffer = StringBuffer();
   var frames = trace.frames.reversed.toList();
   var frame = frames.removeLast();
@@ -121,14 +121,14 @@ String renderFrames(Trace trace) {
       continue;
     }
 
-    writeFrame(buffer, frame);
+    _writeFrame(buffer, frame);
   }
 
-  writeFrame(buffer, frame, true);
+  _writeFrame(buffer, frame, true);
   return buffer.toString().trimRight();
 }
 
-void writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
+void _writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
   buffer
     ..write('      <div class="frame">\n        ')
     ..write('&nbsp;<span class="library">')
@@ -153,14 +153,14 @@ void writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
     buffer.write('\n        <br>\n        <pre>');
 
     if (line++ > 0) {
-      writeLine(buffer, line, lines);
+      _writeLine(buffer, line, lines);
     }
 
     if (line++ > 0) {
-      writeLine(buffer, line, lines);
+      _writeLine(buffer, line, lines);
     }
 
-    writeLine(buffer, ++line, lines);
+    _writeLine(buffer, ++line, lines);
 
     buffer
       ..write('\n    \t')
@@ -168,11 +168,11 @@ void writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
       ..write('^');
 
     if (line++ < lines.length) {
-      writeLine(buffer, line, lines);
+      _writeLine(buffer, line, lines);
     }
 
     if (line++ < lines.length) {
-      writeLine(buffer, line, lines);
+      _writeLine(buffer, line, lines);
     }
 
     buffer.write('</pre>');
@@ -181,7 +181,7 @@ void writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
   buffer.write('\n      </div>\n');
 }
 
-void writeLine(StringBuffer buffer, int lineNo, List<String> lines) {
+void _writeLine(StringBuffer buffer, int lineNo, List<String> lines) {
   buffer
     ..writeln()
     ..write((lineNo + 1).toString().padLeft(4))

@@ -45,7 +45,7 @@ class Hello extends Application {
   }
 
   @override
-  void onReload() {
+  void reload() {
     count = 0;
   }
 }

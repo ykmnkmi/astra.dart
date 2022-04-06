@@ -1,4 +1,4 @@
-library dart.cli;
+library astra.cli;
 
 export 'package:astra/src/cli/commands/serve.dart';
 export 'package:astra/src/cli/command.dart';

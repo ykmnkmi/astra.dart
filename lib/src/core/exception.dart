@@ -2,19 +2,23 @@ import 'dart:async';
 
 import 'package:shelf/shelf.dart';
 
+/// HTTP error handler.
 typedef ErrorHandler = FutureOr<Response> Function(
     Request request, Object error, StackTrace stackTrace);
 
-class HTTPException implements Exception {
-  const HTTPException(this.status, [this.message]);
+/// HTTP error that occurred while handling a request.
+class HttpError extends Error {
+  HttpError(this.status, [this.message]);
 
+  /// Error status code.
   final int status;
 
+  /// Error message.
   final String? message;
 
   @override
   String toString() {
-    var buffer = StringBuffer('HTTPException(')..write(status);
+    var buffer = StringBuffer('HttpError(')..write(status);
 
     if (message != null) {
       buffer
@@ -25,46 +29,4 @@ class HTTPException implements Exception {
     buffer.write(')');
     return buffer.toString();
   }
-}
-
-Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? headers}) {
-  var statusHandlers = <int, ErrorHandler>{};
-  var exceptionHandlers = <bool Function(Object), ErrorHandler>{};
-
-  for (var statusOrException in handlers.keys) {
-    if (statusOrException is int) {
-      statusHandlers[statusOrException] = handlers[statusOrException]!;
-    } else if (statusOrException is bool Function(Object)) {
-      exceptionHandlers[statusOrException] = handlers[statusOrException]!;
-    } else {
-      throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
-    }
-  }
-
-  return (Handler handler) {
-    return (Request request) async {
-      try {
-        return await handler(request);
-      } catch (error) {
-        ErrorHandler? handler;
-
-        if (error is HTTPException) {
-          handler = statusHandlers[error.status];
-        } else {
-          for (var entry in exceptionHandlers.entries) {
-            if (entry.key(error)) {
-              handler = entry.value;
-              break;
-            }
-          }
-        }
-
-        if (handler == null && error is HTTPException) {
-          return Response(error.status, headers: headers, body: error.message);
-        }
-
-        rethrow;
-      }
-    };
-  };
 }
