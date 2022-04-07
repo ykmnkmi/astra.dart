@@ -1,17 +1,23 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:astra/src/core/exception.dart';
-import 'package:shelf/shelf.dart';
+import 'package:astra/core.dart';
 import 'package:stack_trace/stack_trace.dart';
 
-Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Object>? headers}) {
-  var htmlHeaders = <String, Object>{
-    ...?headers,
-    'content-type': 'text/html; charset=utf-8',
-  };
+/// Handles returning 500 responses when a server error occurs.
+class ServerErrorMiddleware {
+  ServerErrorMiddleware(
+      {this.debug = false,
+      this.headers = const <String, String>{'content-type': 'text/html'},
+      this.handler});
 
-  return (Handler handler) {
+  final bool debug;
+
+  final Map<String, String> headers;
+
+  final HttpErrorHandler? handler;
+
+  Handler call(Handler handler) {
     return (Request request) async {
       try {
         return await handler(request);
@@ -20,46 +26,39 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler, Map<String, Ob
           var accept = request.headers['accept'];
 
           if (accept != null && accept.contains('text/html')) {
-            var parts = error.toString().split(':');
-            var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
-            var message = parts.join(':').trim();
-            var trace = _renderFrames(Trace.from(stackTrace));
-
-            var body = _template.replaceAllMapped(RegExp(r'\{(\w+)\}'), (match) {
-              switch (match[1]) {
-                case 'type':
-                  return type;
-                case 'message':
-                  return message;
-                case 'trace':
-                  return trace;
-                default:
-                  return '';
-              }
-            });
-
-            return Response.internalServerError(body: body, headers: htmlHeaders);
+            var trace = Trace.from(stackTrace);
+            var body = render(error, trace);
+            return Response.internalServerError(body: body, headers: headers);
           }
 
           var trace = Trace.format(stackTrace);
-          return Response.internalServerError(body: '$error\n$trace', headers: headers);
+          return Response.internalServerError(body: '$error\n$trace');
         }
 
+        var errorHandler = this.handler;
+
         if (errorHandler == null) {
-          return Response.internalServerError(body: 'Internal Server Error', headers: headers);
+          return Response.internalServerError();
         }
 
         return errorHandler(request, error, stackTrace);
       }
     };
-  };
-}
+  }
 
-const String _template = '''
+  String renderPageTitle(Object error, Trace trace) {
+    var parts = error.toString().split(':');
+    var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
+    var message = parts.join(':').trim();
+    return '$type: $message';
+  }
+
+  String render(Object error, Trace trace) {
+    return '''
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>{type}: {message}</title>
+    <title>${renderPageTitle(error, trace)}</title>
     <style>
       body {
         font-family: "JetBrains Mono", "Cascadia Mono", "Fira Mono", "Ubuntu Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace;
@@ -69,7 +68,7 @@ const String _template = '''
         background-color: #EEEEEE;
         border: 1px solid lightgrey;
         margin: 0.5em 0em 0em;
-        padding: 0.25em 0.5em;
+        padding: 0.25em 0.5em 0.35em;
       }
 
       .traceback {
@@ -101,90 +100,65 @@ const String _template = '''
     </style>
   </head>
   <body>
-    <h1>{type}</h1>
-    <h2>{message}</h2>
+    ${renderType(error, trace)}
+    ${renderMessage(error, trace)}
     <div class="traceback">
-      <p class="title">Traceback <span style="color:grey">(most recent call last)</span></p>
-{trace}
+      ${renderTitle(error, trace)}
+      ${renderFrames(error, trace).join('\n      ')}
     </div>
   </body>
 </html>
 ''';
-
-String _renderFrames(Trace trace) {
-  var buffer = StringBuffer();
-  var frames = trace.frames.reversed.toList();
-  var frame = frames.removeLast();
-
-  for (var frame in frames) {
-    if (frame.isCore) {
-      continue;
-    }
-
-    _writeFrame(buffer, frame);
   }
 
-  _writeFrame(buffer, frame, true);
-  return buffer.toString().trimRight();
-}
-
-void _writeFrame(StringBuffer buffer, Frame frame, [bool full = false]) {
-  buffer
-    ..write('      <div class="frame">\n        ')
-    ..write('&nbsp;<span class="library">')
-    ..write(frame.library)
-    ..write('</span>, line&nbsp;<i>')
-    ..write(frame.line)
-    ..write('</i>,&nbsp;column&nbsp;<i>')
-    ..write(frame.column)
-    ..write('</i>, in&nbsp;<span class="member">');
-
-  var member = frame.member;
-
-  buffer
-    ..write(htmlEscape.convert(member!))
-    ..write('</span>');
-
-  if (full && frame.uri.scheme == 'file' && frame.line != null) {
-    var file = File.fromUri(frame.uri);
-    var lines = file.readAsLinesSync();
-    var line = frame.line! - 4;
-    var column = frame.column! - 1;
-    buffer.write('\n        <br>\n        <pre>');
-
-    if (line++ > 0) {
-      _writeLine(buffer, line, lines);
-    }
-
-    if (line++ > 0) {
-      _writeLine(buffer, line, lines);
-    }
-
-    _writeLine(buffer, ++line, lines);
-
-    buffer
-      ..write('\n    \t')
-      ..write(' ' * column)
-      ..write('^');
-
-    if (line++ < lines.length) {
-      _writeLine(buffer, line, lines);
-    }
-
-    if (line++ < lines.length) {
-      _writeLine(buffer, line, lines);
-    }
-
-    buffer.write('</pre>');
+  String renderType(Object error, Trace trace) {
+    var parts = error.toString().split(':');
+    var type = parts.length > 1 ? parts[0].trim() : 'Error';
+    return '<h1>$type</h1>';
   }
 
-  buffer.write('\n      </div>\n');
-}
+  String renderMessage(Object error, Trace trace) {
+    var parts = error.toString().split(':');
+    var message = parts.skip(1).join(':').trim();
+    return '<h2>$message</h2>';
+  }
 
-void _writeLine(StringBuffer buffer, int lineNo, List<String> lines) {
-  buffer
-    ..writeln()
-    ..write((lineNo + 1).toString().padLeft(4))
-    ..write('\t')
-    ..write(lines[lineNo]);
+  String renderTitle(Object error, Trace trace) {
+    return '<p class="title">Traceback <span style="color:grey">(most recent call last)</span></p>';
+  }
+
+  Iterable<String> renderFrames(Object error, Trace trace) sync* {
+    var frames = trace.frames.reversed.toList();
+    var frame = frames.removeLast();
+
+    for (var frame in frames) {
+      if (frame.isCore) {
+        continue;
+      }
+
+      yield renderFrame(frame);
+    }
+
+    yield renderFrame(frame, true);
+  }
+
+  String renderFrame(Frame frame, [bool full = false]) {
+    var result = ''
+        '<div class="frame"><span class="library">${frame.library}</span>, line '
+        '<i>${frame.line}</i> column <i>${frame.column}<i>, in <span class="member">'
+        '${htmlEscape.convert(frame.member!)}</span>';
+
+    if (full && frame.uri.scheme == 'file' && frame.line != null) {
+      var file = File.fromUri(frame.uri);
+      var lines = file.readAsLinesSync();
+      var line = frame.line ?? 1;
+      result = '$result<br><pre>${renderLine(line, lines[line - 1])}</pre>';
+    }
+
+    return '$result</div>';
+  }
+
+  String renderLine(int lineNo, String line) {
+    return line.trim();
+  }
 }

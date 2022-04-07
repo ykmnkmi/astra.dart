@@ -1,8 +1,8 @@
 import 'package:astra/core.dart';
 
-Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? headers}) {
-  var statusHandlers = <int, ErrorHandler>{};
-  var exceptionHandlers = <bool Function(Object), ErrorHandler>{};
+Middleware exception(Map<Object, HttpErrorHandler> handlers, {Map<String, Object>? headers}) {
+  var statusHandlers = <int, HttpErrorHandler>{};
+  var exceptionHandlers = <bool Function(Object), HttpErrorHandler>{};
 
   for (var entry in handlers.entries) {
     var statusOrException = entry.key;
@@ -21,7 +21,7 @@ Middleware exception(Map<Object, ErrorHandler> handlers, {Map<String, Object>? h
       try {
         return await handler(request);
       } catch (error, stackTrace) {
-        ErrorHandler? handler;
+        HttpErrorHandler? handler;
 
         if (error is HttpError) {
           handler = statusHandlers[error.status];

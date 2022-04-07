@@ -248,7 +248,7 @@ class ServeCommand extends CLICommand {
     sigint.onData(onSignal);
 
     var code = await process.exitCode;
-    sigint.cancel();
+    await sigint.cancel();
     return code;
   }
 }

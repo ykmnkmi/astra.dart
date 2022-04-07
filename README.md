@@ -12,11 +12,8 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 - More API Documentation
 - Logging
 - Manual hot reload (r) & hot restart (R)
-- Middlewares:
-  - ...
 - `build_runner` integration
 - ...
-- Tutorials, Cookbook, ...
 - Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
 
 ## Quickstart

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:shelf/shelf.dart';
 
-/// HTTP error handler.
-typedef ErrorHandler = FutureOr<Response> Function(
+/// Signature of [HttpError] handler.
+typedef HttpErrorHandler = FutureOr<Response> Function(
     Request request, Object error, StackTrace stackTrace);
 
 /// HTTP error that occurred while handling a request.

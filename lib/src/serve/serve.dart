@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/h11.dart';
+
+import 'h11.dart';
 
 Future<Server> serve(Handler handler, Object address, int port, //
     {SecurityContext? securityContext,

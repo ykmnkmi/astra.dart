@@ -2,7 +2,8 @@ import 'dart:developer';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/isolate/isolate.dart';
+
+import 'isolate.dart';
 
 class ApplicationIsolateServer extends IsolateServer {
   ApplicationIsolateServer(this.application, Server server, SendPort sendPort)
