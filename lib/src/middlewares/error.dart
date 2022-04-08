@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:astra/core.dart';
 import 'package:stack_trace/stack_trace.dart';
 
-/// Handles returning 500 responses when a server error occurs.
 class ServerErrorMiddleware {
   ServerErrorMiddleware(
       {this.debug = false,

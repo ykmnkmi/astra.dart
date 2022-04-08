@@ -1,22 +1,29 @@
+import 'dart:html';
+
 import 'package:astra/core.dart';
 
-Middleware exception(Map<Object, HttpErrorHandler> handlers, {Map<String, Object>? headers}) {
-  var statusHandlers = <int, HttpErrorHandler>{};
-  var exceptionHandlers = <bool Function(Object), HttpErrorHandler>{};
-
-  for (var entry in handlers.entries) {
-    var statusOrException = entry.key;
-
-    if (statusOrException is int) {
-      statusHandlers[statusOrException] = entry.value;
-    } else if (statusOrException is bool Function(Object)) {
-      exceptionHandlers[statusOrException] = entry.value;
-    } else {
-      throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
-    }
+class ExceptionMiddleware {
+  ExceptionMiddleware({Map<Object, ErrorHandler>? handlers, this.headers})
+      : statusHandlers = <int, HttpErrorHandler>{},
+        exceptionHandlers = <bool Function(Object), ErrorHandler>{} {
+    handlers?.forEach((statusOrException, handler) {
+      if (statusOrException is int) {
+        statusHandlers[statusOrException] = handler;
+      } else if (statusOrException is bool Function(Object)) {
+        exceptionHandlers[statusOrException] = handler;
+      } else {
+        throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
+      }
+    });
   }
 
-  return (Handler handler) {
+  final Map<int, HttpErrorHandler<Object>> statusHandlers;
+
+  final Map<bool Function(Object), ErrorHandler> exceptionHandlers;
+
+  final Map<String, String>? headers;
+
+  Handler call(Handler handler) {
     return (Request request) async {
       try {
         return await handler(request);
@@ -37,11 +44,19 @@ Middleware exception(Map<Object, HttpErrorHandler> handlers, {Map<String, Object
         }
 
         if (handler == null) {
+          if (error is HttpError) {
+            if (error.status == HttpStatus.noContent || error.status == HttpStatus.notModified) {
+              return Response(error.status, headers: headers);
+            }
+
+            return Response(error.status, headers: headers);
+          }
+
           rethrow;
         }
 
         return handler(request, error, stackTrace);
       }
     };
-  };
+  }
 }
