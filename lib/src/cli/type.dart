@@ -4,6 +4,7 @@ import 'package:analyzer/dart/element/type.dart';
 enum TargetType {
   handler,
   application,
+  type,
 }
 
 String? urlOfElement(Element? element) {
@@ -36,26 +37,6 @@ bool isRequest(Element? element) {
 
 bool isApplication(Element? element) {
   return urlOfElement(element) == 'package:astra/src/core/application.dart#Application';
-}
-
-bool isExtendsApplication(Element? element) {
-  if (element == null || element is! VariableElement) {
-    return false;
-  }
-
-  var type = element.type;
-
-  if (type is! InterfaceType) {
-    return false;
-  }
-
-  for (var supertypes in type.allSupertypes) {
-    if (isApplication(supertypes.element)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 // TODO: update errors
@@ -91,12 +72,35 @@ TargetType getTargetType(String target, LibraryElement library) {
       }
 
       if (element is PropertyAccessorElement) {
-        if (isExtendsApplication(element.variable)) {
+        var variable = element.variable;
+        var type = variable.type;
+
+        if (isApplication(type.element)) {
           return TargetType.application;
         }
 
-        throw Exception('target is not extends Application');
+        if (type is InterfaceType) {
+          for (var supertype in type.allSupertypes) {
+            if (isApplication(supertype.element)) {
+              return TargetType.application;
+            }
+          }
+        }
+
+        throw Exception('target instance type is not extends Application');
       }
+
+      if (element is ClassElement) {
+        for (var supertype in element.allSupertypes) {
+          if (isApplication(supertype.element)) {
+            return TargetType.type;
+          }
+        }
+
+        throw Exception('target type is not extends Application');
+      }
+
+      throw Exception('$target ${element.runtimeType} unsupported');
     }
 
     // if (element is ClassElement && element.name == target) {

@@ -24,12 +24,13 @@ class ApplicationIsolateServer extends IsolateServer {
 
   Future<void> start() async {
     await application.prepare();
-    mount(application.entryPoint);
+    mount(application);
   }
 
   @override
   Future<void> close() async {
-    await super.close();
+    await server.close();
     await application.close();
+    sendPort.send('stop');
   }
 }

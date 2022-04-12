@@ -30,7 +30,7 @@ class IsolateSupervisor {
 
     if (message == 'stop') {
       receive.close();
-      stopCompleter?.complete();
+      stopCompleter!.complete();
       stopCompleter = null;
       return;
     }

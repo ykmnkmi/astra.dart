@@ -5,7 +5,7 @@ import 'package:astra/core.dart';
 
 import 'h11.dart';
 
-Future<Server> serve(Handler handler, Object address, int port, //
+Future<Server> serve(Handler application, Object address, int port, //
     {SecurityContext? securityContext,
     int backlog = 0,
     bool shared = false,
@@ -17,6 +17,6 @@ Future<Server> serve(Handler handler, Object address, int port, //
       shared: shared,
       requestClientCertificate: requestClientCertificate,
       v6Only: v6Only);
-  server.mount(handler);
+  server.mount(application);
   return server;
 }

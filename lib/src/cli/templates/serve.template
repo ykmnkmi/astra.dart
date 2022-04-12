@@ -79,7 +79,7 @@ Future<void> main() async {
     Future<void> reloading(FileSystemEvent event) async {
       stdout.writeln('* reloading...');
 
-      Future<void> onEach(String isolateId) async {
+      Future<void> reload(String isolateId) async {
         var result = await service.reloadSources(isolateId);
 
         if (result.success == true) {
@@ -87,7 +87,7 @@ Future<void> main() async {
         }
       }
 
-      return Future.forEach<String>(isolateIds, onEach);
+      await Future.wait<void>(isolateIds.map(reload));
     }
 
     void reloaded(Object? message) {
@@ -107,15 +107,5 @@ Future<void> main() async {
     stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
   }
 
-  var sigint = ProcessSignal.sigint.watch().listen(null);
-
-  void onSignal(ProcessSignal signal) {
-    for (var callback in shutdown.reversed) {
-      callback();
-    }
-  }
-
-  shutdown.add(sigint.cancel);
-  sigint.onData(onSignal);
   stdout.writeln('* serving at __SCHEME__://__ADDRESS__:__PORT__');
 }

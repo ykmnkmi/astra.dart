@@ -7,7 +7,7 @@ Response application(Request request) {
 }
 
 Future<void> main() async {
-  var handler = application.use(ServerErrorMiddleware(debug: true));
+  var handler = application.use(error(debug: true));
   var server = await serve(handler, 'localhost', 3000);
   print('serving at ${server.url}');
 }

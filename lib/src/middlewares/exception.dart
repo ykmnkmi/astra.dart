@@ -2,28 +2,21 @@ import 'dart:html';
 
 import 'package:astra/core.dart';
 
-class ExceptionMiddleware {
-  ExceptionMiddleware({Map<Object, ErrorHandler>? handlers, this.headers})
-      : statusHandlers = <int, HttpErrorHandler>{},
-        exceptionHandlers = <bool Function(Object), ErrorHandler>{} {
-    handlers?.forEach((statusOrException, handler) {
-      if (statusOrException is int) {
-        statusHandlers[statusOrException] = handler;
-      } else if (statusOrException is bool Function(Object)) {
-        exceptionHandlers[statusOrException] = handler;
-      } else {
-        throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
-      }
-    });
-  }
+Middleware exception({Map<Object, ErrorHandler>? handlers, Map<String, String>? headers}) {
+  var statusHandlers = <int, HttpErrorHandler>{};
+  var exceptionHandlers = <bool Function(Object), ErrorHandler>{};
 
-  final Map<int, HttpErrorHandler<Object>> statusHandlers;
+  handlers?.forEach((statusOrException, handler) {
+    if (statusOrException is int) {
+      statusHandlers[statusOrException] = handler;
+    } else if (statusOrException is bool Function(Object)) {
+      exceptionHandlers[statusOrException] = handler;
+    } else {
+      throw ArgumentError.value(statusOrException, 'handlers', 'Keys must be int or Type');
+    }
+  });
 
-  final Map<bool Function(Object), ErrorHandler> exceptionHandlers;
-
-  final Map<String, String>? headers;
-
-  Handler call(Handler handler) {
+  return (Handler handler) {
     return (Request request) async {
       try {
         return await handler(request);
@@ -58,5 +51,5 @@ class ExceptionMiddleware {
         return handler(request, error, stackTrace);
       }
     };
-  }
+  };
 }

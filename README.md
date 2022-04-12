@@ -1,7 +1,7 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is a [Shelf][shelf] web server implementation with multi-threaded support and hot reload.
+Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 
 **WORK IN PROGRESS**
 
@@ -14,7 +14,8 @@ Astra is a [Shelf][shelf] web server implementation with multi-threaded support 
 - Manual hot reload (r) & hot restart (R)
 - `build_runner` integration
 - ...
-- Replace HttpServer with Shelf Request/Response first server implementation (experimenting)
+- Replace HttpServer with Shelf Request/Response based server (experimenting)
+- HTTP2 (experimenting)
 
 ## Quickstart
 
@@ -107,11 +108,22 @@ Future<void> main() async {
 The `--target` option allows loading the application with different name and different types.
 
 `Handler` function:
+```console
+$ astra serve --target echo
+```
 ```dart
-// astra serve -t echo
-
 Response echo(Request request) {
   return Response.ok('hello world!');
+}
+```
+
+`Application` class:
+```console
+$ astra serve --target Example
+```
+```dart
+class Example extends Application {
+  // ...
 }
 ```
 
@@ -121,14 +133,9 @@ $ astra serve --target example
 ```
 ```dart
 const Example example = Example();
-
-class Example extends Application {
-  // ...
-}
 ```
 
 Not yet:
-- `Application` class
 - `Application` or `Handler` factory
 - `Handler` like callable class, instance and factory
 - package uri
