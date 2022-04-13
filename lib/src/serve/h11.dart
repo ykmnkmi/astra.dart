@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:shelf/shelf_io.dart';
+import 'package:astra/src/serve/util.dart';
+import 'package:collection/collection.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class H11IOServer extends Server {
@@ -9,6 +13,9 @@ class H11IOServer extends Server {
 
   /// The underlying [HttpServer].
   final HttpServer server;
+
+  /// The underlying [HttpServer] incoming [HttpRequest] subscription.
+  StreamSubscription<HttpRequest>? subscription;
 
   @override
   Uri get url {
@@ -27,7 +34,22 @@ class H11IOServer extends Server {
 
   @override
   void mount(Handler handler) {
-    serveRequests(server, handler);
+    void ioHandler(HttpRequest request) {
+      handleRequest(request, handler);
+    }
+
+    if (subscription != null) {
+      subscription!.onData(ioHandler);
+      return;
+    }
+
+    void listener() {
+      subscription = server.listen(ioHandler);
+    }
+
+    catchTopLevelErrors(listener, (error, stackTrace) {
+      logTopLevelError('Asynchronous error\n$error', stackTrace);
+    });
   }
 
   @override
@@ -60,13 +82,141 @@ class H11IOServer extends Server {
     return H11IOServer(server);
   }
 
-  /// Serve a [Stream] of [HttpRequest]s.
+  /// Uses [handler] to handle [httpRequest].
   ///
-  /// [HttpServer] implements [Stream<HttpRequest>] so it can be passed directly
-  /// to [serveRequests].
-  static void serveRequests(Stream<HttpRequest> requests, Handler handler) {
-    requests.listen((request) {
-      handleRequest(request, handler);
+  /// Returns a [Future] which completes when the request has been handled.
+  static Future<void> handleRequest(
+      HttpRequest httpRequest, FutureOr<Response?> Function(Request) handler) async {
+    Request request;
+
+    try {
+      request = fromHttpRequest(httpRequest);
+    } on ArgumentError catch (error, stackTrace) {
+      if (error.name == 'method' || error.name == 'requestedUri') {
+        // TODO: use a reduced log level when using package:logging
+        logTopLevelError('Error parsing request.\n$error', stackTrace);
+
+        const headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
+        var response = Response.badRequest(body: 'Bad Request', headers: headers);
+        await writeResponse(response, httpRequest.response);
+      } else {
+        logTopLevelError('Error parsing request.\n$error', stackTrace);
+
+        var response = Response.internalServerError();
+        await writeResponse(response, httpRequest.response);
+      }
+
+      return;
+    } catch (error, stackTrace) {
+      logTopLevelError('Error parsing request.\n$error', stackTrace);
+
+      var response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
+      return;
+    }
+
+    // TODO: abstract out hijack handling to make it easier to implement an adapter.
+    Response? response;
+
+    try {
+      response = await handler(request);
+    } on HijackException catch (error, stackTrace) {
+      if (!request.canHijack) {
+        return;
+      }
+
+      logError(request, 'Caught HijackException, but the request wasn\'t hijacked.', stackTrace);
+      response = Response.internalServerError();
+    } catch (error, stackTrace) {
+      logError(request, 'Error thrown by handler.\n$error', stackTrace);
+      response = Response.internalServerError();
+    }
+
+    if (response == null) {
+      logError(request, 'null response from handler.', StackTrace.current);
+      response = Response.internalServerError();
+      return writeResponse(response, httpRequest.response);
+    }
+
+    if (request.canHijack) {
+      return writeResponse(response, httpRequest.response);
+    }
+
+    var message = StringBuffer('Got a response for hijacked request ')
+      ..writeln('${request.method} ${request.requestedUri}:')
+      ..writeln(response.statusCode);
+
+    response.headers.forEach((key, value) {
+      message.writeln('$key: $value');
     });
+
+    throw Exception(message.toString().trim());
+  }
+
+  /// Creates a new [Request] from the provided [HttpRequest].
+  static Request fromHttpRequest(HttpRequest request) {
+    var headers = <String, List<String>>{};
+
+    request.headers.forEach((key, value) {
+      headers[key] = value;
+    });
+
+    // Remove the Transfer-Encoding header per the adapter requirements.
+    headers.remove(HttpHeaders.transferEncodingHeader);
+
+    void onHijack(void Function(StreamChannel<List<int>>) callback) {
+      request.response
+          .detachSocket(writeHeaders: false)
+          .then((socket) => callback(StreamChannel(socket, socket)));
+    }
+
+    return Request(request.method, request.requestedUri, //
+        protocolVersion: request.protocolVersion,
+        headers: headers,
+        body: request,
+        onHijack: onHijack,
+        context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
+  }
+
+  /// Writes a given [Response] to the provided [HttpResponse].
+  static Future<void> writeResponse(Response response, HttpResponse httpResponse) {
+    if (response.context.containsKey('shelf.io.buffer_output')) {
+      httpResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
+    }
+
+    httpResponse
+      ..statusCode = response.statusCode
+      ..headers.chunkedTransferEncoding = false;
+
+    response.headersAll.forEach((header, value) {
+      httpResponse.headers.set(header, value);
+    });
+
+    var coding = response.headers['transfer-encoding'];
+    if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
+      // If the response is already in a chunked encoding, de-chunk it because
+      // otherwise `dart:io` will try to add another layer of chunking.
+      // TODO: Do this more cleanly when sdk#27886 is fixed.
+      response = response.change(body: chunkedCoding.decoder.bind(response.read()));
+      httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
+    } else if (response.statusCode >= 200 &&
+        response.statusCode != 204 &&
+        response.statusCode != 304 &&
+        response.contentLength == null &&
+        response.mimeType != 'multipart/byteranges') {
+      // If the response isn't chunked yet and there's no other way to tell its
+      // length, enable `dart:io`'s chunked encoding.
+      httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
+    }
+
+    if (!response.headers.containsKey(HttpHeaders.serverHeader)) {
+      httpResponse.headers.set(HttpHeaders.serverHeader, 'Astra Server');
+    }
+
+    if (!response.headers.containsKey(HttpHeaders.dateHeader)) {
+      httpResponse.headers.date = DateTime.now().toUtc();
+    }
+
+    return response.read().pipe(httpResponse);
   }
 }

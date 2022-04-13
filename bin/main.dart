@@ -1,13 +1,17 @@
 import 'package:astra/core.dart';
-import 'package:astra/middlewares.dart';
 import 'package:astra/serve.dart';
 
 Response application(Request request) {
-  throw Exception('hehe!');
+  throw Exception('application');
+}
+
+Response hello(Request request) {
+  throw Exception('hello');
 }
 
 Future<void> main() async {
-  var handler = application.use(error(debug: true));
-  var server = await serve(handler, 'localhost', 3000);
+  var server = await serve(application, 'localhost', 3000);
   print('serving at ${server.url}');
+  await Future<void>.delayed(Duration(seconds: 10));
+  server.mount(hello);
 }

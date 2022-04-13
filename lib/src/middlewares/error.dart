@@ -116,11 +116,13 @@ String _render(Object error, Trace trace) {
 ''';
 }
 
-Middleware error({bool debug = false, HttpErrorHandler? errorHandler}) {
+Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
   return (Handler handler) {
     return (Request request) async {
       try {
         return await handler(request);
+      } on HijackException {
+        rethrow;
       } catch (error, stackTrace) {
         if (debug) {
           var accept = request.headers['accept'];
