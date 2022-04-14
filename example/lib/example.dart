@@ -15,3 +15,7 @@ Future<Response> application(Request request) async {
       return Response.notFound('Request for "${request.url}"');
   }
 }
+
+Future<Handler> getApplication() async {
+  return application;
+}

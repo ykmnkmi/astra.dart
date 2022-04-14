@@ -1,0 +1,9 @@
+Future<void> create(SendPort sendPort) async {
+  var server = await H11IOServer.bind('__ADDRESS__', __PORT__, //
+      securityContext: __CONTEXT__,
+      backlog: __BACKLOG__,
+      shared: __SHARED__,
+      v6Only: __V6ONLY__);
+  var application = _.__TARGET__();
+  ApplicationIsolateServer(application, server, sendPort).start();
+}

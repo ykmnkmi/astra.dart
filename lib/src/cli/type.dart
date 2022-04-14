@@ -3,8 +3,12 @@ import 'package:analyzer/dart/element/type.dart';
 
 enum TargetType {
   handler,
-  application,
   type,
+  application,
+  handlerFactory,
+  handlerFactoryAsync,
+  typeFactory,
+  typeFactoryAsync,
 }
 
 String? urlOfElement(Element? element) {
@@ -39,6 +43,33 @@ bool isApplication(Element? element) {
   return urlOfElement(element) == 'package:astra/src/core/application.dart#Application';
 }
 
+bool isHandler(FunctionType function) {
+  var returnType = function.returnType;
+
+  if (isFuture(returnType.element) || isFutureOr(returnType.element)) {
+    var interface = returnType as InterfaceType;
+    returnType = interface.typeArguments.first;
+  }
+
+  if (isResponse(returnType.element)) {
+    var parameters = function.parameters;
+
+    if (parameters.length == 1) {
+      var parameter = parameters.first;
+
+      if (isRequest(parameter.type.element)) {
+        return true;
+      }
+
+      throw Exception('target parameter is not Request');
+    }
+
+    throw Exception('target parameters count not equal 1');
+  }
+
+  return false;
+}
+
 // TODO: update errors
 TargetType getTargetType(String target, LibraryElement library) {
   for (var element in library.topLevelElements) {
@@ -46,26 +77,24 @@ TargetType getTargetType(String target, LibraryElement library) {
       if (element is FunctionElement) {
         var type = element.type;
         var returnType = type.returnType;
+        var isAsync = false;
 
         if (isFuture(returnType.element) || isFutureOr(returnType.element)) {
           var interface = returnType as InterfaceType;
           returnType = interface.typeArguments.first;
+          isAsync = true;
         }
 
-        if (isResponse(returnType.element)) {
-          var parameters = type.parameters;
+        if (isHandler(type)) {
+          return TargetType.handler;
+        }
 
-          if (parameters.length == 1) {
-            var parameter = parameters.first;
+        if (returnType is FunctionType && isHandler(returnType)) {
+          return isAsync ? TargetType.handlerFactoryAsync : TargetType.handlerFactory;
+        }
 
-            if (isRequest(parameter.type.element)) {
-              return TargetType.handler;
-            }
-
-            throw Exception('target parameter is not Request');
-          }
-
-          throw Exception('target parameters count not equal 1');
+        if (isApplication(returnType.element)) {
+          return isAsync ? TargetType.typeFactoryAsync : TargetType.typeFactory;
         }
 
         throw Exception('target return type is not Response/FutureOr<Response>/Future<Response>');

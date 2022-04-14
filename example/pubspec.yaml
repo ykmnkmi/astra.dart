@@ -9,7 +9,7 @@ dependencies:
   astra: any
 
 dev_dependencies:
-  lints: ^1.0.1
+  lints: ^1.0.0
 
 dependency_overrides:
   astra:

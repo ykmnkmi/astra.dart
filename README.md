@@ -1,21 +1,28 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
+Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload. Inspired by [uvicorn][uvicorn].
 
 **WORK IN PROGRESS**
 
-### ToDo:
-- Errors, error handling and verbose output (here)
+### ToDo 🔥
+- Errors, error handling and verbose output
+- Graceful shutdown
 - Environment variables
 - Tests
 - More API Documentation
 - Logging
 - Manual hot reload (r) & hot restart (R)
-- `build_runner` integration
+- Commands:
+  - create
+  - generate
+  - ...
 - ...
-- Replace HttpServer with Shelf Request/Response based server (experimenting)
-- HTTP2 (experimenting)
+
+### Exmperimenting 🤔
+- `build_runner` integration
+- Replace HttpServer with Shelf Request/Response based server
+- HTTP2
 
 ## Quickstart
 
@@ -45,9 +52,7 @@ $ astra serve
 
 ## Usage
 
-The astra command line tool is the easiest way to run your application...
-
-### Command line options
+Run `serve` command to serve your application:
 
 ```console
 $ astra serve -h
@@ -105,7 +110,7 @@ Future<void> main() async {
 
 ### Application target
 
-The `--target` option allows loading the application with different name and different types.
+The `--target` option allows loading the application with different name and different types, defaults to 'application'.
 
 `Handler` function:
 ```console
@@ -117,12 +122,12 @@ Response echo(Request request) {
 }
 ```
 
-`Application` class:
+`Handler` factory:
 ```console
-$ astra serve --target Example
+$ astra serve --target getHandler
 ```
 ```dart
-class Example extends Application {
+Handler getHandler() {
   // ...
 }
 ```
@@ -135,10 +140,30 @@ $ astra serve --target example
 const Example example = Example();
 ```
 
+`Application` class:
+```console
+$ astra serve --target Example
+```
+```dart
+class Example extends Application {
+  // ...
+}
+```
+
+`Application` factory:
+```console
+$ astra serve --target getApplication
+```
+```dart
+Application getApplication() {
+  // ...
+}
+```
+
 Not yet:
-- `Application` or `Handler` factory
 - `Handler` like callable class, instance and factory
 - package uri
 
-[shelf]: https://pub.dev/packages/shelf
+[shelf]: https://github.com/dart-lang/shelf
+[uvicorn]: https://github.com/encode/uvicorn
 [path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path

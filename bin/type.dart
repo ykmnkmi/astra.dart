@@ -20,5 +20,6 @@ Future<void> main() async {
 
   // print(getTargetType('application', resolvedLibrary.element));
   // print(getTargetType('hello', resolvedLibrary.element));
-  print(getTargetType('Hello', resolvedLibrary.element));
+  // print(getTargetType('Hello', resolvedLibrary.element));
+  print(getTargetType('applicationFactory', resolvedLibrary.element));
 }
