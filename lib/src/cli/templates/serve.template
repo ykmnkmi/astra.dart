@@ -32,13 +32,13 @@ Future<void> main() async {
   var supervisors = <IsolateSupervisor>[];
 
   for (var i = 0; i < __CONCURRENCY__; i += 1) {
-    var rescivePort = RawReceivePort();
-    var isolate = await Isolate.spawn(create, rescivePort.sendPort, //
+    var receivePort = RawReceivePort();
+    var isolate = await Isolate.spawn(create, receivePort.sendPort, //
         paused: true,
         errorsAreFatal: false,
-        onError: rescivePort.sendPort,
+        onError: receivePort.sendPort,
         debugName: 'isolate/${i + 1}');
-    var supervisor = IsolateSupervisor(isolate, rescivePort, i);
+    var supervisor = IsolateSupervisor(isolate, receivePort, i);
     stdout.writeln('* starting isolate/${i + 1}');
     await supervisor.resume();
     supervisors.add(supervisor);

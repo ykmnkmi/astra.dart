@@ -116,6 +116,7 @@ String _render(Object error, Trace trace) {
 ''';
 }
 
+// TODO: move to universum
 Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
   return (Handler handler) {
     return (Request request) async {

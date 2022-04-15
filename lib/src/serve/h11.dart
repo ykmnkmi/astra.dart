@@ -48,7 +48,7 @@ class H11IOServer extends Server {
     }
 
     catchTopLevelErrors(listener, (error, stackTrace) {
-      logTopLevelError('Asynchronous error\n$error', stackTrace);
+      logTopLevelError('asynchronous error\n$error', stackTrace);
     });
   }
 
@@ -94,13 +94,13 @@ class H11IOServer extends Server {
     } on ArgumentError catch (error, stackTrace) {
       if (error.name == 'method' || error.name == 'requestedUri') {
         // TODO: use a reduced log level when using package:logging
-        logTopLevelError('Error parsing request.\n$error', stackTrace);
+        logTopLevelError('error parsing request.\n$error', stackTrace);
 
         const headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
         var response = Response.badRequest(body: 'Bad Request', headers: headers);
         await writeResponse(response, httpRequest.response);
       } else {
-        logTopLevelError('Error parsing request.\n$error', stackTrace);
+        logTopLevelError('error parsing request.\n$error', stackTrace);
 
         var response = Response.internalServerError();
         await writeResponse(response, httpRequest.response);
@@ -108,7 +108,7 @@ class H11IOServer extends Server {
 
       return;
     } catch (error, stackTrace) {
-      logTopLevelError('Error parsing request.\n$error', stackTrace);
+      logTopLevelError('error parsing request.\n$error', stackTrace);
 
       var response = Response.internalServerError();
       await writeResponse(response, httpRequest.response);
@@ -125,10 +125,10 @@ class H11IOServer extends Server {
         return;
       }
 
-      logError(request, 'Caught HijackException, but the request wasn\'t hijacked.', stackTrace);
+      logError(request, 'caught HijackException, but the request wasn\'t hijacked.', stackTrace);
       response = Response.internalServerError();
     } catch (error, stackTrace) {
-      logError(request, 'Error thrown by handler.\n$error', stackTrace);
+      logError(request, 'error thrown by handler.\n$error', stackTrace);
       response = Response.internalServerError();
     }
 
@@ -142,7 +142,7 @@ class H11IOServer extends Server {
       return writeResponse(response, httpRequest.response);
     }
 
-    var message = StringBuffer('Got a response for hijacked request ')
+    var message = StringBuffer('got a response for hijacked request ')
       ..writeln('${request.method} ${request.requestedUri}:')
       ..writeln(response.statusCode);
 

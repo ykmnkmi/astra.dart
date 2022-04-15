@@ -58,16 +58,15 @@ class ServeCommand extends CLICommand {
           abbr: 'r',
           negatable: false,
           help: 'Enable hot-reload.')
-      ..addFlag('watch', //
-          abbr: 'w',
-          negatable: false,
-          // TODO: update help
-          help: '')
       ..addOption('observe', //
           abbr: 'o',
           help: 'Enable VM Observer.',
           valueHelp: 'port',
-          defaultsTo: '3001');
+          defaultsTo: '3001')
+      ..addFlag('asserts', //
+          abbr: 'c',
+          negatable: false,
+          help: 'Enable asserts.');
   }
 
   @override
@@ -139,12 +138,12 @@ class ServeCommand extends CLICommand {
     return getBoolean('reload');
   }
 
-  bool get watch {
-    return getBoolean('watch');
-  }
-
   bool get observe {
     return getBoolean('observe');
+  }
+
+  bool get asserts {
+    return getBoolean('asserts');
   }
 
   int get observePort {
@@ -186,7 +185,6 @@ class ServeCommand extends CLICommand {
       'SHARED': '${shared || concurrency > 1}',
       'V6ONLY': '$v6Only',
       'RELOAD': '$reload',
-      'WATCH': '$watch',
       'OBSERVE': '$observe',
       'DIRECTORY': directory.path,
       'SCHEME': context == null ? 'http' : 'https',
@@ -229,6 +227,10 @@ class ServeCommand extends CLICommand {
         ..add('--disable-service-auth-codes')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
+    }
+
+    if (asserts) {
+      arguments.add('--enable-asserts');
     }
 
     arguments.add(astraServePath);

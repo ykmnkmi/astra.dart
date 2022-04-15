@@ -5,12 +5,12 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 
 **WORK IN PROGRESS**
 
-### ToDo 🔥
-- Errors, error handling and verbose output
-- Graceful shutdown
-- Environment variables
+### ToDo
+- Errors, error handling and verbose output 🔥
+- Graceful shutdown 🤔
+- Environment variables 🤔
 - Tests
-- More API Documentation
+- More API Documentation 🔥
 - Logging
 - Manual hot reload (r) & hot restart (R)
 - Commands:
@@ -19,10 +19,12 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
   - ...
 - ...
 
-### Exmperimenting 🤔
+### Experimenting
 - `build_runner` integration
-- Replace HttpServer with Shelf Request/Response based server
-- HTTP2
+- Shelf Request/Response based HttpServer alternative:
+  - dart:io Socket 🤔
+  - ...
+- HTTP/2
 
 ## Quickstart
 
@@ -88,6 +90,7 @@ Debugging options:
 -r, --reload                         Enable hot-reload.
 -o, --observe=<port>                 Enable VM Observer.
                                      (defaults to "3001")
+-c, --asserts                        Enable asserts.
 
 Run "astra help" to see global options.
 ```
@@ -110,7 +113,7 @@ Future<void> main() async {
 
 ### Application target
 
-The `--target` option allows loading the application with different name and different types, defaults to 'application'.
+The `--target` option allows loading the application with different name and different types, defaults to `application`.
 
 `Handler` function:
 ```console

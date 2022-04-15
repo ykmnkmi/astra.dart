@@ -2,8 +2,7 @@ import 'dart:developer';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
-
-import 'isolate.dart';
+import 'package:astra/src/isolate/isolate.dart';
 
 class ApplicationIsolateServer extends IsolateServer {
   ApplicationIsolateServer(this.application, Server server, SendPort sendPort)
@@ -24,7 +23,12 @@ class ApplicationIsolateServer extends IsolateServer {
 
   Future<void> start() async {
     await application.prepare();
-    mount(application);
+    super.mount(application);
+  }
+
+  @override
+  void mount(Handler handler) {
+    throw UnsupportedError('not supported by ApplicationIsolateServer');
   }
 
   @override
