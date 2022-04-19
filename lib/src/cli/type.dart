@@ -1,14 +1,23 @@
+import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 enum TargetType {
   handler,
-  type,
-  application,
   handlerFactory,
   handlerFactoryAsync,
+  type,
   typeFactory,
   typeFactoryAsync,
+  application,
+}
+
+extension TargetTypeExtension on TargetType {
+  bool get isApplication {
+    return this == TargetType.type ||
+        this == TargetType.typeFactory ||
+        this == TargetType.typeFactoryAsync;
+  }
 }
 
 String? urlOfElement(Element? element) {
@@ -71,7 +80,9 @@ bool isHandler(FunctionType function) {
 }
 
 // TODO: update errors
-TargetType getTargetType(String target, LibraryElement library) {
+TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
+  var library = resolvedUnitResult.libraryElement;
+
   for (var element in library.topLevelElements) {
     if (element.name == target) {
       if (element is FunctionElement) {
@@ -100,6 +111,22 @@ TargetType getTargetType(String target, LibraryElement library) {
         throw Exception('target return type is not Response/FutureOr<Response>/Future<Response>');
       }
 
+      if (element is ClassElement) {
+        for (var supertype in element.allSupertypes) {
+          if (isApplication(supertype.element)) {
+            return TargetType.type;
+          }
+        }
+
+        var call = element.getMethod('call');
+
+        if (call != null && isHandler(call.type)) {
+          return TargetType.handlerFactory;
+        }
+
+        throw Exception('target type is not extends Application');
+      }
+
       if (element is PropertyAccessorElement) {
         var variable = element.variable;
         var type = variable.type;
@@ -116,26 +143,11 @@ TargetType getTargetType(String target, LibraryElement library) {
           }
         }
 
-        throw Exception('target instance type is not extends Application');
-      }
-
-      if (element is ClassElement) {
-        for (var supertype in element.allSupertypes) {
-          if (isApplication(supertype.element)) {
-            return TargetType.type;
-          }
-        }
-
-        throw Exception('target type is not extends Application');
+        throw Exception('target instance type is not extends Application or ');
       }
 
       throw Exception('$target ${element.runtimeType} unsupported');
     }
-
-    // if (element is ClassElement && element.name == target) {
-    //   // TODO: check if target is Controller or Application
-    //   return TargetType.type;
-    // }
   }
 
   throw Exception('$target not found');

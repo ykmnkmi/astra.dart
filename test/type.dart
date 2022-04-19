@@ -11,15 +11,12 @@ Future<void> main() async {
   var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
   var context = collection.contextFor(directory.absolute.path);
   var session = context.currentSession;
-  var resolvedLibrary = await session.getResolvedLibrary(library.absolute.path);
+  var resolvedUnit = await session.getResolvedUnit(library.absolute.path);
 
-  if (resolvedLibrary is! ResolvedLibraryResult) {
-    print('library not resolved, got ${resolvedLibrary.runtimeType}');
+  if (resolvedUnit is! ResolvedUnitResult) {
+    print('unit not resolved, got ${resolvedUnit.runtimeType}');
     exit(0);
   }
 
-  // print(getTargetType('application', resolvedLibrary.element));
-  // print(getTargetType('hello', resolvedLibrary.element));
-  // print(getTargetType('Hello', resolvedLibrary.element));
-  print(getTargetType('applicationFactory', resolvedLibrary.element));
+  print(getTargetType('Hello', resolvedUnit));
 }

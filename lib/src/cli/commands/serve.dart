@@ -177,7 +177,9 @@ class ServeCommand extends CLICommand {
     var data = <String, String>{
       'PACKAGE': 'package:$package/$package.dart',
       'TARGET': target,
+      'ISAPPLICATION': '${targetType.isApplication}',
       'CONCURRENCY': '$concurrency',
+      'SCHEME': context == null ? 'http' : 'https',
       'ADDRESS': address,
       'PORT': '$port',
       'CONTEXT': '$context',
@@ -187,7 +189,6 @@ class ServeCommand extends CLICommand {
       'RELOAD': '$reload',
       'OBSERVE': '$observe',
       'DIRECTORY': directory.path,
-      'SCHEME': context == null ? 'http' : 'https',
     };
 
     data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
@@ -200,14 +201,18 @@ class ServeCommand extends CLICommand {
     var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
     var context = collection.contextFor(directory.absolute.path);
     var session = context.currentSession;
-    var resolvedLibrary = await session.getResolvedLibrary(library.absolute.path);
+    var resolvedUnit = await session.getResolvedUnit(library.absolute.path);
 
-    if (resolvedLibrary is! ResolvedLibraryResult) {
+    if (resolvedUnit is! ResolvedUnitResult) {
       // TODO: update error
       throw Exception('library not resolved');
     }
 
-    var memberType = getTargetType(target, resolvedLibrary.element);
+    if (resolvedUnit.errors.isNotEmpty) {
+      throw resolvedUnit.errors.first;
+    }
+
+    var memberType = getTargetType(target, resolvedUnit);
     var source = await createSource(memberType);
     var astraServePath = join('.dart_tool', 'astra.serve.dart');
     var script = File(join(directory.path, astraServePath));

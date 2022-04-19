@@ -13,10 +13,30 @@ import 'package:vm_service/vm_service_io.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
+const bool isApplication = __ISAPPLICATION__;
+
+const int concurrency = __CONCURRENCY__;
+
+const bool reload = __RELOAD__;
+
+const bool oboserve = __OBSERVE__;
+
+const String scheme = '__SCHEME__';
+
+const String address = '__ADDRESS__';
+
+const int port = __PORT__;
+
+const int backlog = __BACKLOG__;
+
+const bool shared = __SHARED__;
+
+const bool v6Only = __V6ONLY__;
+
 __CREATE__
 
 Future<void> main() async {
-  if (__OBSERVE__) {
+  if (oboserve) {
     var info = await Service.getInfo();
     var uri = info.serverUri;
 
@@ -31,7 +51,7 @@ Future<void> main() async {
   var shutdown = <FutureOr<void> Function()>[];
   var supervisors = <IsolateSupervisor>[];
 
-  for (var i = 0; i < __CONCURRENCY__; i += 1) {
+  for (var i = 0; i < concurrency; i += 1) {
     var receivePort = RawReceivePort();
     var isolate = await Isolate.spawn(create, receivePort.sendPort, //
         paused: true,
@@ -45,11 +65,11 @@ Future<void> main() async {
     shutdown.add(supervisor.stop);
   }
 
-  if (__CONCURRENCY__ > 1) {
+  if (concurrency > 1) {
     stdout.writeln('* all isolates started');
   }
 
-  if (__RELOAD__) {
+  if (reload) {
     var info = await Service.getInfo();
     var uri = info.serverWebSocketUri;
 
@@ -82,7 +102,7 @@ Future<void> main() async {
       Future<void> reload(String isolateId) async {
         var result = await service.reloadSources(isolateId);
 
-        if (result.success == true) {
+        if (isApplication && result.success == true) {
           await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
         }
       }
@@ -91,8 +111,8 @@ Future<void> main() async {
     }
 
     void reloaded(Object? message) {
-      if (__CONCURRENCY__ > 1) {
-        stdout.writeln('* __CONCURRENCY__ isolate(s) reloaded');
+      if (concurrency > 1) {
+        stdout.writeln('* $concurrency isolate(s) reloaded');
       } else {
         stdout.writeln('* isolate reloaded');
       }
@@ -107,5 +127,5 @@ Future<void> main() async {
     stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
   }
 
-  stdout.writeln('* serving at __SCHEME__://__ADDRESS__:__PORT__');
+  stdout.writeln('* serving at $scheme://$address:$port');
 }
