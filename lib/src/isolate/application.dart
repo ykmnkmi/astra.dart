@@ -23,7 +23,7 @@ class ApplicationIsolateServer extends IsolateServer {
 
   Future<void> start() async {
     await application.prepare();
-    super.mount(application);
+    super.mount(application.entryPoint);
   }
 
   @override

@@ -197,7 +197,7 @@ class ServeCommand extends CLICommand {
 
   // TODO: check if target or application class exists
   @override
-  Future<int> run() async {
+  Future<int> handle() async {
     var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
     var context = collection.contextFor(directory.absolute.path);
     var session = context.currentSession;

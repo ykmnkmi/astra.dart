@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart';
+import 'package:stack_trace/stack_trace.dart';
 import 'package:yaml/yaml.dart';
 
 abstract class CLICommand extends Command<int> {
+  /// @nodoc
   CLICommand() {
     argParser
       ..addSeparator('Common options:')
@@ -31,6 +34,7 @@ abstract class CLICommand extends Command<int> {
     return argResults;
   }
 
+  /// @nodoc
   Directory? cachedDirectory;
 
   Directory get directory {
@@ -56,6 +60,7 @@ abstract class CLICommand extends Command<int> {
     return File(join(directory.path, 'pubspec.yaml'));
   }
 
+  /// @nodoc
   Map<String, Object?>? cachedSpecification;
 
   Map<String, Object?> get specification {
@@ -81,6 +86,7 @@ abstract class CLICommand extends Command<int> {
     return specification['name'] as String;
   }
 
+  /// @nodoc
   File? cachedLibrary;
 
   File get library {
@@ -104,9 +110,7 @@ abstract class CLICommand extends Command<int> {
   bool get verbose {
     return getBoolean('verbose');
   }
-}
 
-extension AstraCommandExtension on CLICommand {
   bool getBoolean(String name) {
     return argResults.wasParsed(name);
   }
@@ -129,5 +133,19 @@ extension AstraCommandExtension on CLICommand {
 
   String getString(String name, [String defaultValue = '']) {
     return argResults[name] as String? ?? defaultValue;
+  }
+
+  Future<int> handle();
+
+  @override
+  Future<int> run() async {
+    try {
+      return await handle();
+    } catch (error, stackTrace) {
+      print(error);
+      print(Trace.format(stackTrace));
+    }
+
+    return 1;
   }
 }
