@@ -1,5 +1,5 @@
 Future<void> create(SendPort sendPort) async {
-  var server = await H11IOServer.bind(address, port, //
+  var ioServer = await H11IOServer.bind(address, port, //
       securityContext: __CONTEXT__,
       backlog: backlog,
       shared: shared,

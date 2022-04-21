@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:logging/logging.dart';
 import 'package:shelf/shelf.dart';
 
 /// An object that defines the behavior specific to your application.
@@ -11,9 +10,6 @@ abstract class Application {
   /// Implement this accessor to define how HTTP requests are handled by
   /// your application.
   Handler get entryPoint;
-
-  /// This application logger.
-  Logger get logger => Logger('astra');
 
   /// Override this method to perform initialization tasks.
   Future<void> prepare() async {}

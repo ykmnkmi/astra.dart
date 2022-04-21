@@ -7,12 +7,11 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 
 ### ToDo
 - Errors, error handling and verbose output 🔥
-- Graceful shutdown 🤔
-- Environment variables 🤔
+- Environment variables
 - Tests
 - More API Documentation 🔥
 - Logging
-- Manual hot reload (r) & hot restart (R)
+- Manual hot reload (r) & hot restart (R) 🔥
 - Commands:
   - create
   - generate

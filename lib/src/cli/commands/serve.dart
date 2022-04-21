@@ -10,6 +10,7 @@ import 'package:astra/src/cli/type.dart';
 import 'package:path/path.dart';
 
 class ServeCommand extends CLICommand {
+  /// @nodoc
   ServeCommand() {
     argParser
       ..addSeparator('Application options:')
@@ -240,22 +241,18 @@ class ServeCommand extends CLICommand {
 
     arguments.add(astraServePath);
 
-    var process = await Process.start('dart', arguments, workingDirectory: directory.path);
-    stdin.pipe(process.stdin);
+    var process = await Process.start('dart', arguments, //
+        workingDirectory: directory.path,
+        runInShell: true);
     process.stdout.pipe(stdout);
     process.stderr.pipe(stderr);
+    stdin.listen(process.stdin.add);
 
-    var sigint = ProcessSignal.sigint.watch().listen(null);
-
-    void onSignal(ProcessSignal signal) {
-      sigint.cancel();
-      process.kill(ProcessSignal.sigint);
+    await for (var signal in ProcessSignal.sigint.watch()) {
+      process.stdin.writeln('q');
+      break;
     }
 
-    sigint.onData(onSignal);
-
-    var code = await process.exitCode;
-    await sigint.cancel();
-    return code;
+    return await process.exitCode;
   }
 }
