@@ -7,9 +7,21 @@ import 'package:path/path.dart';
 import 'package:stack_trace/stack_trace.dart';
 import 'package:yaml/yaml.dart';
 
-abstract class CLICommand extends Command<int> {
-  /// @nodoc
-  CLICommand() {
+/// A exception thrown by command line interfaces.
+class CliException implements Exception {
+  CliException(this.message);
+
+  final String message;
+
+  @override
+  String toString() {
+    return 'CliException: $message';
+  }
+}
+
+/// A command line interface command.
+abstract class CliCommand extends Command<int> {
+  CliCommand() {
     argParser
       ..addSeparator('Common options:')
       ..addOption('directory', //
@@ -27,14 +39,12 @@ abstract class CLICommand extends Command<int> {
     var argResults = super.argResults;
 
     if (argResults == null) {
-      // TODO: update error
-      throw Exception('run is not called.');
+      throw CliException('run is not called.');
     }
 
     return argResults;
   }
 
-  /// @nodoc
   Directory? cachedDirectory;
 
   Directory get directory {
@@ -52,15 +62,13 @@ abstract class CLICommand extends Command<int> {
       return directory;
     }
 
-    // TODO: update error
-    throw Exception('directory not found: $path');
+    throw CliException('directory not found: $path');
   }
 
   File get specificationFile {
     return File(join(directory.path, 'pubspec.yaml'));
   }
 
-  /// @nodoc
   Map<String, Object?>? cachedSpecification;
 
   Map<String, Object?> get specification {
@@ -78,15 +86,13 @@ abstract class CLICommand extends Command<int> {
       return yaml.cast<String, Object?>();
     }
 
-    // TODO: update error
-    throw Exception('failed to locate ${file.path}');
+    throw CliException('failed to locate ${file.path}');
   }
 
   String get package {
     return specification['name'] as String;
   }
 
-  /// @nodoc
   File? cachedLibrary;
 
   File get library {
@@ -103,8 +109,7 @@ abstract class CLICommand extends Command<int> {
       return library;
     }
 
-    // TODO: update error
-    throw Exception('failed to locate ${library.path}');
+    throw CliException('failed to locate ${library.path}');
   }
 
   bool get verbose {
@@ -142,8 +147,9 @@ abstract class CLICommand extends Command<int> {
     try {
       return await handle();
     } catch (error, stackTrace) {
-      print(error);
-      print(Trace.format(stackTrace));
+      stderr
+        ..writeln(error)
+        ..writeln(Trace.format(stackTrace));
     }
 
     return 1;

@@ -1,6 +1,7 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:astra/src/cli/command.dart';
 
 enum TargetType {
   handler,
@@ -79,7 +80,6 @@ bool isHandler(FunctionType function) {
   return false;
 }
 
-// TODO: update errors
 TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
   var library = resolvedUnitResult.libraryElement;
 
@@ -108,7 +108,7 @@ TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
           return isAsync ? TargetType.typeFactoryAsync : TargetType.typeFactory;
         }
 
-        throw Exception('target return type is not Response/FutureOr<Response>/Future<Response>');
+        throw CliException('target return type is not Response/FutureOr<Response>/Future<Response>');
       }
 
       if (element is ClassElement) {
@@ -124,7 +124,7 @@ TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
           return TargetType.handlerFactory;
         }
 
-        throw Exception('target type is not extends Application');
+        throw CliException('target type is not extends Application');
       }
 
       if (element is PropertyAccessorElement) {
@@ -143,12 +143,12 @@ TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
           }
         }
 
-        throw Exception('target instance type is not extends Application or ');
+        throw CliException('target instance type is not extends Application or ');
       }
 
-      throw Exception('$target ${element.runtimeType} unsupported');
+      throw CliException('$target ${element.runtimeType} unsupported');
     }
   }
 
-  throw Exception('$target not found');
+  throw CliException('$target not found');
 }

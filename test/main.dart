@@ -9,3 +9,5 @@ Future<void> main() async {
   var server = await serve(application, 'localhost', 3000);
   print('serving at ${server.url}');
 }
+
+// ignore_for_file: avoid_print

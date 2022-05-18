@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/util.dart';
+import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:stream_channel/stream_channel.dart';

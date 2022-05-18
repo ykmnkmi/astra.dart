@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
@@ -20,3 +21,5 @@ Future<void> main() async {
 
   print(getTargetType('Hello', resolvedUnit));
 }
+
+// ignore_for_file: avoid_print

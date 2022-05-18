@@ -90,8 +90,7 @@ Future<void> main() async {
       var id = Service.getIsolateID(supervisor.isolate);
 
       if (id == null) {
-        // TODO: update error
-        throw Exception('isolate/${supervisor.identifier} id == null');
+        throw CliException('isolate/${supervisor.identifier} id == null');
       }
 
       isolateIds.add(id);

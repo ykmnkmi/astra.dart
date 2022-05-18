@@ -9,7 +9,7 @@ import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
 import 'package:path/path.dart';
 
-class ServeCommand extends CLICommand {
+class ServeCommand extends CliCommand {
   /// @nodoc
   ServeCommand() {
     argParser
@@ -248,7 +248,7 @@ class ServeCommand extends CLICommand {
     process.stderr.pipe(stderr);
     stdin.listen(process.stdin.add);
 
-    await for (var signal in ProcessSignal.sigint.watch()) {
+    await for (var _ in ProcessSignal.sigint.watch()) {
       process.stdin.writeln('q');
       break;
     }
