@@ -3,13 +3,13 @@ description: A Shelf based Astra application.
 version: 1.0.0
 
 environment:
-  sdk: '>=2.16.0 <3.0.0'
+  sdk: '>=2.17.0 <3.0.0'
 
 dependencies:
-  astra: any
+  astra: ^1.0.0-dev.97
 
 dev_dependencies:
-  lints: ^1.0.0
+  lints: ^2.0.0
 
 dependency_overrides:
   astra:

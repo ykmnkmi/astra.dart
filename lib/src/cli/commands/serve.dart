@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
@@ -8,6 +9,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
 import 'package:path/path.dart';
+import 'package:stack_trace/stack_trace.dart';
 
 class ServeCommand extends CliCommand {
   /// @nodoc
@@ -245,10 +247,12 @@ class ServeCommand extends CliCommand {
         workingDirectory: directory.path,
         runInShell: true);
     process.stdout.pipe(stdout);
-    process.stderr.pipe(stderr);
+    process.stderr.transform<String>(utf8.decoder).listen((error) {
+      print(Trace.parse(error).terse);
+    });
     stdin.listen(process.stdin.add);
 
-    await for (var _ in ProcessSignal.sigint.watch()) {
+    await for (var event in ProcessSignal.sigint.watch()) {
       process.stdin.writeln('q');
       break;
     }

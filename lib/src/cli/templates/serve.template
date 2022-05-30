@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:astra/cli.dart';
 import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
 import 'package:astra/isolate.dart';
