@@ -36,17 +36,17 @@ class H11IOServer extends Server {
 
   @override
   void mount(Handler handler) {
-    void ioHandler(HttpRequest request) {
+    void onData(HttpRequest request) {
       handleRequest(request, handler);
     }
 
     if (subscription != null) {
-      subscription!.onData(ioHandler);
+      subscription!.onData(onData);
       return;
     }
 
     void listener() {
-      subscription = server.listen(ioHandler);
+      subscription = server.listen(onData);
     }
 
     catchTopLevelErrors(listener, (error, stackTrace) {
