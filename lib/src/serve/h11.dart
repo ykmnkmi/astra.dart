@@ -43,12 +43,10 @@ class H11Server extends Server {
 
     mounted = true;
 
-    void onRequest(HttpRequest request) {
-      handleRequest(request, handler);
-    }
-
     void listener() {
-      server.listen(onRequest);
+      server.listen((request) {
+        handleRequest(request, handler);
+      });
     }
 
     catchTopLevelErrors(listener, (error, stackTrace) {
@@ -89,8 +87,7 @@ class H11Server extends Server {
   /// Uses [handler] to handle [httpRequest].
   ///
   /// Returns a [Future] which completes when the request has been handled.
-  static Future<void> handleRequest(
-      HttpRequest httpRequest, FutureOr<Response?> Function(Request) handler) async {
+  static Future<void> handleRequest(HttpRequest httpRequest, FutureOr<Response?> Function(Request) handler) async {
     Request request;
 
     try {
@@ -147,7 +144,9 @@ class H11Server extends Server {
     }
 
     var message = StringBuffer('got a response for hijacked request ')
-      ..writeln('${request.method} ${request.requestedUri}:')
+      ..write(request.method)
+      ..write(' ')
+      ..writeln(request.requestedUri)
       ..writeln(response.statusCode);
 
     response.headers.forEach((key, value) {

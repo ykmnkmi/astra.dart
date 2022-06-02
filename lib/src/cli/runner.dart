@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/commands/serve.dart';
 
 class CLIRunner extends CommandRunner<int> {
@@ -19,6 +20,9 @@ class CLIRunner extends CommandRunner<int> {
         ..writeln(error.usage);
 
       return 64;
+    } on CliException catch (error) {
+      stderr.writeln(error.message);
+      return 1;
     }
   }
 }

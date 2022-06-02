@@ -7,7 +7,6 @@ import 'package:astra/core.dart';
 import 'package:astra/src/serve/h11.dart';
 
 export 'package:astra/src/serve/h11.dart';
-export 'package:astra/src/serve/h2.dart';
 export 'package:astra/src/serve/utils.dart';
 
 // TODO: add options: concurency, debug, reload, http, ...

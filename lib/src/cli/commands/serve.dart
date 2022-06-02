@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
@@ -9,7 +8,6 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
 import 'package:path/path.dart';
-import 'package:stack_trace/stack_trace.dart';
 
 class ServeCommand extends CliCommand {
   /// @nodoc
@@ -158,7 +156,7 @@ class ServeCommand extends CliCommand {
     var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
 
     if (templateResolvedUri == null) {
-      throw Exception('serve template uri not resolved');
+      throw CliException('serve template uri not resolved');
     }
 
     var template = await File.fromUri(templateResolvedUri).readAsString();
@@ -198,7 +196,6 @@ class ServeCommand extends CliCommand {
     return renderTemplate('serve', data);
   }
 
-  // TODO: check if target or application class exists
   @override
   Future<int> handle() async {
     var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
@@ -207,8 +204,7 @@ class ServeCommand extends CliCommand {
     var resolvedUnit = await session.getResolvedUnit(library.absolute.path);
 
     if (resolvedUnit is! ResolvedUnitResult) {
-      // TODO: update error
-      throw Exception('library not resolved');
+      throw CliException('library not resolved');
     }
 
     if (resolvedUnit.errors.isNotEmpty) {
@@ -217,8 +213,8 @@ class ServeCommand extends CliCommand {
 
     var memberType = getTargetType(target, resolvedUnit);
     var source = await createSource(memberType);
-    var astraServePath = join('.dart_tool', 'astra.serve.dart');
-    var script = File(join(directory.path, astraServePath));
+    var scriptPath = join('.dart_tool', 'astra.serve.dart');
+    var script = File(join(directory.path, scriptPath));
     await script.writeAsString(source);
 
     var arguments = <String>[];
@@ -241,21 +237,21 @@ class ServeCommand extends CliCommand {
       arguments.add('--enable-asserts');
     }
 
-    arguments.add(astraServePath);
+    arguments.add(scriptPath);
 
     var process = await Process.start('dart', arguments, //
         workingDirectory: directory.path,
         runInShell: true);
-    process.stdout.pipe(stdout);
-    process.stderr.transform<String>(utf8.decoder).listen((error) {
-      print(Trace.parse(error).terse);
-    });
+    process.stdout.pipe(stdout).ignore();
+    process.stderr.pipe(stderr).ignore();
     stdin.listen(process.stdin.add);
 
-    await for (var event in ProcessSignal.sigint.watch()) {
-      process.stdin.writeln('q');
-      break;
-    }
+    var subscription = ProcessSignal.sigint.watch().listen(null);
+
+    subscription.onData((event) {
+      process.stdin.write('Q');
+      subscription.cancel();
+    });
 
     return await process.exitCode;
   }

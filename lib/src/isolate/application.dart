@@ -6,8 +6,7 @@ import 'package:astra/src/isolate/isolate.dart';
 
 class ApplicationIsolateServer extends IsolateServer {
   /// @nodoc
-  ApplicationIsolateServer(this.application, Server server, SendPort sendPort)
-      : super(server, sendPort) {
+  ApplicationIsolateServer(this.application, Server server, SendPort sendPort) : super(server, sendPort) {
     registerExtension('ext.astra.reload', reload);
   }
 

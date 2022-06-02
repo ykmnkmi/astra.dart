@@ -79,7 +79,7 @@ Future<void> main() async {
 
     if (uri == null) {
       // TODO: update error
-      throw Exception('reload: no vm service ws uri');
+      throw CliException('reload: no vm service ws uri');
     }
 
     var service = await vmServiceConnectUri(uri.toString());

@@ -15,9 +15,7 @@ enum TargetType {
 
 extension TargetTypeExtension on TargetType {
   bool get isApplication {
-    return this == TargetType.type ||
-        this == TargetType.typeFactory ||
-        this == TargetType.typeFactoryAsync;
+    return this == TargetType.type || this == TargetType.typeFactory || this == TargetType.typeFactoryAsync;
   }
 }
 
@@ -71,10 +69,10 @@ bool isHandler(FunctionType function) {
         return true;
       }
 
-      throw Exception('target parameter is not Request');
+      throw CliException('target parameter is not Request');
     }
 
-    throw Exception('target parameters count not equal 1');
+    throw CliException('target parameters count not equal 1');
   }
 
   return false;
@@ -143,10 +141,10 @@ TargetType getTargetType(String target, ResolvedUnitResult resolvedUnitResult) {
           }
         }
 
-        throw CliException('target instance type is not extends Application or ');
+        throw CliException('target instance type is not extends Application');
       }
 
-      throw CliException('$target ${element.runtimeType} unsupported');
+      throw CliException('$target ${element.displayName} unsupported');
     }
   }
 
