@@ -7,17 +7,18 @@ import 'package:astra/core.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
-class H11IOServer extends Server {
-  H11IOServer(this.server);
+class H11Server extends Server {
+  H11Server(this.server) : mounted = false;
 
   /// The underlying [HttpServer].
   final HttpServer server;
 
-  /// The underlying [HttpServer] incoming [HttpRequest] subscription.
-  StreamSubscription<HttpRequest>? subscription;
+  @protected
+  bool mounted;
 
   @override
   Uri get url {
@@ -36,17 +37,18 @@ class H11IOServer extends Server {
 
   @override
   void mount(Handler handler) {
-    void onData(HttpRequest request) {
+    if (mounted) {
+      throw StateError('Can\'t mount two handlers for the same server.');
+    }
+
+    mounted = true;
+
+    void onRequest(HttpRequest request) {
       handleRequest(request, handler);
     }
 
-    if (subscription != null) {
-      subscription!.onData(onData);
-      return;
-    }
-
     void listener() {
-      subscription = server.listen(onData);
+      server.listen(onRequest);
     }
 
     catchTopLevelErrors(listener, (error, stackTrace) {
@@ -59,29 +61,29 @@ class H11IOServer extends Server {
     return server.close();
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [H11IOServer].
-  static Future<H11IOServer> bind(Object address, int port, //
+  /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
+  static Future<H11Server> bind(Object address, int port,
       {SecurityContext? securityContext,
       int backlog = 0,
-      bool shared = false,
+      bool v6Only = false,
       bool requestClientCertificate = false,
-      bool v6Only = false}) async {
+      bool shared = false}) async {
     HttpServer server;
 
     if (securityContext == null) {
       server = await HttpServer.bind(address, port, //
           backlog: backlog,
-          shared: shared,
-          v6Only: v6Only);
+          v6Only: v6Only,
+          shared: shared);
     } else {
       server = await HttpServer.bindSecure(address, port, securityContext, //
           backlog: backlog,
-          shared: shared,
+          v6Only: v6Only,
           requestClientCertificate: requestClientCertificate,
-          v6Only: v6Only);
+          shared: shared);
     }
 
-    return H11IOServer(server);
+    return H11Server(server);
   }
 
   /// Uses [handler] to handle [httpRequest].
@@ -169,10 +171,10 @@ class H11IOServer extends Server {
     void onHijack(void Function(StreamChannel<List<int>>) callback) {
       request.response
           .detachSocket(writeHeaders: false)
-          .then((socket) => callback(StreamChannel(socket, socket)));
+          .then<void>((socket) => callback(StreamChannel(socket, socket)));
     }
 
-    return Request(request.method, request.requestedUri, //
+    return Request(request.method, request.requestedUri,
         protocolVersion: request.protocolVersion,
         headers: headers,
         body: request,
@@ -180,7 +182,7 @@ class H11IOServer extends Server {
         context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
   }
 
-  /// Writes a given [Response] to the provided [HttpResponse].
+  /// Writes a given [Response] to the provided [1HttpResponse].
   static Future<void> writeResponse(Response response, HttpResponse httpResponse) {
     if (response.context.containsKey('shelf.io.buffer_output')) {
       httpResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
@@ -190,11 +192,10 @@ class H11IOServer extends Server {
       ..statusCode = response.statusCode
       ..headers.chunkedTransferEncoding = false;
 
-    response.headersAll.forEach((header, value) {
-      httpResponse.headers.set(header, value);
-    });
+    response.headersAll.forEach(httpResponse.headers.set);
 
     var coding = response.headers['transfer-encoding'];
+
     if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
       // If the response is already in a chunked encoding, de-chunk it because
       // otherwise `dart:io` will try to add another layer of chunking.

@@ -1,6 +1,6 @@
 name: astra
 description: Astra is a Shelf web server with multi-threaded support and hot reload.
-version: 1.0.0-dev.98
+version: 1.0.0-dev.99
 homepage: https://github.com/ykmnkmi/astra.dart
 repository: https://github.com/ykmnkmi/astra.dart
 
@@ -16,6 +16,7 @@ dependencies:
   # build: ^2.2.0
   # code_builder: ^4.1.0
   collection: ^1.16.0
+  http: ^0.13.4
   http2: ^2.0.0
   http_parser: ^4.0.1
   logging: ^1.0.2

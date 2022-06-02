@@ -11,18 +11,18 @@ export 'package:astra/src/serve/h2.dart';
 export 'package:astra/src/serve/utils.dart';
 
 // TODO: add options: concurency, debug, reload, http, ...
-Future<Server> serve(Handler handler, Object address, int port, //
+Future<Server> serve(Handler handler, Object address, int port,
     {SecurityContext? securityContext,
     int backlog = 0,
-    bool shared = false,
+    bool v6Only = false,
     bool requestClientCertificate = false,
-    bool v6Only = false}) async {
-  var server = await H11IOServer.bind(address, port, //
+    bool shared = false}) async {
+  var server = await H11Server.bind(address, port,
       securityContext: securityContext,
       backlog: backlog,
-      shared: shared,
+      v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
-      v6Only: v6Only);
+      shared: shared);
   server.mount(handler);
   return server;
 }
