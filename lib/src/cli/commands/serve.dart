@@ -239,20 +239,16 @@ class ServeCommand extends CliCommand {
 
     arguments.add(scriptPath);
 
+    stdin
+      ..echoMode = false
+      ..lineMode = false;
+
     var process = await Process.start('dart', arguments, //
         workingDirectory: directory.path,
         runInShell: true);
-    process.stdout.pipe(stdout).ignore();
-    process.stderr.pipe(stderr).ignore();
-    stdin.listen(process.stdin.add);
-
-    var subscription = ProcessSignal.sigint.watch().listen(null);
-
-    subscription.onData((event) {
-      process.stdin.write('Q');
-      subscription.cancel();
-    });
-
+    stdin.pipe(process.stdin);
+    process.stdout.pipe(stdout);
+    process.stderr.pipe(stderr);
     return await process.exitCode;
   }
 }

@@ -18,9 +18,9 @@ const bool isApplication = __ISAPPLICATION__;
 
 const int concurrency = __CONCURRENCY__;
 
-const bool reload = __RELOAD__;
+const bool hotReload = __RELOAD__;
 
-const bool oboserve = __OBSERVE__;
+const bool observe = __OBSERVE__;
 
 const String scheme = '__SCHEME__';
 
@@ -37,7 +37,7 @@ const bool v6Only = __V6ONLY__;
 __CREATE__
 
 Future<void> main() async {
-  if (oboserve) {
+  if (observe) {
     var info = await Service.getInfo();
     var uri = info.serverUri;
 
@@ -59,21 +59,29 @@ Future<void> main() async {
         errorsAreFatal: false,
         onError: receivePort.sendPort,
         debugName: 'isolate/${i + 1}');
-
     var supervisor = IsolateSupervisor(isolate, receivePort, i);
     stdout.writeln('* starting isolate/${i + 1}');
     await supervisor.resume();
     supervisors.add(supervisor);
-    shutdown.add(supervisor.stop);
   }
 
-  if (concurrency > 1) {
-    stdout.writeln('* all isolates started');
-  } else {
+  Future<void> stopAll() {
+    return Future.wait<void>(supervisors.map<Future<void>>((supervisor) => supervisor.stop()));
+  }
+
+  shutdown.add(stopAll);
+
+  if (concurrency == 1) {
     stdout.writeln('* isolate started');
+  } else {
+    stdout.writeln('* all isolates started');
   }
 
-  if (reload) {
+  var controller = StreamController<Object>(sync: true);
+
+  FutureOr<void> Function() reload;
+
+  if (hotReload) {
     var info = await Service.getInfo();
     var uri = info.serverWebSocketUri;
 
@@ -99,8 +107,8 @@ Future<void> main() async {
 
     var directory = Directory('lib');
 
-    Future<void> reloading(FileSystemEvent event) async {
-      stdout.writeln('* reloading...');
+    reload = () async {
+      stdout.writeln('* hot reloading ...');
 
       Future<void> reload(String isolateId) async {
         var result = await service.reloadSources(isolateId);
@@ -111,33 +119,61 @@ Future<void> main() async {
       }
 
       await Future.wait<void>(isolateIds.map(reload));
-    }
 
-    void reloaded(Object? message) {
-      if (concurrency > 1) {
-        stdout.writeln('* $concurrency isolate(s) reloaded');
-      } else {
+      if (concurrency == 1) {
         stdout.writeln('* isolate reloaded');
+      } else {
+        stdout.writeln('* $concurrency isolate(s) reloaded');
       }
-    }
+    };
 
-    var watch = directory
-        .watch(events: FileSystemEvent.modify, recursive: true)
-        .throttle(Duration(seconds: 1))
-        .asyncMapSample<void>(reloading)
-        .listen(reloaded);
+    var watch = directory.watch(events: FileSystemEvent.modify, recursive: true).listen(controller.add);
     shutdown.add(watch.cancel);
     stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
+  } else {
+    reload = () {
+      stdout.writeln('* hot reload not enabled');
+    };
   }
 
-  stdout.writeln('* serving at $scheme://$address:$port');
+  var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
+  shutdown.add(stdinSubscription.cancel);
 
-  await for (var bytes in stdin) {
-    var input = String.fromCharCodes(bytes).trimRight();
+  var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
+  shutdown.add(sigintSubscription.cancel);
 
-    if (input == 'Q' || input == 'q') {
-      await Future.forEach<FutureOr<void> Function()>(shutdown.reversed, (callback) => callback());
+  stdout.writeln('* serving at $scheme://$address:$port ...');
+
+  await for (var event in controller.stream) {
+    if (event is FileSystemEvent || event == 'r') {
+      await reload();
+      continue;
+    }
+
+    if (event == 'R') {
+      stdout.writeln('* hot restart not implemented');
+      continue;
+    }
+
+    if (event is ProcessSignal || event == 'q') {
+      stdout.writeln('* closing ...');
+
+      for (var callback in shutdown.reversed) {
+        await callback();
+      }
+
       break;
+    }
+
+    if (event == 'Q') {
+      stdout.writeln('* exit');
+      exit(0);
+    }
+
+    if (event is String) {
+      stdout.writeln('* unknown key: \'$event\', ${event.runes}');
+    } else {
+      stdout.writeln('* unknown event: $event');
     }
   }
 }

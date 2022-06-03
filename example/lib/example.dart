@@ -29,6 +29,6 @@ class Hello extends Application {
 
   @override
   Future<void> close() async {
-    print('close');
+    print('closed');
   }
 }

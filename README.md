@@ -11,7 +11,7 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 - Tests
 - More API Documentation 🔥
 - Logging
-- Manual hot reload (r) & hot restart (R) 🔥
+- Hot restart (R) 🔥
 - Commands:
   - create
   - generate
@@ -105,8 +105,8 @@ import 'package:astra/serve.dart';
 import 'package:example/example.dart';
 
 Future<void> main() async {
-  var server = await serve(application, 'localhost', 3000);
-  print('serving at ${server.url}');
+  var server = await serve(handler, 'localhost', 3000);
+  print('serving at ${server.url} ...');
 }
 ```
 
@@ -129,7 +129,7 @@ Response echo(Request request) {
 $ astra serve --target getHandler
 ```
 ```dart
-Handler getHandler() {
+FutureOr<Handler> getHandler() {
   // ...
 }
 ```
@@ -157,14 +157,14 @@ class Example extends Application {
 $ astra serve --target getApplication
 ```
 ```dart
-Application getApplication() {
+FutureOr<Application> getApplication() {
   // ...
 }
 ```
 
 Not yet:
 - `Handler` like callable class, instance and factory
-- package uri
+- package URI
 
 [shelf]: https://github.com/dart-lang/shelf
 [uvicorn]: https://github.com/encode/uvicorn
