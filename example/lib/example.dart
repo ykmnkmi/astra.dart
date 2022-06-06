@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:astra/core.dart';
+import 'package:astra/middlewares.dart';
 
 Future<Response> application(Request request) async {
   switch (request.url.path) {
@@ -20,15 +22,17 @@ class Hello extends Application {
   const Hello();
 
   @override
-  Handler get entryPoint => application;
+  Handler get entryPoint {
+    return application.use(error(debug: true));
+  }
 
   @override
   void reload() {
-    print('reload');
+    log('reload');
   }
 
   @override
   Future<void> close() async {
-    print('closed');
+    log('closed');
   }
 }

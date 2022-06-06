@@ -1,3 +1,5 @@
+library astra.test.client;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -5,8 +7,6 @@ import 'package:astra/core.dart' show Handler;
 import 'package:astra/serve.dart' show serve;
 import 'package:http/http.dart' show BaseClient, BaseRequest, ClientException, StreamedResponse;
 import 'package:http/io_client.dart' show IOStreamedResponse;
-
-typedef TestClientCallback = Future<void> Function(TestClient client);
 
 class TestClient extends BaseClient {
   TestClient(this.handler, {this.host = 'localhost', this.port = 3000, this.context})

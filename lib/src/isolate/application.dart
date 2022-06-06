@@ -5,7 +5,6 @@ import 'package:astra/core.dart';
 import 'package:astra/src/isolate/isolate.dart';
 
 class ApplicationIsolateServer extends IsolateServer {
-  /// @nodoc
   ApplicationIsolateServer(this.application, Server server, SendPort sendPort) : super(server, sendPort) {
     registerExtension('ext.astra.reload', reload);
   }
@@ -17,18 +16,13 @@ class ApplicationIsolateServer extends IsolateServer {
       application.reload();
       return ServiceExtensionResponse.result('{}');
     } catch (error) {
-      return ServiceExtensionResponse.error(0, '$error');
+      return ServiceExtensionResponse.error(ServiceExtensionResponse.extensionError, '$error');
     }
   }
 
   Future<void> start() async {
     await application.prepare();
-    super.mount(application.entryPoint);
-  }
-
-  @override
-  void mount(Handler handler) {
-    throw UnsupportedError('not supported by ApplicationIsolateServer');
+    mount(application.entryPoint);
   }
 
   @override

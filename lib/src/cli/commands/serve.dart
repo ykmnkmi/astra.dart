@@ -58,7 +58,7 @@ class ServeCommand extends CliCommand {
       ..addFlag('reload', //
           abbr: 'r',
           negatable: false,
-          help: 'Enable hot-reload.')
+          help: 'Enable Hot-Reload.')
       ..addOption('observe', //
           abbr: 'o',
           help: 'Enable VM Observer.',
@@ -81,11 +81,11 @@ class ServeCommand extends CliCommand {
   }
 
   String get target {
-    return getString('target', 'application');
+    return getString('target') ?? 'application';
   }
 
   int get concurrency {
-    var positive = getPositive('concurrency', 1);
+    var positive = getInteger('concurrency') ?? 1;
 
     if (positive == 0) {
       return max(1, Platform.numberOfProcessors - 1);
@@ -95,15 +95,15 @@ class ServeCommand extends CliCommand {
   }
 
   String get address {
-    return getString('address', 'localhost');
+    return getString('address') ?? 'localhost';
   }
 
   int get port {
-    return getPositive('port', 8080);
+    return getInteger('port') ?? 8080;
   }
 
   int get backlog {
-    return getPositive('backlog', 0);
+    return getInteger('backlog') ?? 0;
   }
 
   bool get shared {
@@ -140,15 +140,15 @@ class ServeCommand extends CliCommand {
   }
 
   bool get observe {
-    return getBoolean('observe');
+    return observePort != null;
   }
 
   bool get asserts {
     return getBoolean('asserts');
   }
 
-  int get observePort {
-    return getPositive('observe', 8181);
+  int? get observePort {
+    return getInteger('observe');
   }
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
@@ -239,16 +239,32 @@ class ServeCommand extends CliCommand {
 
     arguments.add(scriptPath);
 
+    var echoMode = stdin.echoMode;
+    var lineMode = stdin.lineMode;
+
     stdin
       ..echoMode = false
       ..lineMode = false;
 
-    var process = await Process.start('dart', arguments, //
-        workingDirectory: directory.path,
-        runInShell: true);
-    stdin.pipe(process.stdin);
-    process.stdout.pipe(stdout);
-    process.stderr.pipe(stderr);
-    return await process.exitCode;
+    try {
+      var process = await Process.start('dart', arguments, //
+          workingDirectory: directory.path,
+          runInShell: true);
+
+      if (Platform.isWindows) {
+        ProcessSignal.sigint.watch().listen(process.stdin.writeln);
+      } else {
+        ProcessSignal.sigterm.watch().listen(process.stdin.writeln);
+      }
+
+      stdin.listen(process.stdin.add);
+      process.stdout.pipe(stdout);
+      process.stderr.pipe(stderr);
+      return await process.exitCode;
+    } finally {
+      stdin
+        ..echoMode = echoMode
+        ..lineMode = lineMode;
+    }
   }
 }

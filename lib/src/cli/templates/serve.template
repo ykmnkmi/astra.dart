@@ -1,11 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages, no_leading_underscores_for_library_prefixes, library_prefixes
+
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:astra/cli.dart';
-import 'package:astra/core.dart';
-import 'package:astra/middlewares.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/serve.dart';
 import 'package:path/path.dart';
@@ -42,8 +42,7 @@ Future<void> main() async {
     var uri = info.serverUri;
 
     if (uri == null) {
-      // TODO: update error
-      throw StateError('observe: no server uri');
+      throw CliException('observe: no server uri');
     }
 
     stdout.writeln('* observatory listening on $uri');
@@ -79,14 +78,13 @@ Future<void> main() async {
 
   var controller = StreamController<Object>(sync: true);
 
-  FutureOr<void> Function() reload;
+  Future<void> Function() reload;
 
   if (hotReload) {
     var info = await Service.getInfo();
     var uri = info.serverWebSocketUri;
 
     if (uri == null) {
-      // TODO: update error
       throw CliException('reload: no vm service ws uri');
     }
 
@@ -127,13 +125,20 @@ Future<void> main() async {
       }
     };
 
-    var watch = directory.watch(events: FileSystemEvent.modify, recursive: true).listen(controller.add);
+    var watch = directory
+        .watch(events: FileSystemEvent.modify, recursive: true)
+        .throttle(Duration(seconds: 1))
+        .listen(controller.add);
     shutdown.add(watch.cancel);
     stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
   } else {
-    reload = () {
+    reload = () async {
       stdout.writeln('* hot reload not enabled');
     };
+  }
+
+  Future<void> restart() async {
+    stdout.writeln('* hot restart not implemented');
   }
 
   var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
@@ -145,17 +150,20 @@ Future<void> main() async {
   stdout.writeln('* serving at $scheme://$address:$port ...');
 
   await for (var event in controller.stream) {
-    if (event is FileSystemEvent || event == 'r') {
+    // from keyboard or file system
+    if (event == 'r' || event is FileSystemEvent) {
       await reload();
       continue;
     }
 
+    // from keyboard
     if (event == 'R') {
-      stdout.writeln('* hot restart not implemented');
+      await restart();
       continue;
     }
 
-    if (event is ProcessSignal || event == 'q') {
+    // from keyboard, parent or process signal
+    if (event == 'q' || event == 'SIGINT' || event == 'SIGTERM' || event is ProcessSignal) {
       stdout.writeln('* closing ...');
 
       for (var callback in shutdown.reversed) {
@@ -165,6 +173,7 @@ Future<void> main() async {
       break;
     }
 
+    // from keyboard
     if (event == 'Q') {
       stdout.writeln('* exit');
       exit(0);

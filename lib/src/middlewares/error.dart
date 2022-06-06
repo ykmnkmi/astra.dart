@@ -2,32 +2,38 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:astra/core.dart';
+import 'package:meta/meta.dart';
 import 'package:stack_trace/stack_trace.dart';
 
-String _renderPageTitle(Object error, Trace trace) {
+@internal
+String renderPageTitle(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
   var message = parts.join(':').trim();
   return '$type: $message';
 }
 
-String _renderType(Object error, Trace trace) {
+@internal
+String renderType(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var type = parts.length > 1 ? parts[0].trim() : 'Error';
   return '<h1>$type</h1>';
 }
 
-String _renderMessage(Object error, Trace trace) {
+@internal
+String renderMessage(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var message = parts.skip(1).join(':').trim();
   return '<h2>$message</h2>';
 }
 
-String _renderTitle(Object error, Trace trace) {
+@internal
+String renderTitle(Object error, Trace trace) {
   return '<p class="title">Traceback <span style="color:grey">(most recent call last)</span></p>';
 }
 
-Iterable<String> _renderFrames(Object error, Trace trace) sync* {
+@internal
+Iterable<String> renderFrames(Object error, Trace trace) sync* {
   var frames = trace.frames.reversed.toList();
   var frame = frames.removeLast();
 
@@ -36,13 +42,14 @@ Iterable<String> _renderFrames(Object error, Trace trace) sync* {
       continue;
     }
 
-    yield _renderFrame(frame);
+    yield renderFrame(frame);
   }
 
-  yield _renderFrame(frame, true);
+  yield renderFrame(frame, true);
 }
 
-String _renderFrame(Frame frame, [bool full = false]) {
+@internal
+String renderFrame(Frame frame, [bool full = false]) {
   var result = ''
       '<div class="frame"><span class="library">${frame.library}</span>, line '
       '<i>${frame.line}</i> column <i>${frame.column}<i>, in <span class="member">'
@@ -63,7 +70,7 @@ String _render(Object error, Trace trace) {
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>${_renderPageTitle(error, trace)}</title>
+    <title>${renderPageTitle(error, trace)}</title>
     <style>
       body {
         font-family: "JetBrains Mono", "Cascadia Mono", "Fira Mono", "Ubuntu Mono", "DejaVu Sans Mono", Menlo, Consolas, "Liberation Mono", Monaco, "Lucida Console", monospace;
@@ -105,11 +112,11 @@ String _render(Object error, Trace trace) {
     </style>
   </head>
   <body>
-    ${_renderType(error, trace)}
-    ${_renderMessage(error, trace)}
+    ${renderType(error, trace)}
+    ${renderMessage(error, trace)}
     <div class="traceback">
-      ${_renderTitle(error, trace)}
-      ${_renderFrames(error, trace).join('\n      ')}
+      ${renderTitle(error, trace)}
+      ${renderFrames(error, trace).join('\n      ')}
     </div>
   </body>
 </html>
@@ -117,6 +124,7 @@ String _render(Object error, Trace trace) {
 }
 
 // TODO: move to universum
+// TODO: document this
 Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
   return (Handler handler) {
     return (Request request) async {

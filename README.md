@@ -11,7 +11,7 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 - Tests
 - More API Documentation 🔥
 - Logging
-- Hot restart (R) 🔥
+- Hot-Restart (R) 🔥
 - Commands:
   - create
   - generate
@@ -19,7 +19,7 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 - ...
 
 ### Experimenting
-- `build_runner` integration
+- Hot-Reload `build_runner` integration
 - Shelf Request/Response based HttpServer alternative:
   - dart:io Socket 🤔
   - ...
@@ -86,7 +86,7 @@ Server options:
     --ssl-key-password=<password>    SSL key file password.
 
 Debugging options:
--r, --reload                         Enable hot-reload.
+-r, --reload                         Enable Hot-Reload.
 -o, --observe=<port>                 Enable VM Observer.
                                      (defaults to "3001")
 -c, --asserts                        Enable asserts.
@@ -164,7 +164,7 @@ FutureOr<Application> getApplication() {
 
 Not yet:
 - `Handler` like callable class, instance and factory
-- package URI
+- package URI (if possible)
 
 [shelf]: https://github.com/dart-lang/shelf
 [uvicorn]: https://github.com/encode/uvicorn

@@ -1,6 +1,8 @@
+library astra.core.application;
+
 import 'dart:async';
 
-import 'package:shelf/shelf.dart';
+import 'package:astra/src/core/shelf.dart';
 
 /// An object that defines the behavior specific to your application.
 abstract class Application {

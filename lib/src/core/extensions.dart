@@ -1,4 +1,6 @@
-import 'package:shelf/shelf.dart';
+library astra.core.extensions;
+
+import 'package:astra/src/core/shelf.dart';
 
 /// [Middleware] extension.
 extension MiddlewareExtension on Middleware {

@@ -1,6 +1,7 @@
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
+import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
   IsolateServer(this.server, this.sendPort) : receivePort = RawReceivePort() {
@@ -8,10 +9,13 @@ class IsolateServer implements Server {
     sendPort.send(receivePort.sendPort);
   }
 
+  @protected
   final Server server;
 
+  @protected
   final SendPort sendPort;
 
+  @protected
   final RawReceivePort receivePort;
 
   @override
@@ -19,6 +23,7 @@ class IsolateServer implements Server {
     return server.url;
   }
 
+  @protected
   Future<void> listener(Object? message) {
     if (message == 'stop') {
       return close();

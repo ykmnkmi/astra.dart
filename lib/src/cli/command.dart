@@ -120,11 +120,11 @@ abstract class CliCommand extends Command<int> {
     return argResults.wasParsed(name);
   }
 
-  int getPositive(String name, [int defaultValue = 0]) {
+  int? getInteger(String name) {
     var value = argResults[name] as String?;
 
     if (value == null) {
-      return defaultValue;
+      return null;
     }
 
     var parsed = int.parse(value);
@@ -136,8 +136,8 @@ abstract class CliCommand extends Command<int> {
     return parsed;
   }
 
-  String getString(String name, [String defaultValue = '']) {
-    return argResults[name] as String? ?? defaultValue;
+  String? getString(String name) {
+    return argResults[name] as String?;
   }
 
   Future<int> handle();

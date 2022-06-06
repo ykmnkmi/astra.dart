@@ -6,8 +6,8 @@ import 'dart:io';
 import 'package:astra/core.dart';
 import 'package:astra/src/serve/h11.dart';
 
-export 'package:astra/src/serve/h11.dart';
-export 'package:astra/src/serve/utils.dart';
+export 'package:astra/src/serve/h11.dart' show H11Server;
+export 'package:astra/src/serve/utils.dart' show logError, logTopLevelError, catchTopLevelErrors;
 
 // TODO: add options: concurency, debug, reload, http, ...
 Future<Server> serve(Handler handler, Object address, int port,
