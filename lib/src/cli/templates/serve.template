@@ -8,7 +8,6 @@ import 'dart:isolate';
 import 'package:astra/cli.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/serve.dart';
-import 'package:path/path.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:vm_service/vm_service_io.dart';
 
@@ -59,9 +58,9 @@ Future<void> main() async {
         onError: receivePort.sendPort,
         debugName: 'isolate/${i + 1}');
     var supervisor = IsolateSupervisor(isolate, receivePort, i);
+    supervisors.add(supervisor);
     stdout.writeln('* starting isolate/${i + 1}');
     await supervisor.resume();
-    supervisors.add(supervisor);
   }
 
   Future<void> stopAll() {
@@ -116,7 +115,7 @@ Future<void> main() async {
         }
       }
 
-      await Future.wait<void>(isolateIds.map(reload));
+      await Future.wait<void>(isolateIds.map<Future<void>>(reload));
 
       if (concurrency == 1) {
         stdout.writeln('* isolate reloaded');
@@ -130,7 +129,7 @@ Future<void> main() async {
         .throttle(Duration(seconds: 1))
         .listen(controller.add);
     shutdown.add(watch.cancel);
-    stdout.writeln('* watching ${toUri(directory.path).toFilePath(windows: false)}');
+    stdout.writeln('* watching ${directory.uri}');
   } else {
     reload = () async {
       stdout.writeln('* hot reload not enabled');

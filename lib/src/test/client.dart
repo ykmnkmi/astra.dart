@@ -9,7 +9,7 @@ import 'package:http/http.dart' show BaseClient, BaseRequest, ClientException, S
 import 'package:http/io_client.dart' show IOStreamedResponse;
 
 class TestClient extends BaseClient {
-  TestClient(this.handler, {this.host = 'localhost', this.port = 3000, this.context})
+  TestClient(this.handler, {this.host = '127.0.0.1', this.port = 0, this.context})
       : scheme = context == null ? 'http' : 'https' {
     client = HttpClient(context: context);
   }
@@ -37,7 +37,7 @@ class TestClient extends BaseClient {
       var url = requestedUrl.replace(
           scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
           host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
-          port: requestedUrl.port == 0 ? port : requestedUrl.port);
+          port: port == 0 ? server.url.port : requestedUrl.port);
       var ioRequest = await client.openUrl(request.method, url);
 
       ioRequest

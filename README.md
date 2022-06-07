@@ -67,18 +67,13 @@ Common options:
 -v, --verbose                        Output more informational messages.
 
 Application options:
--t, --target=<name>                  Application target.
-                                     (defaults to "application")
--j, --concurrency=<count>            Number of isolates.
-                                     (defaults to "1")
+-t, --target=<application>           Application target.
+-j, --concurrency=<1>                Number of isolates.
 
 Server options:
--a, --address=<internet-address>     Bind socket to this address.
-                                     (defaults to "localhost")
--p, --port=<port>                    Bind socket to this port.
-                                     (defaults to "3000")
-    --backlog=<count>                Maximum number of connections to hold in backlog.
-                                     (defaults to "0")
+-a, --address=<localhost>            Bind socket to this address.
+-p, --port=<8080>                    Bind socket to this port.
+    --backlog=<0>                    Maximum number of connections to hold in backlog.
     --shared                         Socket connections distributing.
     --v6Only                         Restrict socket to version 6.
     --ssl-cert=<path>                SSL certificate file.
@@ -87,8 +82,7 @@ Server options:
 
 Debugging options:
 -r, --reload                         Enable Hot-Reload.
--o, --observe=<port>                 Enable VM Observer.
-                                     (defaults to "3001")
+-o, --observe=<8081>                 Enable VM Observer.
 -c, --asserts                        Enable asserts.
 
 Run "astra help" to see global options.
@@ -105,7 +99,7 @@ import 'package:astra/serve.dart';
 import 'package:example/example.dart';
 
 Future<void> main() async {
-  var server = await serve(handler, 'localhost', 3000);
+  var server = await serve(handler, 'localhost', 8080);
   print('serving at ${server.url} ...');
 }
 ```

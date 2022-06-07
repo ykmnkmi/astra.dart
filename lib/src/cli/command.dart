@@ -139,19 +139,4 @@ abstract class CliCommand extends Command<int> {
   String? getString(String name) {
     return argResults[name] as String?;
   }
-
-  Future<int> handle();
-
-  @override
-  Future<int> run() async {
-    try {
-      return await handle();
-    } catch (error, stackTrace) {
-      stderr
-        ..writeln(error)
-        ..writeln(Trace.format(stackTrace));
-    }
-
-    return 1;
-  }
 }

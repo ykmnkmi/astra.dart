@@ -17,28 +17,23 @@ class ServeCommand extends CliCommand {
       ..addOption('target', //
           abbr: 't',
           help: 'Application target.',
-          valueHelp: 'name',
-          defaultsTo: 'application')
+          valueHelp: 'application')
       ..addOption('concurrency', //
           abbr: 'j',
           help: 'Number of isolates.',
-          valueHelp: 'count',
-          defaultsTo: '1')
+          valueHelp: '1')
       ..addSeparator('Server options:')
       ..addOption('address', //
           abbr: 'a',
           help: 'Bind socket to this address.',
-          valueHelp: 'internet-address',
-          defaultsTo: 'localhost')
+          valueHelp: 'localhost')
       ..addOption('port', //
           abbr: 'p',
           help: 'Bind socket to this port.',
-          valueHelp: 'port',
-          defaultsTo: '3000')
+          valueHelp: '8080')
       ..addOption('backlog', //
           help: 'Maximum number of connections to hold in backlog.',
-          valueHelp: 'count',
-          defaultsTo: '0')
+          valueHelp: '0')
       ..addFlag('shared', //
           negatable: false,
           help: 'Socket connections distributing.')
@@ -62,8 +57,7 @@ class ServeCommand extends CliCommand {
       ..addOption('observe', //
           abbr: 'o',
           help: 'Enable VM Observer.',
-          valueHelp: 'port',
-          defaultsTo: '3001')
+          valueHelp: '8081')
       ..addFlag('asserts', //
           abbr: 'c',
           negatable: false,
@@ -197,7 +191,7 @@ class ServeCommand extends CliCommand {
   }
 
   @override
-  Future<int> handle() async {
+  Future<int> run() async {
     var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
     var context = collection.contextFor(directory.absolute.path);
     var session = context.currentSession;

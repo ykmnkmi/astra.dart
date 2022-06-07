@@ -65,7 +65,8 @@ String renderFrame(Frame frame, [bool full = false]) {
   return '$result</div>';
 }
 
-String _render(Object error, Trace trace) {
+@internal
+String render(Object error, Trace trace) {
   return '''
 <!DOCTYPE html>
 <html lang="en">
@@ -139,7 +140,7 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
           if (accept != null && accept.contains('text/html')) {
             const headers = <String, String>{'content-type': 'text/html'};
             var trace = Trace.from(stackTrace);
-            var body = _render(error, trace);
+            var body = render(error, trace);
             return Response.internalServerError(body: body, headers: headers);
           }
 
