@@ -60,5 +60,6 @@ class IsolateSupervisor {
     server.send('stop');
     await stopCompleter!.future;
     receive.close();
+    isolate.kill();
   }
 }

@@ -7,6 +7,7 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
+import 'package:astra/src/cli/version.dart';
 import 'package:path/path.dart';
 
 class ServeCommand extends CliCommand {
@@ -129,20 +130,20 @@ class ServeCommand extends CliCommand {
         '..usePrivateKey(\'$keyFilePath\', password: \'$password\')';
   }
 
-  bool get reload {
-    return getBoolean('reload');
-  }
-
   bool get observe {
     return observePort != null;
   }
 
-  bool get asserts {
-    return getBoolean('asserts');
-  }
-
   int? get observePort {
     return getInteger('observe');
+  }
+
+  bool get reload {
+    return getBoolean('reload');
+  }
+
+  bool get asserts {
+    return getBoolean('asserts');
   }
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
@@ -170,10 +171,15 @@ class ServeCommand extends CliCommand {
     var concurrency = this.concurrency;
 
     var data = <String, String>{
+      'VERSION': packageVersion,
       'PACKAGE': 'package:$package/$package.dart',
       'TARGET': target,
       'ISAPPLICATION': '${targetType.isApplication}',
       'CONCURRENCY': '$concurrency',
+      'OBSERVE': '$observe',
+      'RELOAD': '$reload',
+      'ASSERTS': '$asserts',
+      'VERBOSE': '$reload',
       'SCHEME': context == null ? 'http' : 'https',
       'ADDRESS': address,
       'PORT': '$port',
@@ -181,9 +187,6 @@ class ServeCommand extends CliCommand {
       'BACKLOG': '$backlog',
       'SHARED': '${shared || concurrency > 1}',
       'V6ONLY': '$v6Only',
-      'RELOAD': '$reload',
-      'OBSERVE': '$observe',
-      'DIRECTORY': directory.path,
     };
 
     data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);

@@ -1,7 +1,7 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload. Inspired by [uvicorn][uvicorn].
+Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/restart. Inspired by [uvicorn][uvicorn].
 
 **WORK IN PROGRESS**
 
@@ -11,7 +11,6 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload.
 - Tests
 - More API Documentation 🔥
 - Logging
-- Hot-Restart (R) 🔥
 - Commands:
   - create
   - generate

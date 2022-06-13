@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:astra/core.dart';
@@ -23,16 +22,16 @@ class Hello extends Application {
 
   @override
   Handler get entryPoint {
-    return application.use(error(debug: true));
+    return application.use(logRequests());
   }
 
   @override
   void reload() {
-    log('reload');
+    print('application reloaded');
   }
 
   @override
   Future<void> close() async {
-    log('closed');
+    print('application closed');
   }
 }
