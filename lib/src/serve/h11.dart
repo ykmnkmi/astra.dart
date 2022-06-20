@@ -7,11 +7,12 @@ import 'package:astra/core.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
-class H11Server extends Server {
+class H11Server implements Server {
   H11Server(this.server) : mounted = false;
 
   /// The underlying [HttpServer].
@@ -36,27 +37,27 @@ class H11Server extends Server {
   }
 
   @override
-  void mount(Handler handler) {
+  void mount(Handler handler, [Logger? logger]) {
     if (mounted) {
       throw StateError('Can\'t mount two handlers for the same server.');
     }
 
     mounted = true;
 
-    void listener() {
-      server.listen((request) {
-        handleRequest(request, handler);
-      });
+    void body() {
+      handler.handleRequests(server, logger);
     }
 
-    catchTopLevelErrors(listener, (error, stackTrace) {
-      logTopLevelError('asynchronous error\n$error', stackTrace);
-    });
+    void onError(Object error, StackTrace stackTrace) {
+      logger?.warning('Asynchronous error.', error, stackTrace);
+    }
+
+    catchTopLevelErrors(body, onError);
   }
 
   @override
-  Future<void> close() {
-    return server.close();
+  Future<void> close({bool force = false}) {
+    return server.close(force: force);
   }
 
   /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
@@ -83,35 +84,39 @@ class H11Server extends Server {
 
     return H11Server(server);
   }
+}
 
-  /// Uses [handler] to handle [httpRequest].
-  ///
-  /// Returns a [Future] which completes when the request has been handled.
-  static Future<void> handleRequest(HttpRequest httpRequest, FutureOr<Response?> Function(Request) handler) async {
+extension on FutureOr<Response?> Function(Request) {
+  StreamSubscription<HttpRequest> handleRequests(Stream<HttpRequest> requests, [Logger? logger]) {
+    return requests.listen((request) {
+      handleRequest(request, logger);
+    });
+  }
+
+  Future<void> handleRequest(HttpRequest httpRequest, [Logger? logger]) async {
     Request request;
 
     try {
       request = fromHttpRequest(httpRequest);
     } on ArgumentError catch (error, stackTrace) {
       if (error.name == 'method' || error.name == 'requestedUri') {
-        // TODO: use a reduced log level when using package:logging
-        logTopLevelError('error parsing request.\n$error', stackTrace);
+        logger?.warning('Error parsing request.', error, stackTrace);
 
         const headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
-        var response = Response.badRequest(body: 'Bad Request', headers: headers);
+        final response = Response.badRequest(body: 'Bad Request', headers: headers);
         await writeResponse(response, httpRequest.response);
       } else {
-        logTopLevelError('error parsing request.\n$error', stackTrace);
+        logger?.severe('Error parsing request.', error, stackTrace);
 
-        var response = Response.internalServerError();
+        final response = Response.internalServerError();
         await writeResponse(response, httpRequest.response);
       }
 
       return;
     } catch (error, stackTrace) {
-      logTopLevelError('error parsing request.\n$error', stackTrace);
+      logger?.severe('Error parsing request.', error, stackTrace);
 
-      var response = Response.internalServerError();
+      final response = Response.internalServerError();
       await writeResponse(response, httpRequest.response);
       return;
     }
@@ -120,21 +125,21 @@ class H11Server extends Server {
     Response? response;
 
     try {
-      response = await handler(request);
+      response = await this(request);
     } on HijackException catch (error, stackTrace) {
       if (!request.canHijack) {
         return;
       }
 
-      logError(request, 'caught HijackException, but the request wasn\'t hijacked.', stackTrace);
+      logger?.severe('Caught HijackException, but the request wasn\'t hijacked.', error, stackTrace);
       response = Response.internalServerError();
     } catch (error, stackTrace) {
-      logError(request, 'error thrown by handler.\n$error', stackTrace);
+      logger?.severe('Error thrown by handler.', error, stackTrace);
       response = Response.internalServerError();
     }
 
     if (response == null) {
-      logError(request, 'null response from handler.', StackTrace.current);
+      logger?.severe('Null response from handler.', '', StackTrace.current);
       response = Response.internalServerError();
       return writeResponse(response, httpRequest.response);
     }
@@ -143,7 +148,7 @@ class H11Server extends Server {
       return writeResponse(response, httpRequest.response);
     }
 
-    var message = StringBuffer('got a response for hijacked request ')
+    final message = StringBuffer('got a response for hijacked request ')
       ..write(request.method)
       ..write(' ')
       ..writeln(request.requestedUri)
@@ -158,7 +163,7 @@ class H11Server extends Server {
 
   /// Creates a new [Request] from the provided [HttpRequest].
   static Request fromHttpRequest(HttpRequest request) {
-    var headers = <String, List<String>>{};
+    final headers = <String, List<String>>{};
 
     request.headers.forEach((key, value) {
       headers[key] = value;
@@ -193,7 +198,7 @@ class H11Server extends Server {
 
     response.headersAll.forEach(httpResponse.headers.set);
 
-    var coding = response.headers['transfer-encoding'];
+    final coding = response.headers['transfer-encoding'];
 
     if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
       // If the response is already in a chunked encoding, de-chunk it because

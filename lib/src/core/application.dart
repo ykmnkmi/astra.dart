@@ -6,7 +6,6 @@ import 'package:astra/src/core/shelf.dart';
 
 /// An object that defines the behavior specific to your application.
 abstract class Application {
-  /// {% nodoc }
   const Application();
 
   /// Implement this accessor to define how HTTP requests are handled by

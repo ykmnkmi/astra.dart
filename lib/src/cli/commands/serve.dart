@@ -11,26 +11,25 @@ import 'package:astra/src/cli/version.dart';
 import 'package:path/path.dart';
 
 class ServeCommand extends CliCommand {
-  /// @nodoc
   ServeCommand() {
     argParser
       ..addSeparator('Application options:')
       ..addOption('target', //
           abbr: 't',
-          help: 'Application target.',
+          help: 'Serve target.',
           valueHelp: 'application')
       ..addOption('concurrency', //
           abbr: 'j',
-          help: 'Number of isolates.',
+          help: 'Number of isolates to run.',
           valueHelp: '1')
       ..addSeparator('Server options:')
       ..addOption('address', //
           abbr: 'a',
-          help: 'Bind socket to this address.',
+          help: 'The address to listen.',
           valueHelp: 'localhost')
       ..addOption('port', //
           abbr: 'p',
-          help: 'Bind socket to this port.',
+          help: 'The port to listen.',
           valueHelp: '8080')
       ..addOption('backlog', //
           help: 'Maximum number of connections to hold in backlog.',
@@ -40,21 +39,21 @@ class ServeCommand extends CliCommand {
           help: 'Socket connections distributing.')
       ..addFlag('v6Only', //
           negatable: false,
-          help: 'Restrict socket to version 6.')
+          help: 'Restrict connections to version 6.')
       ..addOption('ssl-cert', //
-          help: 'SSL certificate file.',
+          help: 'The path to a SSL certificate.',
           valueHelp: 'path')
       ..addOption('ssl-key', //
-          help: 'SSL key file.',
+          help: 'The path to a private key.',
           valueHelp: 'path')
       ..addOption('ssl-key-password', //
-          help: 'SSL key file password.',
-          valueHelp: 'password')
+          help: 'The password of private key file.',
+          valueHelp: 'passphrase')
       ..addSeparator('Debugging options:')
       ..addFlag('reload', //
           abbr: 'r',
           negatable: false,
-          help: 'Enable Hot-Reload.')
+          help: 'Enable Hot-Reload and Hot-Restart.')
       ..addOption('observe', //
           abbr: 'o',
           help: 'Enable VM Observer.',

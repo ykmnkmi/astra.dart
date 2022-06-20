@@ -4,8 +4,8 @@ import 'dart:isolate';
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/isolate.dart';
 
-class ApplicationIsolateServer extends IsolateServer {
-  ApplicationIsolateServer(this.application, Server server, SendPort sendPort) : super(server, sendPort) {
+class ApplicationServer extends IsolateServer {
+  ApplicationServer(this.application, Server server, SendPort sendPort) : super(server, sendPort) {
     registerExtension('ext.astra.reload', reload);
   }
 
@@ -26,9 +26,8 @@ class ApplicationIsolateServer extends IsolateServer {
   }
 
   @override
-  Future<void> close() async {
-    await server.close();
+  Future<void> close({bool force = false}) async {
     await application.close();
-    sendPort.send('stop');
+    return super.close(force: force);
   }
 }

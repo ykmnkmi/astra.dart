@@ -5,5 +5,5 @@ Future<void> create(SendPort sendPort) async {
       shared: shared,
       v6Only: v6Only);
   var application = await _.__TARGET__();
-  ApplicationIsolateServer(application, server, sendPort).start();
+  ApplicationServer(application, server, sendPort).start();
 }

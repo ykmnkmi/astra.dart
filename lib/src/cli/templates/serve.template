@@ -65,7 +65,6 @@ Future<void> main() async {
           debugName: 'isolate/${i + 1}');
       var supervisor = IsolateSupervisor(isolate, receivePort, i);
       supervisors.add(supervisor);
-      stdout.writeln('* starting isolate/${i + 1}');
       await supervisor.resume();
     }
 

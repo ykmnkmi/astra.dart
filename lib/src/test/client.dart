@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:astra/core.dart' show Handler;
-import 'package:astra/serve.dart' show serve;
+import 'package:astra/serve.dart' show ServeHandlerExtension;
 import 'package:http/http.dart' show BaseClient, BaseRequest, ClientException, StreamedResponse;
 import 'package:http/io_client.dart' show IOStreamedResponse;
 
@@ -28,17 +28,17 @@ class TestClient extends BaseClient {
 
   @override
   Future<StreamedResponse> send(BaseRequest request) async {
-    var server = await serve(handler, host, port, securityContext: context);
-    var stream = request.finalize();
+    final server = await handler.serve(host, port, securityContext: context);
+    final stream = request.finalize();
     StreamedResponse streamedResponse;
 
     try {
-      var requestedUrl = request.url;
-      var url = requestedUrl.replace(
+      final requestedUrl = request.url;
+      final url = requestedUrl.replace(
           scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
           host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
           port: port == 0 ? server.url.port : requestedUrl.port);
-      var ioRequest = await client.openUrl(request.method, url);
+      final ioRequest = await client.openUrl(request.method, url);
 
       ioRequest
         ..followRedirects = request.followRedirects
@@ -48,8 +48,8 @@ class TestClient extends BaseClient {
 
       request.headers.forEach(ioRequest.headers.set);
 
-      var response = await stream.pipe(ioRequest) as HttpClientResponse;
-      var headers = <String, String>{};
+      final response = await stream.pipe(ioRequest) as HttpClientResponse;
+      final headers = <String, String>{};
 
       response.headers.forEach((key, values) {
         headers[key] = values.join(',');
@@ -67,7 +67,7 @@ class TestClient extends BaseClient {
       throw ClientException(error.message, error.uri);
     }
 
-    await server.close();
+    await server.close(force: true);
     return streamedResponse;
   }
 }

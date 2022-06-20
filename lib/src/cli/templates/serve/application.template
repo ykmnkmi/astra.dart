@@ -4,5 +4,5 @@ Future<void> create(SendPort sendPort) async {
       backlog: backlog,
       shared: shared,
       v6Only: v6Only);
-  ApplicationIsolateServer(_.__TARGET__, server, sendPort).start();
+  ApplicationServer(_.__TARGET__, server, sendPort).start();
 }

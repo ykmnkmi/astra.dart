@@ -1,14 +1,18 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'package:logging/logging.dart';
+
 class IsolateSupervisor {
-  IsolateSupervisor(this.isolate, this.receive, this.identifier);
+  IsolateSupervisor(this.isolate, this.receive, this.identifier) : logger = Logger('isolate/$identifier');
 
   final Isolate isolate;
 
   final RawReceivePort receive;
 
   final int identifier;
+
+  final Logger logger;
 
   late SendPort server;
 
@@ -25,6 +29,8 @@ class IsolateSupervisor {
     if (message == 'listening') {
       launchCompleter!.complete();
       launchCompleter = null;
+      // TODO(message): translate
+      logger.fine('$identifier запущен.');
       return;
     }
 
@@ -32,23 +38,28 @@ class IsolateSupervisor {
       receive.close();
       stopCompleter!.complete();
       stopCompleter = null;
+      // TODO(message): translate
+      logger.fine('$identifier завершился.');
       return;
     }
 
-    if (message is List<Object>) {
-      var trace = StackTrace.fromString(message[1] as String);
+    if (message is List<Object?>) {
+      var error = message[0] as Object;
+      var trace = message[1] as StackTrace;
 
       if (launchCompleter != null) {
-        launchCompleter!.completeError(message[0], trace);
-      }
-
-      if (stopCompleter != null) {
-        stopCompleter!.completeError(message[0], trace);
+        launchCompleter!.completeError(error, trace);
+      } else if (stopCompleter != null) {
+        // TODO(message): translate
+        logger.severe('$identifier завершился с иключение.', error, trace);
+        receive.close();
+      } else {
+        logger.severe('Uncaught exception in $identifier.', error, trace);
       }
     }
   }
 
-  Future<void> resume() async {
+  Future<void> resume() {
     launchCompleter = Completer<void>();
     receive.handler = listener;
     isolate.resume(isolate.pauseCapability!);
@@ -59,7 +70,5 @@ class IsolateSupervisor {
     stopCompleter = Completer();
     server.send('stop');
     await stopCompleter!.future;
-    receive.close();
-    isolate.kill();
   }
 }

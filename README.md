@@ -7,10 +7,10 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
 
 ### ToDo
 - Errors, error handling and verbose output 🔥
-- Environment variables
-- Tests
 - More API Documentation 🔥
 - Logging
+- Environment variables
+- Tests
 - Commands:
   - create
   - generate
@@ -18,11 +18,11 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
 - ...
 
 ### Experimenting
-- Hot-Reload `build_runner` integration
 - Shelf Request/Response based HttpServer alternative:
   - dart:io Socket 🤔
   - ...
 - HTTP/2
+- Hot-Reload `build_runner` integration
 
 ## Quickstart
 

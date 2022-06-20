@@ -1,6 +1,7 @@
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
@@ -25,22 +26,23 @@ class IsolateServer implements Server {
 
   @protected
   Future<void> listener(Object? message) {
-    if (message == 'stop') {
+    if (message == 'close') {
       return close();
     }
 
     throw UnsupportedError('$message');
   }
 
+  // TODO(error): catch
   @override
-  void mount(Handler handler) {
+  void mount(Handler handler, [Logger? logger]) {
+    server.mount(handler, logger);
     sendPort.send('listening');
-    server.mount(handler);
   }
 
   @override
-  Future<void> close() async {
-    await server.close();
-    sendPort.send('stop');
+  Future<void> close({bool force = false}) async {
+    await server.close(force: force);
+    sendPort.send('closed');
   }
 }
