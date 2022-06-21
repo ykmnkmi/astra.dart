@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'package:astra/src/isolate/isolate.dart';
 import 'package:logging/logging.dart';
 
 class IsolateSupervisor {
@@ -26,31 +27,31 @@ class IsolateSupervisor {
       return;
     }
 
-    if (message == 'listening') {
+    if (message == IsolateServer.readyMessage) {
       launchCompleter!.complete();
       launchCompleter = null;
-      // TODO(message): translate
+      // TODO: translate
       logger.fine('$identifier запущен.');
       return;
     }
 
-    if (message == 'stop') {
+    if (message == IsolateServer.closedMessage) {
       receive.close();
       stopCompleter!.complete();
       stopCompleter = null;
-      // TODO(message): translate
+      // TODO: translate
       logger.fine('$identifier завершился.');
       return;
     }
 
-    if (message is List<Object?>) {
-      var error = message[0] as Object;
-      var trace = message[1] as StackTrace;
+    if (message is List<String>) {
+      final error = message[0];
+      final trace = StackTrace.fromString(message[1]);
 
       if (launchCompleter != null) {
         launchCompleter!.completeError(error, trace);
       } else if (stopCompleter != null) {
-        // TODO(message): translate
+        // TODO: translate
         logger.severe('$identifier завершился с иключение.', error, trace);
         receive.close();
       } else {
@@ -60,6 +61,11 @@ class IsolateSupervisor {
   }
 
   Future<void> resume() {
+    if (launchCompleter != null) {
+      // TODO: add error message
+      throw StateError('');
+    }
+
     launchCompleter = Completer<void>();
     receive.handler = listener;
     isolate.resume(isolate.pauseCapability!);
@@ -68,7 +74,7 @@ class IsolateSupervisor {
 
   Future<void> stop() async {
     stopCompleter = Completer();
-    server.send('stop');
+    server.send(IsolateServer.closeMessage);
     await stopCompleter!.future;
   }
 }

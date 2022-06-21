@@ -5,18 +5,33 @@ import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
+  static const String readyMessage = 'ready';
+
+  static const String closeMessage = 'close';
+
+  static const String closedMessage = 'closed';
+
   IsolateServer(this.server, this.sendPort) : receivePort = RawReceivePort() {
-    receivePort.handler = listener;
+    void handler(Object? message) {
+      if (message == closeMessage) {
+        close();
+        return;
+      }
+
+      throw UnsupportedError('$message');
+    }
+
+    receivePort.handler = handler;
     sendPort.send(receivePort.sendPort);
   }
 
-  @protected
+  @internal
   final Server server;
 
-  @protected
+  @internal
   final SendPort sendPort;
 
-  @protected
+  @internal
   final RawReceivePort receivePort;
 
   @override
@@ -24,25 +39,16 @@ class IsolateServer implements Server {
     return server.url;
   }
 
-  @protected
-  Future<void> listener(Object? message) {
-    if (message == 'close') {
-      return close();
-    }
-
-    throw UnsupportedError('$message');
-  }
-
   // TODO(error): catch
   @override
   void mount(Handler handler, [Logger? logger]) {
     server.mount(handler, logger);
-    sendPort.send('listening');
+    sendPort.send(readyMessage);
   }
 
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-    sendPort.send('closed');
+    sendPort.send(closedMessage);
   }
 }

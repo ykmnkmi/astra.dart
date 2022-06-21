@@ -42,8 +42,8 @@ __CREATE__
 
 Future<void> main() async {
   if (observe) {
-    var info = await Service.getInfo();
-    var uri = info.serverUri;
+    final info = await Service.getInfo();
+    final uri = info.serverUri;
 
     if (uri == null) {
       throw CliException('observe: no server uri');
@@ -52,18 +52,18 @@ Future<void> main() async {
     stdout.writeln('* observatory listening on $uri');
   }
 
-  var shutdown = <FutureOr<void> Function()>[];
-  var supervisors = <IsolateSupervisor>[];
+  final shutdown = <FutureOr<void> Function()>[];
+  final supervisors = <IsolateSupervisor>[];
 
   Future<void> startAll() async {
     for (var i = 0; i < concurrency; i += 1) {
-      var receivePort = RawReceivePort();
-      var isolate = await Isolate.spawn(create, receivePort.sendPort, //
+      final receivePort = RawReceivePort();
+      final isolate = await Isolate.spawn(create, receivePort.sendPort, //
           paused: true,
           errorsAreFatal: false,
           onError: receivePort.sendPort,
           debugName: 'isolate/${i + 1}');
-      var supervisor = IsolateSupervisor(isolate, receivePort, i);
+      final supervisor = IsolateSupervisor(isolate, receivePort, i);
       supervisors.add(supervisor);
       await supervisor.resume();
     }
@@ -80,7 +80,7 @@ Future<void> main() async {
   }
 
   Future<void> shutdownAll() async {
-    for (var callback in shutdown.reversed) {
+    for (final callback in shutdown.reversed) {
       await callback();
     }
   }
@@ -89,25 +89,25 @@ Future<void> main() async {
 
   await startAll();
 
-  var controller = StreamController<Object>(sync: true);
+  final controller = StreamController<Object>(sync: true);
 
   Future<void> Function() reload, restart;
 
   if (hotReload) {
-    var info = await Service.getInfo();
-    var uri = info.serverWebSocketUri;
+    final info = await Service.getInfo();
+    final uri = info.serverWebSocketUri;
 
     if (uri == null) {
       throw CliException('reload: no vm service ws uri');
     }
 
-    var service = await vmServiceConnectUri(uri.toString());
+    final service = await vmServiceConnectUri(uri.toString());
     shutdown.add(service.dispose);
 
-    var isolateIds = <String>[];
+    final isolateIds = <String>[];
 
-    for (var supervisor in supervisors) {
-      var id = Service.getIsolateID(supervisor.isolate);
+    for (final supervisor in supervisors) {
+      final id = Service.getIsolateID(supervisor.isolate);
 
       if (id == null) {
         throw CliException('isolate/${supervisor.identifier} id == null');
@@ -116,13 +116,13 @@ Future<void> main() async {
       isolateIds.add(id);
     }
 
-    var directory = Directory('lib');
+    final directory = Directory('lib');
 
     reload = () async {
       stdout.writeln('* hot reloading ...');
 
       Future<void> reload(String isolateId) async {
-        var result = await service.reloadSources(isolateId);
+        final result = await service.reloadSources(isolateId);
 
         if (isApplication && result.success == true) {
           await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
@@ -138,7 +138,7 @@ Future<void> main() async {
       }
     };
 
-    var watch = directory
+    final watch = directory
         .watch(events: FileSystemEvent.modify, recursive: true)
         .throttle(Duration(seconds: 1))
         .listen(controller.add);
@@ -148,7 +148,7 @@ Future<void> main() async {
     restart = () async {
       stdout.writeln('* hot restarting ...');
       await stopAll();
-      supervisors = <IsolateSupervisor>[];
+      supervisors.clear();
       await startAll();
     };
   } else {
@@ -161,10 +161,10 @@ Future<void> main() async {
     };
   }
 
-  var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
+  final stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
   shutdown.add(stdinSubscription.cancel);
 
-  var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
+  final sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
   shutdown.add(sigintSubscription.cancel);
 
   stdout.writeln('* serving at $scheme://$address:$port');
