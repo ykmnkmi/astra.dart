@@ -1,8 +1,9 @@
 Future<void> create(SendPort sendPort) async {
-  await _.application.serve(address, port, //
+  var application = _.__TARGET__.asApplication();
+  await application.serve(address, port, //
       securityContext: __CONTEXT__,
       backlog: backlog,
       v6Only: v6Only,
       shared: shared,
-      sendPort: sendPort);
+      messagePort: sendPort);
 }

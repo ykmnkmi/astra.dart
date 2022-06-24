@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:astra/src/core/shelf.dart';
+import 'package:astra/core.dart';
 import 'package:logging/logging.dart';
 
 /// An [adapter][] with a concrete URL.
@@ -19,21 +20,17 @@ import 'package:logging/logging.dart';
 /// Implementations of this interface are responsible for ensuring that the
 /// members work as documented.
 abstract class Server {
-  /// The URL of the server.
-  ///
-  /// Requests to this URL or any URL beneath it are handled by the handler
-  /// passed to [mount]. If [mount] hasn't yet been called, the requests wait
-  /// until it is. If [close] has been called, the handler will not be invoked;
-  /// otherwise, the behavior is implementation-dependent.
-  Uri get url;
+  InternetAddress get address;
 
-  /// Mounts [handler] as the base handler for this server.
+  int get port;
+
+  /// Mounts [application] as the base handler for this server.
   ///
   /// All requests to [url] or and URLs beneath it will be sent to [handler]
   /// until [close] is called.
   ///
   /// Throws a [StateError] if there's already a handler mounted.
-  void mount(Handler handler, [Logger? logger]);
+  Future<void> mount(Application application, [Logger? logger]);
 
   /// Closes the server and returns a Future that completes when all resources
   /// are released.
@@ -51,13 +48,18 @@ class OnCloseServer implements Server {
   final Future<void> Function() onClose;
 
   @override
-  Uri get url {
-    return server.url;
+  InternetAddress get address {
+    return server.address;
   }
 
   @override
-  void mount(Handler handler, [Logger? logger]) {
-    server.mount(handler, logger);
+  int get port {
+    return server.port;
+  }
+
+  @override
+  Future<void> mount(Application application, [Logger? logger]) async {
+    await server.mount(application, logger);
   }
 
   @override

@@ -1,54 +1,84 @@
+library astra.server.isolate.server;
+
+import 'dart:developer';
+import 'dart:io';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
+import 'package:astra/src/isolate/message.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
-  static const String readyMessage = 'ready';
-
-  static const String closeMessage = 'close';
-
-  static const String closedMessage = 'closed';
-
-  IsolateServer(this.server, this.sendPort) : receivePort = RawReceivePort() {
-    void handler(Object? message) {
-      if (message == closeMessage) {
-        close();
-        return;
-      }
-
-      throw UnsupportedError('$message');
-    }
-
-    receivePort.handler = handler;
-    sendPort.send(receivePort.sendPort);
+  IsolateServer(this.server, this.messagePort)
+      : receivePort = RawReceivePort(),
+        mounted = false {
+    receivePort.handler = onMessage;
+    messagePort.send(receivePort.sendPort);
   }
 
   @internal
   final Server server;
 
   @internal
-  final SendPort sendPort;
+  final SendPort messagePort;
 
   @internal
   final RawReceivePort receivePort;
 
+  bool mounted;
+
   @override
-  Uri get url {
-    return server.url;
+  InternetAddress get address {
+    return server.address;
   }
 
-  // TODO(error): catch
   @override
-  void mount(Handler handler, [Logger? logger]) {
-    server.mount(handler, logger);
-    sendPort.send(readyMessage);
+  int get port {
+    return server.port;
   }
 
+  // TODO: catch error
+  void onMessage(Object? message) {
+    if (message == IsolateMessage.close) {
+      close();
+      return;
+    }
+
+    // TODO: add error message
+    throw UnsupportedError('');
+  }
+
+  // TODO: catch error
+  @override
+  Future<void> mount(Application application, [Logger? logger]) async {
+    if (mounted) {
+      // TODO: add error message
+      throw StateError('');
+    }
+
+    mounted = true;
+    await application.prepare();
+
+    Future<ServiceExtensionResponse> reload(String isolateId, Map<String, String> data) async {
+      try {
+        await application.reload();
+      } catch (error) {
+        // TODO: log error
+      }
+
+      return ServiceExtensionResponse.result('{}');
+    }
+
+    registerExtension('ext.astra.reload', reload);
+    await server.mount(application, logger);
+    messagePort.send(IsolateMessage.ready);
+  }
+
+  // TODO: add error message
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-    sendPort.send(closedMessage);
+    messagePort.send(IsolateMessage.closed);
   }
 }

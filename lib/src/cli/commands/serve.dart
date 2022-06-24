@@ -7,7 +7,7 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
-import 'package:astra/src/cli/version.dart';
+import 'package:astra/src/core/version.dart';
 import 'package:path/path.dart';
 
 class ServeCommand extends CliCommand {
@@ -221,12 +221,14 @@ class ServeCommand extends CliCommand {
 
     arguments.add('run');
 
-    if (reload || observe) {
+    if (reload) {
       arguments
         ..add('--enable-vm-service=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
+    } else if (observe) {
+      arguments.add('--observe=$observePort');
     }
 
     if (asserts) {

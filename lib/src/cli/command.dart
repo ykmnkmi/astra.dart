@@ -117,7 +117,7 @@ abstract class CliCommand extends Command<int> {
   }
 
   bool getBoolean(String name) {
-    return argResults.wasParsed(name);
+    return argResults[name] as bool? ?? false;
   }
 
   int? getInteger(String name) {

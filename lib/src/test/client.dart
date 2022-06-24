@@ -28,17 +28,17 @@ class TestClient extends BaseClient {
 
   @override
   Future<StreamedResponse> send(BaseRequest request) async {
-    final server = await handler.serve(host, port, securityContext: context);
-    final stream = request.finalize();
+    var server = await handler.serve(host, port, securityContext: context);
+    var stream = request.finalize();
     StreamedResponse streamedResponse;
 
     try {
-      final requestedUrl = request.url;
-      final url = requestedUrl.replace(
+      var requestedUrl = request.url;
+      var url = requestedUrl.replace(
           scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
           host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
-          port: port == 0 ? server.url.port : requestedUrl.port);
-      final ioRequest = await client.openUrl(request.method, url);
+          port: port == 0 ? server.port : requestedUrl.port);
+      var ioRequest = await client.openUrl(request.method, url);
 
       ioRequest
         ..followRedirects = request.followRedirects
@@ -48,8 +48,8 @@ class TestClient extends BaseClient {
 
       request.headers.forEach(ioRequest.headers.set);
 
-      final response = await stream.pipe(ioRequest) as HttpClientResponse;
-      final headers = <String, String>{};
+      var response = await stream.pipe(ioRequest) as HttpClientResponse;
+      var headers = <String, String>{};
 
       response.headers.forEach((key, values) {
         headers[key] = values.join(',');

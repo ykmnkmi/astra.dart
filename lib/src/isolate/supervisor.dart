@@ -1,21 +1,21 @@
+library astra.server.isolate.supervisor;
+
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:astra/src/isolate/isolate.dart';
+import 'package:astra/src/isolate/message.dart';
 import 'package:logging/logging.dart';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.isolate, this.receive, this.identifier) : logger = Logger('isolate/$identifier');
+  IsolateSupervisor(this.isolate, this.receive) : logger = Logger(isolate.debugName!);
 
   final Isolate isolate;
 
   final RawReceivePort receive;
 
-  final int identifier;
-
   final Logger logger;
 
-  late SendPort server;
+  SendPort? server;
 
   Completer<void>? launchCompleter;
 
@@ -27,35 +27,35 @@ class IsolateSupervisor {
       return;
     }
 
-    if (message == IsolateServer.readyMessage) {
+    if (message == IsolateMessage.ready) {
       launchCompleter!.complete();
       launchCompleter = null;
-      // TODO: translate
-      logger.fine('$identifier запущен.');
+      // TODO: translate log message
+      logger.fine('${isolate.debugName} запущен.');
       return;
     }
 
-    if (message == IsolateServer.closedMessage) {
+    if (message == IsolateMessage.closed) {
       receive.close();
       stopCompleter!.complete();
       stopCompleter = null;
-      // TODO: translate
-      logger.fine('$identifier завершился.');
+      // TODO: translate log message
+      logger.fine('${isolate.debugName} завершился.');
       return;
     }
 
     if (message is List<String>) {
-      final error = message[0];
-      final trace = StackTrace.fromString(message[1]);
+      var error = message[0];
+      var trace = StackTrace.fromString(message[1]);
 
       if (launchCompleter != null) {
         launchCompleter!.completeError(error, trace);
       } else if (stopCompleter != null) {
-        // TODO: translate
-        logger.severe('$identifier завершился с иключение.', error, trace);
+        // TODO: translate log message
+        logger.severe('${isolate.debugName} завершился с иключение.', error, trace);
         receive.close();
       } else {
-        logger.severe('Uncaught exception in $identifier.', error, trace);
+        logger.severe('Uncaught exception in ${isolate.debugName}.', error, trace);
       }
     }
   }
@@ -73,8 +73,13 @@ class IsolateSupervisor {
   }
 
   Future<void> stop() async {
+    if (server == null) {
+      // TODO: add error message
+      throw StateError('');
+    }
+
     stopCompleter = Completer();
-    server.send(IsolateServer.closeMessage);
+    server!.send(IsolateMessage.close);
     await stopCompleter!.future;
   }
 }

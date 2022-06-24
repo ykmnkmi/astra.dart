@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:astra/cli.dart';
+import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/serve.dart';
 import 'package:stream_transform/stream_transform.dart';
@@ -42,8 +43,8 @@ __CREATE__
 
 Future<void> main() async {
   if (observe) {
-    final info = await Service.getInfo();
-    final uri = info.serverUri;
+    var info = await Service.getInfo();
+    var uri = info.serverUri;
 
     if (uri == null) {
       throw CliException('observe: no server uri');
@@ -52,18 +53,18 @@ Future<void> main() async {
     stdout.writeln('* observatory listening on $uri');
   }
 
-  final shutdown = <FutureOr<void> Function()>[];
-  final supervisors = <IsolateSupervisor>[];
+  var shutdown = <FutureOr<void> Function()>[];
+  var supervisors = <IsolateSupervisor>[];
 
   Future<void> startAll() async {
     for (var i = 0; i < concurrency; i += 1) {
-      final receivePort = RawReceivePort();
-      final isolate = await Isolate.spawn(create, receivePort.sendPort, //
+      var receivePort = RawReceivePort();
+      var isolate = await Isolate.spawn(create, receivePort.sendPort, //
           paused: true,
           errorsAreFatal: false,
           onError: receivePort.sendPort,
           debugName: 'isolate/${i + 1}');
-      final supervisor = IsolateSupervisor(isolate, receivePort, i);
+      var supervisor = IsolateSupervisor(isolate, receivePort);
       supervisors.add(supervisor);
       await supervisor.resume();
     }
@@ -80,7 +81,7 @@ Future<void> main() async {
   }
 
   Future<void> shutdownAll() async {
-    for (final callback in shutdown.reversed) {
+    for (var callback in shutdown.reversed) {
       await callback();
     }
   }
@@ -89,40 +90,40 @@ Future<void> main() async {
 
   await startAll();
 
-  final controller = StreamController<Object>(sync: true);
+  var controller = StreamController<Object>(sync: true);
 
   Future<void> Function() reload, restart;
 
   if (hotReload) {
-    final info = await Service.getInfo();
-    final uri = info.serverWebSocketUri;
+    var info = await Service.getInfo();
+    var uri = info.serverWebSocketUri;
 
     if (uri == null) {
       throw CliException('reload: no vm service ws uri');
     }
 
-    final service = await vmServiceConnectUri(uri.toString());
+    var service = await vmServiceConnectUri(uri.toString());
     shutdown.add(service.dispose);
 
-    final isolateIds = <String>[];
+    var isolateIds = <String>[];
 
-    for (final supervisor in supervisors) {
-      final id = Service.getIsolateID(supervisor.isolate);
+    for (var supervisor in supervisors) {
+      var id = Service.getIsolateID(supervisor.isolate);
 
       if (id == null) {
-        throw CliException('isolate/${supervisor.identifier} id == null');
+        throw CliException('${supervisor.isolate.debugName} id == null');
       }
 
       isolateIds.add(id);
     }
 
-    final directory = Directory('lib');
+    var directory = Directory('lib');
 
     reload = () async {
       stdout.writeln('* hot reloading ...');
 
       Future<void> reload(String isolateId) async {
-        final result = await service.reloadSources(isolateId);
+        var result = await service.reloadSources(isolateId);
 
         if (isApplication && result.success == true) {
           await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
@@ -138,7 +139,7 @@ Future<void> main() async {
       }
     };
 
-    final watch = directory
+    var watch = directory
         .watch(events: FileSystemEvent.modify, recursive: true)
         .throttle(Duration(seconds: 1))
         .listen(controller.add);
@@ -148,7 +149,7 @@ Future<void> main() async {
     restart = () async {
       stdout.writeln('* hot restarting ...');
       await stopAll();
-      supervisors.clear();
+      supervisors = <IsolateSupervisor>[];
       await startAll();
     };
   } else {
@@ -161,10 +162,10 @@ Future<void> main() async {
     };
   }
 
-  final stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
+  var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
   shutdown.add(stdinSubscription.cancel);
 
-  final sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
+  var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
   shutdown.add(sigintSubscription.cancel);
 
   stdout.writeln('* serving at $scheme://$address:$port');

@@ -1,9 +1,10 @@
 Future<void> create(SendPort sendPort) async {
-  var server = await H11Server.bind(address, port, //
+  var handler = await _.__TARGET__();
+  var application = handler.asApplication();
+  await application.serve(address, port, //
       securityContext: __CONTEXT__,
       backlog: backlog,
+      v6Only: v6Only,
       shared: shared,
-      v6Only: v6Only);
-  var handler = await _.__TARGET__();
-  IsolateServer(server, sendPort).mount(handler);
+      messagePort: sendPort);
 }
