@@ -23,6 +23,8 @@ const bool observe = __OBSERVE__;
 
 const bool hotReload = __RELOAD__;
 
+const bool watchLib = __WATCH__;
+
 const bool verbose = __VERBOSE__;
 
 const bool asserts = __ASSERTS__;
@@ -41,7 +43,9 @@ const bool v6Only = __V6ONLY__;
 
 __CREATE__
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
+  var overriden = arguments.isNotEmpty && arguments.contains('--overriden');
+
   if (observe) {
     var info = await Service.getInfo();
     var uri = info.serverUri;
@@ -139,12 +143,14 @@ Future<void> main() async {
       }
     };
 
-    var watch = directory
-        .watch(events: FileSystemEvent.modify, recursive: true)
-        .throttle(Duration(seconds: 1))
-        .listen(controller.add);
-    shutdown.add(watch.cancel);
-    stdout.writeln('* watching ${directory.uri}');
+    if (watchLib) {
+      var watch = directory
+          .watch(events: FileSystemEvent.modify, recursive: true)
+          .throttle(Duration(seconds: 1))
+          .listen(controller.add);
+      shutdown.add(watch.cancel);
+      stdout.writeln('* watching ${directory.uri}');
+    }
 
     restart = () async {
       stdout.writeln('* hot restarting ...');
@@ -158,48 +164,67 @@ Future<void> main() async {
     };
 
     restart = () async {
-      stdout.writeln('* hot restart not implemented');
+      stdout.writeln('* hot restart not enabled');
     };
   }
 
-  var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
-  shutdown.add(stdinSubscription.cancel);
+  late bool echoMode, lineMode;
 
-  var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
-  shutdown.add(sigintSubscription.cancel);
+  if (!overriden) {
+    echoMode = stdin.echoMode;
+    lineMode = stdin.lineMode;
 
-  stdout.writeln('* serving at $scheme://$address:$port');
+    stdin
+      ..echoMode = false
+      ..lineMode = false;
+  }
 
-  await for (var event in controller.stream) {
-    // from keyboard or file system
-    if (event == 'r' || event is FileSystemEvent) {
-      await reload();
-      continue;
+  try {
+    var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
+    shutdown.add(stdinSubscription.cancel);
+
+    var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
+    shutdown.add(sigintSubscription.cancel);
+
+    stdout.writeln('* serving at $scheme://$address:$port');
+
+    await for (var event in controller.stream) {
+      // from keyboard or file system
+      if (event == 'r' || event is FileSystemEvent) {
+        await reload();
+        continue;
+      }
+
+      // from keyboard
+      if (event == 'R') {
+        await restart();
+        continue;
+      }
+
+      // from keyboard, parent or process signal
+      if (event == 'q' || event == 'SIGINT' || event == 'SIGTERM' || event is ProcessSignal) {
+        stdout.writeln('* closing ...');
+        await shutdownAll();
+        break;
+      }
+
+      // from keyboard
+      if (event == 'Q') {
+        stdout.writeln('* exiting imediate');
+        exit(0);
+      }
+
+      if (event is String) {
+        stdout.writeln('* unknown key: \'$event\', ${event.runes}');
+      } else {
+        stdout.writeln('* unknown event: $event');
+      }
     }
-
-    // from keyboard
-    if (event == 'R') {
-      await restart();
-      continue;
-    }
-
-    // from keyboard, parent or process signal
-    if (event == 'q' || event == 'SIGINT' || event == 'SIGTERM' || event is ProcessSignal) {
-      stdout.writeln('* closing ...');
-      await shutdownAll();
-      break;
-    }
-
-    // from keyboard
-    if (event == 'Q') {
-      stdout.writeln('* exiting imediate');
-      exit(0);
-    }
-
-    if (event is String) {
-      stdout.writeln('* unknown key: \'$event\', ${event.runes}');
-    } else {
-      stdout.writeln('* unknown event: $event');
+  } finally {
+    if (!overriden) {
+      stdin
+        ..echoMode = echoMode
+        ..lineMode = lineMode;
     }
   }
 }

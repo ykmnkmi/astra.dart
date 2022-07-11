@@ -53,10 +53,14 @@ class ServeCommand extends CliCommand {
       ..addFlag('reload', //
           abbr: 'r',
           negatable: false,
-          help: 'Enable Hot-Reload and Hot-Restart.')
+          help: 'Enable hot-reload and hot-restart.')
+      ..addFlag('watch', //
+          abbr: 'w',
+          negatable: false,
+          help: 'Watch lib folder for changes and perform hot-reload.')
       ..addOption('observe', //
           abbr: 'o',
-          help: 'Enable VM Observer.',
+          help: 'Enable VM observer.',
           valueHelp: '8081')
       ..addFlag('asserts', //
           abbr: 'c',
@@ -141,6 +145,10 @@ class ServeCommand extends CliCommand {
     return getBoolean('reload');
   }
 
+  bool get watch {
+    return getBoolean('watch');
+  }
+
   bool get asserts {
     return getBoolean('asserts');
   }
@@ -177,6 +185,7 @@ class ServeCommand extends CliCommand {
       'CONCURRENCY': '$concurrency',
       'OBSERVE': '$observe',
       'RELOAD': '$reload',
+      'WATCH': '$watch',
       'ASSERTS': '$asserts',
       'VERBOSE': '$reload',
       'SCHEME': context == null ? 'http' : 'https',
@@ -211,7 +220,7 @@ class ServeCommand extends CliCommand {
     var source = await createSource(memberType);
     var scriptPath = join('.dart_tool', 'astra.serve.dart');
     var script = File(join(directory.path, scriptPath));
-    await script.writeAsString(source);
+    script.writeAsStringSync(source);
 
     var arguments = <String>[];
 
@@ -235,7 +244,9 @@ class ServeCommand extends CliCommand {
       arguments.add('--enable-asserts');
     }
 
-    arguments.add(scriptPath);
+    arguments
+      ..add(scriptPath)
+      ..add('--overriden');
 
     var echoMode = stdin.echoMode;
     var lineMode = stdin.lineMode;
@@ -245,16 +256,11 @@ class ServeCommand extends CliCommand {
       ..lineMode = false;
 
     try {
-      var process = await Process.start('dart', arguments, //
+      var process = await Process.start(Platform.executable, arguments, //
           workingDirectory: directory.path,
           runInShell: true);
 
-      if (Platform.isWindows) {
-        ProcessSignal.sigint.watch().listen(process.stdin.writeln);
-      } else {
-        ProcessSignal.sigterm.watch().listen(process.stdin.writeln);
-      }
-
+      ProcessSignal.sigint.watch().listen(process.stdin.writeln);
       stdin.listen(process.stdin.add);
       process.stdout.pipe(stdout);
       process.stderr.pipe(stderr);

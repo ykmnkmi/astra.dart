@@ -59,30 +59,31 @@ $ astra serve -h
 Serve application.
 
 Usage: astra serve [arguments]
--h, --help                           Print this usage information.
+-h, --help                             Print this usage information.
 
 Common options:
--d, --directory=<path>               Run this in the directory.
--v, --verbose                        Output more informational messages.
+-d, --directory=<path>                 Run this in the directory.
+-v, --verbose                          Output more informational messages.
 
 Application options:
--t, --target=<application>           Application target.
--j, --concurrency=<1>                Number of isolates.
+-t, --target=<application>             Serve target.
+-j, --concurrency=<1>                  Number of isolates to run.
 
 Server options:
--a, --address=<localhost>            Bind socket to this address.
--p, --port=<8080>                    Bind socket to this port.
-    --backlog=<0>                    Maximum number of connections to hold in backlog.
-    --shared                         Socket connections distributing.
-    --v6Only                         Restrict socket to version 6.
-    --ssl-cert=<path>                SSL certificate file.
-    --ssl-key=<path>                 SSL key file.
-    --ssl-key-password=<password>    SSL key file password.
+-a, --address=<localhost>              The address to listen.
+-p, --port=<8080>                      The port to listen.
+    --backlog=<0>                      Maximum number of connections to hold in backlog.
+    --shared                           Socket connections distributing.
+    --v6Only                           Restrict connections to version 6.
+    --ssl-cert=<path>                  The path to a SSL certificate.
+    --ssl-key=<path>                   The path to a private key.
+    --ssl-key-password=<passphrase>    The password of private key file.
 
 Debugging options:
--r, --reload                         Enable Hot-Reload.
--o, --observe=<8081>                 Enable VM Observer.
--c, --asserts                        Enable asserts.
+-r, --reload                           Enable hot-reload and hot-restart.
+-w, --watch                            Watch lib folder for changes and perform hot-reload.
+-o, --observe=<8081>                   Enable VM observer.
+-c, --asserts                          Enable asserts.
 
 Run "astra help" to see global options.
 ```
