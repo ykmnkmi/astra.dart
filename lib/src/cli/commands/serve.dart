@@ -255,13 +255,16 @@ class ServeCommand extends CliCommand {
       ..echoMode = false
       ..lineMode = false;
 
+    late StreamSubscription<List<int>> stdinSubscription;
+    late StreamSubscription<ProcessSignal> sigintSubscription;
+
     try {
       var process = await Process.start(Platform.executable, arguments, //
           workingDirectory: directory.path,
           runInShell: true);
 
-      ProcessSignal.sigint.watch().listen(process.stdin.writeln);
-      stdin.listen(process.stdin.add);
+      sigintSubscription = ProcessSignal.sigint.watch().listen(process.stdin.writeln);
+      stdinSubscription = stdin.listen(process.stdin.add);
       process.stdout.pipe(stdout);
       process.stderr.pipe(stderr);
       return await process.exitCode;
@@ -269,6 +272,9 @@ class ServeCommand extends CliCommand {
       stdin
         ..echoMode = echoMode
         ..lineMode = lineMode;
+
+      stdinSubscription.cancel();
+      sigintSubscription.cancel();
     }
   }
 }
