@@ -1,17 +1,13 @@
 part of '../../http.dart';
 
-// Global constants.
-abstract class Constants {
-  // Bytes for "HTTP".
+class Constants {
   static const List<int> http = <int>[72, 84, 84, 80];
-  // Bytes for "HTTP/1.".
-  static const List<int> http1dot = <int>[72, 84, 84, 80, 47, 49, 46];
-  // Bytes for "HTTP/1.0".
-  static const List<int> http10 = [72, 84, 84, 80, 47, 49, 46, 48];
-  // Bytes for "HTTP/1.1".
-  static const List<int> http11 = [72, 84, 84, 80, 47, 49, 46, 49];
+  static const List<int> http1Dot = <int>[72, 84, 84, 80, 47, 49, 46];
+  static const List<int> http10 = <int>[72, 84, 84, 80, 47, 49, 46, 48];
+  static const List<int> http11 = <int>[72, 84, 84, 80, 47, 49, 46, 49];
 
   static const bool t = true, f = false;
+
   // Loopup-map for the following characters: '()<>@,;:\\"/[]?={} \t'.
   static const List<bool> separatorMap = <bool>[
     f, f, f, f, f, f, f, f, f, t, f, f, f, f, f, f, f, f, f, f, f, f, f, f, //
@@ -28,16 +24,14 @@ abstract class Constants {
   ];
 }
 
-// Frequently used character codes.
-abstract class CharCodes {
+class CharCodes {
   static const int ht = 9, lf = 10, cr = 13, sp = 32;
-  static const int comma = 44, splash = 47;
+  static const int comma = 44, slash = 47;
   static const int zero = 48, one = 49;
   static const int colon = 58, semiColon = 59;
 }
 
-// States of the HTTP parser state machine.
-abstract class State {
+class State {
   static const int start = 0;
   static const int method = 3;
   static const int uri = 4;
@@ -56,8 +50,8 @@ abstract class State {
   static const int chunkSize = 19;
   static const int chunkSizeExtension = 20;
   static const int chunkSizeEnding = 21;
-  static const int chunkBodyDoneCR = 22;
-  static const int chunkBodyDone = 23;
+  static const int chunkedBodyDoneCR = 22;
+  static const int chunkedBodyDone = 23;
   static const int body = 24;
   static const int closed = 25;
   static const int upgraded = 26;
@@ -67,23 +61,14 @@ abstract class State {
 }
 
 // HTTP version of the request or response being parsed.
-abstract class HttpVersion {
+class HttpVersion {
   static const int undetermined = 0;
-
   static const int http10 = 1;
-
   static const int http11 = 2;
 }
 
-/// The [HttpDetachedStreamSubscription] takes a subscription and some extra data,
-/// and makes it possible to "inject" the data in from of other data events
-/// from the subscription.
-///
-/// It does so by overriding pause/resume, so that once the
-/// [HttpDetachedStreamSubscription] is resumed, it'll deliver the data before
-/// resuming the underlying subscription.
-class HttpDetachedStreamSubscription implements StreamSubscription<Uint8List> {
-  HttpDetachedStreamSubscription(this.subscription, this.injectData, this.userOnData);
+class DetachedStreamSubscription implements StreamSubscription<Uint8List> {
+  DetachedStreamSubscription(this.subscription, this.injectData, this.userOnData);
 
   final StreamSubscription<Uint8List> subscription;
 
@@ -186,74 +171,55 @@ class HttpDetachedStreamSubscription implements StreamSubscription<Uint8List> {
   }
 }
 
-class HttpDetachedIncoming extends Stream<Uint8List> {
-  HttpDetachedIncoming(this.subscription, this.bufferedData);
+class DetachedIncoming extends Stream<Uint8List> {
+  DetachedIncoming(this.subscription, this.bufferedData);
 
   final StreamSubscription<Uint8List>? subscription;
 
   final Uint8List? bufferedData;
 
   @override
-  StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+  StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData, //
+      {Function? onError,
+      void Function()? onDone,
+      bool? cancelOnError}) {
     var subscription = this.subscription;
 
-    if (subscription != null) {
+    if (subscription == null) {
+      // TODO(26379): add test for this branch.
+      return Stream<Uint8List>.value(bufferedData!).listen(onData, //
+          onError: onError,
+          onDone: onDone,
+          cancelOnError: cancelOnError);
+    } else {
       subscription
         ..onData(onData)
         ..onError(onError)
         ..onDone(onDone);
-
       if (bufferedData == null) {
-        subscription.resume();
-        return subscription;
+        return subscription..resume();
       }
 
-      var detachedSubscription = HttpDetachedStreamSubscription(subscription, bufferedData, onData);
-      detachedSubscription.resume();
-      return detachedSubscription;
-    } else {
-      return Stream<Uint8List>.value(bufferedData!)
-          .listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+      return DetachedStreamSubscription(subscription, bufferedData, onData)..resume();
     }
   }
 }
 
-/// HTTP parser which parses the data stream given to [consume].
-///
-/// If an HTTP parser error occurs, the parser will signal an error to either
-/// the current [Incoming] or the parser itself.
-///
-/// The connection upgrades (e.g. switching from HTTP/1.1 to the
-/// WebSocket protocol) is handled in a special way. If connection
-/// upgrade is specified in the headers, then on the callback to
-/// [:responseStart:] the [:upgrade:] property on the [:HttpParser:]
-/// object will be [:true:] indicating that from now on the protocol is
-/// not HTTP anymore and no more callbacks will happen, that is
-/// [:dataReceived:] and [:dataEnd:] are not called in this case as
-/// there is no more HTTP data. After the upgrade the method
-/// [:readUnparsedData:] can be used to read any remaining bytes in the
-/// HTTP parser which are part of the protocol the connection is
-/// upgrading to. These bytes cannot be processed by the HTTP parser
-/// and should be handled according to whatever protocol is being
-/// upgraded to.
 class Parser extends Stream<Incoming> {
-  // The limit for parsing chunk size
   static const int chunkSizeLimit = 0x7FFFFFFF;
 
-  // The limit for header total size
   static const int headerTotalSizeLimit = 1024 * 1024;
 
-  // State.
   bool parserCalled = false;
 
-  // The data that is currently being parsed.
   Uint8List? buffer;
   int index = -1;
 
+  // Whether a HTTP request is being parsed (as opposed to a response).
   int state = State.start;
   int? httpVersionIndex;
-  bool isRequestDetermined = false;
+  bool determined = false;
+
   List<int> methodBuffer = <int>[];
   List<int> uriBuffer = <int>[];
   List<int> headerFieldBuffer = <int>[];
@@ -266,19 +232,19 @@ class Parser extends Stream<Incoming> {
   bool connectionUpgrade = false;
   bool chunked = false;
 
+  bool noMessageBody = false;
   int remainingContent = -1;
   bool contentLength = false;
   bool transferEncoding = false;
   bool connectMethod = false;
 
-  Headers? headers;
+  NativeHeaders? headers;
 
   // The current incoming connection.
   Incoming? incoming;
   StreamSubscription<Uint8List>? socketSubscription;
   bool paused = true;
   bool bodyPaused = false;
-
   final StreamController<Incoming> controller;
   StreamController<Uint8List>? bodyController;
 
@@ -298,14 +264,18 @@ class Parser extends Stream<Incoming> {
       ..onCancel = () {
         socketSubscription?.cancel();
       };
-
     reset();
   }
 
   @override
-  StreamSubscription<Incoming> listen(void Function(Incoming event)? onData,
-      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  StreamSubscription<Incoming> listen(void Function(Incoming event)? onData, //
+      {Function? onError,
+      void Function()? onDone,
+      bool? cancelOnError}) {
+    return controller.stream.listen(onData, //
+        onError: onError,
+        onDone: onDone,
+        cancelOnError: cancelOnError);
   }
 
   void listenToStream(Stream<Uint8List> stream) {
@@ -314,7 +284,9 @@ class Parser extends Stream<Incoming> {
     // given to provide a way of controlling the parser.
     // TODO(ajohnsen): Remove _dataPause, _dataResume and _dataDone and clean up
     // how the _HttpIncoming signals the parser.
-    socketSubscription = stream.listen(onData, onError: controller.addError, onDone: onDone);
+    socketSubscription = stream.listen(onData, //
+        onError: controller.addError,
+        onDone: onDone);
   }
 
   void parse() {
@@ -336,8 +308,6 @@ class Parser extends Stream<Incoming> {
   // request or a request or response with an empty body.
   bool headersEnd() {
     var headers = this.headers!;
-    headers.mutable = false;
-
     transferLength = headers.contentLength;
 
     // Ignore the Content-Length header if Transfer-Encoding
@@ -349,7 +319,7 @@ class Parser extends Stream<Incoming> {
     // If a request message has neither Content-Length nor
     // Transfer-Encoding the message must not have a body (RFC
     // 2616 section 4.3).
-    if (isRequestDetermined && transferLength < 0 && chunked == false) {
+    if (determined && transferLength < 0 && chunked == false) {
       transferLength = 0;
     }
 
@@ -421,15 +391,17 @@ class Parser extends Stream<Incoming> {
       throw HttpException('Data on failed connection');
     }
 
-    while (this.buffer != null && index < this.buffer!.length && state != State.failure && state != State.upgraded) {
-      // Depending on this._incoming, we either break on _bodyPaused or _paused.
+    var buffer = this.buffer;
+
+    while (buffer != null && index < buffer.length && state != State.failure && state != State.upgraded) {
+      // Depending on this.incoming, we either break on bodyPaused or paused.
       if ((incoming != null && bodyPaused) || (incoming == null && paused)) {
         parserCalled = false;
         return;
       }
 
       var index = this.index;
-      var byte = this.buffer![index];
+      var byte = buffer[index];
       this.index = index + 1;
 
       switch (state) {
@@ -477,10 +449,10 @@ class Parser extends Stream<Incoming> {
         case State.httpVersion:
           var httpVersionIndex = this.httpVersionIndex!;
 
-          if (httpVersionIndex < Constants.http1dot.length) {
+          if (httpVersionIndex < Constants.http1Dot.length) {
             expect(byte, Constants.http11[httpVersionIndex]);
             this.httpVersionIndex = httpVersionIndex + 1;
-          } else if (this.httpVersionIndex == Constants.http1dot.length) {
+          } else if (this.httpVersionIndex == Constants.http1Dot.length) {
             if (byte == CharCodes.one) {
               // HTTP/1.1 parsed.
               httpVersion = HttpVersion.http11;
@@ -499,7 +471,7 @@ class Parser extends Stream<Incoming> {
               state = State.requestLineEnding;
             } else if (byte == CharCodes.lf) {
               state = State.requestLineEnding;
-              this.index = this.index - 1; // Make the new state see the LF again.
+              this.index = this.index - 1;
             }
           }
 
@@ -507,20 +479,19 @@ class Parser extends Stream<Incoming> {
 
         case State.requestLineEnding:
           expect(byte, CharCodes.lf);
-          isRequestDetermined = true;
+          determined = true;
           state = State.headerStart;
           break;
 
         case State.headerStart:
-          headers = Headers(version!);
+          headers = NativeHeaders(version!);
 
           if (byte == CharCodes.cr) {
             state = State.headerEnding;
           } else if (byte == CharCodes.lf) {
             state = State.headerEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            this.index = this.index - 1;
           } else {
-            // Start of new header field.
             addWithValidation(headerFieldBuffer, toLowerCaseByte(byte));
             state = State.headerField;
           }
@@ -578,7 +549,7 @@ class Parser extends Stream<Incoming> {
             var headerField = String.fromCharCodes(headerFieldBuffer);
             var headerValue = String.fromCharCodes(headerValueBuffer);
 
-            if (headerField == HttpHeaders.contentLengthHeader) {
+            if (headerField == AstraHeaders.contentLengthHeader) {
               // Content Length header should not have more than one occurrence
               // or coexist with Transfer Encoding header.
               if (contentLength) {
@@ -588,7 +559,7 @@ class Parser extends Stream<Incoming> {
               }
 
               contentLength = true;
-            } else if (headerField == HttpHeaders.transferEncodingHeader) {
+            } else if (headerField == AstraHeaders.transferEncodingHeader) {
               transferEncoding = true;
 
               if (caseInsensitiveCompare('chunked'.codeUnits, headerValueBuffer)) {
@@ -602,7 +573,7 @@ class Parser extends Stream<Incoming> {
 
             var headers = this.headers!;
 
-            if (headerField == HttpHeaders.connectionHeader) {
+            if (headerField == AstraHeaders.connectionHeader) {
               var tokens = tokenizeFieldValue(headerValue);
 
               for (var token in tokens) {
@@ -623,7 +594,7 @@ class Parser extends Stream<Incoming> {
               state = State.headerEnding;
             } else if (byte == CharCodes.lf) {
               state = State.headerEnding;
-              this.index = this.index - 1; // Make the new state see the LF again.
+              this.index = this.index - 1;
             } else {
               // Start of new header field.
               state = State.headerField;
@@ -645,7 +616,7 @@ class Parser extends Stream<Incoming> {
         case State.chunkSizeStartingCR:
           if (byte == CharCodes.lf) {
             state = State.chunkSizeStarting;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            this.index = this.index - 1;
             break;
           }
 
@@ -663,7 +634,7 @@ class Parser extends Stream<Incoming> {
             state = State.chunkSizeEnding;
           } else if (byte == CharCodes.lf) {
             state = State.chunkSizeEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            this.index = this.index - 1;
           } else if (byte == CharCodes.semiColon) {
             state = State.chunkSizeExtension;
           } else {
@@ -684,7 +655,7 @@ class Parser extends Stream<Incoming> {
             state = State.chunkSizeEnding;
           } else if (byte == CharCodes.lf) {
             state = State.chunkSizeEnding;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            this.index = this.index - 1;
           }
 
           break;
@@ -695,22 +666,22 @@ class Parser extends Stream<Incoming> {
           if (remainingContent > 0) {
             state = State.body;
           } else {
-            state = State.chunkBodyDoneCR;
+            state = State.chunkedBodyDoneCR;
           }
 
           break;
 
-        case State.chunkBodyDoneCR:
+        case State.chunkedBodyDoneCR:
           if (byte == CharCodes.lf) {
-            state = State.chunkBodyDone;
-            this.index = this.index - 1; // Make the new state see the LF again.
+            state = State.chunkedBodyDone;
+            this.index = this.index - 1;
             break;
           }
 
           expect(byte, CharCodes.cr);
           break;
 
-        case State.chunkBodyDone:
+        case State.chunkedBodyDone:
           expect(byte, CharCodes.lf);
           reset();
           closeIncoming();
@@ -763,8 +734,6 @@ class Parser extends Stream<Incoming> {
     }
 
     parserCalled = false;
-
-    var buffer = this.buffer;
 
     if (buffer != null && index == buffer.length) {
       // If all data is parsed release the buffer and resume receiving
@@ -846,14 +815,12 @@ class Parser extends Stream<Incoming> {
     return null;
   }
 
-  bool get upgrade {
-    return connectionUpgrade && state == State.upgraded;
-  }
+  bool get upgrade => connectionUpgrade && state == State.upgraded;
 
-  HttpDetachedIncoming detachIncoming() {
+  DetachedIncoming detachIncoming() {
     // Simulate detached by marking as upgraded.
     state = State.upgraded;
-    return HttpDetachedIncoming(socketSubscription, readUnparsedData());
+    return DetachedIncoming(socketSubscription, readUnparsedData());
   }
 
   Uint8List? readUnparsedData() {
@@ -880,7 +847,7 @@ class Parser extends Stream<Incoming> {
     }
 
     state = State.start;
-    isRequestDetermined = false;
+    determined = false;
     headerFieldBuffer.clear();
     headerValueBuffer.clear();
     headersReceivedSize = 0;
@@ -893,6 +860,7 @@ class Parser extends Stream<Incoming> {
     connectionUpgrade = false;
     chunked = false;
 
+    noMessageBody = false;
     remainingContent = -1;
 
     contentLength = false;
@@ -906,9 +874,9 @@ class Parser extends Stream<Incoming> {
     index = -1;
   }
 
-  void expect(int value, int expected) {
-    if (value != expected) {
-      throw HttpException('Failed to parse HTTP, $value does not match $expected');
+  void expect(int got, int expectged) {
+    if (got != expectged) {
+      throw HttpException('Failed to parse HTTP, $got does not match $expectged');
     }
   }
 
@@ -930,7 +898,6 @@ class Parser extends Stream<Incoming> {
 
   void addWithValidation(List<int> list, int byte) {
     headersReceivedSize += 1;
-
     if (headersReceivedSize < headerTotalSizeLimit) {
       list.add(byte);
     } else {
@@ -975,6 +942,7 @@ class Parser extends Stream<Incoming> {
 
     var controller = bodyController = StreamController<Uint8List>(sync: true);
     var incoming = this.incoming = Incoming(headers!, transferLength, controller.stream);
+
     controller
       ..onListen = () {
         if (incoming != this.incoming) {
@@ -1020,14 +988,14 @@ class Parser extends Stream<Incoming> {
 
   void closeIncoming([bool closing = false]) {
     // Ignore multiple close (can happen in re-entrance).
-    var tmp = incoming;
+    var incoming = this.incoming;
 
-    if (tmp == null) {
+    if (incoming == null) {
       return;
     }
 
-    tmp.close(closing);
-    incoming = null;
+    incoming.close(closing);
+    this.incoming = null;
 
     var controller = bodyController;
 
@@ -1055,16 +1023,20 @@ class Parser extends Stream<Incoming> {
   void reportHttpError(Object error, [StackTrace? stackTrace]) {
     socketSubscription?.cancel();
     state = State.failure;
-    controller.addError(error, stackTrace);
-    controller.close();
+
+    controller
+      ..addError(error, stackTrace)
+      ..close();
   }
 
   void reportBodyError(Object error, [StackTrace? stackTrace]) {
     socketSubscription?.cancel();
     state = State.failure;
-    bodyController?.addError(error, stackTrace);
+
     // In case of drain(), error event will close the stream.
-    bodyController?.close();
+    bodyController
+      ?..addError(error, stackTrace)
+      ..close();
   }
 
   static bool isTokenChar(int byte) {
@@ -1072,12 +1044,13 @@ class Parser extends Stream<Incoming> {
   }
 
   static bool isValueChar(int byte) {
-    return byte > 31 && byte < 128 || byte == CharCodes.ht;
+    return (byte > 31 && byte < 128) || (byte == CharCodes.ht);
   }
 
   static List<String> tokenizeFieldValue(String headerValue) {
     var tokens = <String>[];
-    var start = 0, index = 0;
+    var start = 0;
+    var index = 0;
 
     while (index < headerValue.length) {
       if (headerValue[index] == ',') {
@@ -1097,10 +1070,10 @@ class Parser extends Stream<Incoming> {
   static int toLowerCaseByte(int x) {
     // Optimized version:
     //  -  0x41 is 'A'
-    //  -  0x7F is ASCII mask
+    //  -  0x7f is ASCII mask
     //  -  26 is the number of alpha characters.
     //  -  0x20 is the delta between lower and upper chars.
-    return ((x - 0x41) & 0x7F) < 26 ? (x | 0x20) : x;
+    return (((x - 0x41) & 0x7f) < 26) ? (x | 0x20) : x;
   }
 
   // expected should already be lowercase.
