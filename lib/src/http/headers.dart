@@ -1,171 +1,117 @@
 part of '../../http.dart';
 
-final _digitsValidator = RegExp(r'^\d+$');
+final digitsValidator = RegExp(r'^\d+$');
 
-class NativeHeaders implements AstraHeaders {
-  final Map<String, List<String>> _headers;
-  // The original header names keyed by the lowercase header names.
-  Map<String, String>? _originalHeaderNames;
+class Headers extends MapBase<String, List<String>> {
+  Headers(this.protocolVersion) : headers = HashMap<String, List<String>>() {
+    if (protocolVersion == '1.0') {
+      persistent = false;
+      chunked = false;
+    }
+  }
+
   final String protocolVersion;
 
-  bool _mutable = true; // Are the headers currently mutable?
-  List<String>? _noFoldingHeaders;
+  final Map<String, List<String>> headers;
+
+  List<String>? noFoldingHeaders;
 
   int _contentLength = -1;
-  bool _persistentConnection = true;
-  bool _chunkedTransferEncoding = false;
+
+  bool persistent = true;
+
+  bool chunked = false;
+
   String? _host;
+
   int? _port;
 
-  final int _defaultPortForScheme;
-
-  NativeHeaders(this.protocolVersion, {int defaultPortForScheme = 80, NativeHeaders? initialHeaders})
-      : _headers = HashMap<String, List<String>>(),
-        _defaultPortForScheme = defaultPortForScheme {
-    if (initialHeaders != null) {
-      initialHeaders._headers.forEach((name, value) => _headers[name] = value);
-      _contentLength = initialHeaders._contentLength;
-      _persistentConnection = initialHeaders._persistentConnection;
-      _chunkedTransferEncoding = initialHeaders._chunkedTransferEncoding;
-      _host = initialHeaders._host;
-      _port = initialHeaders._port;
-    }
-    if (protocolVersion == '1.0') {
-      _persistentConnection = false;
-      _chunkedTransferEncoding = false;
-    }
+  @override
+  List<String>? operator [](Object? key) {
+    return headers[key];
   }
 
-  @override
-  List<String>? operator [](String name) => _headers[_validateField(name)];
-
-  @override
-  String? value(String name) {
-    name = _validateField(name);
-    List<String>? values = _headers[name];
-    if (values == null) return null;
-    assert(values.isNotEmpty);
-    if (values.length > 1) {
-      throw HttpException('More than one value for header $name');
-    }
-    return values[0];
+  void addValue(String name, String value) {
+    _add(name, value);
   }
 
-  @override
-  void add(String name, value, {bool preserveHeaderCase = false}) {
-    _checkMutable();
-    String lowercaseName = _validateField(name);
-
-    if (preserveHeaderCase && name != lowercaseName) {
-      (_originalHeaderNames ??= {})[lowercaseName] = name;
-    } else {
-      _originalHeaderNames?.remove(lowercaseName);
-    }
-    _addAll(lowercaseName, value);
-  }
-
-  void _addAll(String name, Object value) {
-    if (value is Iterable<Object>) {
-      for (var v in value) {
-        _add(name, _validateValue(v));
-      }
-    } else {
-      _add(name, _validateValue(value));
-    }
-  }
-
-  @override
-  void set(String name, Object value, {bool preserveHeaderCase = false}) {
-    _checkMutable();
-    String lowercaseName = _validateField(name);
-    _headers.remove(lowercaseName);
-    _originalHeaderNames?.remove(lowercaseName);
-    if (lowercaseName == AstraHeaders.contentLengthHeader) {
+  void setValue(String name, String value) {
+    if (name == HttpHeaders.contentLengthHeader) {
       _contentLength = -1;
     }
-    if (lowercaseName == AstraHeaders.transferEncodingHeader) {
-      _chunkedTransferEncoding = false;
+
+    if (name == HttpHeaders.transferEncodingHeader) {
+      chunked = false;
     }
-    if (preserveHeaderCase && name != lowercaseName) {
-      (_originalHeaderNames ??= {})[lowercaseName] = name;
-    }
-    _addAll(lowercaseName, value);
+
+    _add(name, value);
   }
 
-  @override
-  void remove(String name, Object value) {
-    _checkMutable();
-    name = _validateField(name);
-    value = _validateValue(value);
-    List<String>? values = _headers[name];
+  void removeValue(String name, Object value) {
+    var values = headers[name];
+
     if (values != null) {
       values.remove(_valueToString(value));
+
       if (values.isEmpty) {
-        _headers.remove(name);
-        _originalHeaderNames?.remove(name);
+        headers.remove(name);
       }
     }
-    if (name == AstraHeaders.transferEncodingHeader && value == 'chunked') {
-      _chunkedTransferEncoding = false;
-    }
-  }
 
-  @override
-  void removeAll(String name) {
-    _checkMutable();
-    name = _validateField(name);
-    _headers.remove(name);
-    _originalHeaderNames?.remove(name);
+    if (name == HttpHeaders.transferEncodingHeader && value == 'chunked') {
+      chunked = false;
+    }
   }
 
   @override
   void forEach(void Function(String name, List<String> values) action) {
-    _headers.forEach((String name, List<String> values) {
-      String originalName = _originalHeaderName(name);
-      action(originalName, values);
-    });
+    void forEach(String name, List<String> values) {
+      action(name, values);
+    }
+
+    headers.forEach(forEach);
   }
 
-  @override
   void noFolding(String name) {
-    name = _validateField(name);
-    (_noFoldingHeaders ??= <String>[]).add(name);
+    var values = noFoldingHeaders ??= <String>[];
+    values.add(name);
   }
 
-  @override
-  bool get persistentConnection => _persistentConnection;
+  bool get persistentConnection {
+    return persistent;
+  }
 
-  @override
-  void set persistentConnection(bool persistentConnection) {
-    _checkMutable();
-    if (persistentConnection == _persistentConnection) return;
-    final originalName = _originalHeaderName(AstraHeaders.connectionHeader);
+  set persistentConnection(bool persistentConnection) {
+    if (persistentConnection == persistent) {
+      return;
+    }
+
     if (persistentConnection) {
       if (protocolVersion == '1.1') {
-        remove(AstraHeaders.connectionHeader, 'close');
+        removeValue(HttpHeaders.connectionHeader, 'close');
       } else {
         if (_contentLength < 0) {
-          throw HttpException("Trying to set 'Connection: Keep-Alive' on HTTP 1.0 headers with "
-              'no ContentLength');
+          throw HttpException('Trying to set \'Connection: Keep-Alive\' on HTTP 1.0 headers with no ContentLength');
         }
-        add(originalName, 'keep-alive', preserveHeaderCase: true);
+
+        addValue(HttpHeaders.connectionHeader, 'keep-alive');
       }
     } else {
       if (protocolVersion == '1.1') {
-        add(originalName, 'close', preserveHeaderCase: true);
+        addValue(HttpHeaders.connectionHeader, 'close');
       } else {
-        remove(AstraHeaders.connectionHeader, 'keep-alive');
+        removeValue(HttpHeaders.connectionHeader, 'keep-alive');
       }
     }
-    _persistentConnection = persistentConnection;
+
+    persistent = persistentConnection;
   }
 
-  @override
-  int get contentLength => _contentLength;
+  int get contentLength {
+    return _contentLength;
+  }
 
-  @override
-  void set contentLength(int contentLength) {
-    _checkMutable();
+  set contentLength(int contentLength) {
     if (protocolVersion == '1.0' && persistentConnection && contentLength == -1) {
       throw HttpException('Trying to clear ContentLength on HTTP 1.0 headers with '
           "'Connection: Keep-Alive' set");
@@ -174,9 +120,9 @@ class NativeHeaders implements AstraHeaders {
     _contentLength = contentLength;
     if (_contentLength >= 0) {
       if (chunkedTransferEncoding) chunkedTransferEncoding = false;
-      _set(AstraHeaders.contentLengthHeader, contentLength.toString());
+      _set(HttpHeaders.contentLengthHeader, contentLength.toString());
     } else {
-      _headers.remove(AstraHeaders.contentLengthHeader);
+      headers.remove(HttpHeaders.contentLengthHeader);
       if (protocolVersion == '1.1') {
         chunkedTransferEncoding = true;
       }
@@ -184,35 +130,33 @@ class NativeHeaders implements AstraHeaders {
   }
 
   @override
-  bool get chunkedTransferEncoding => _chunkedTransferEncoding;
+  bool get chunkedTransferEncoding => chunked;
 
   @override
-  void set chunkedTransferEncoding(bool chunkedTransferEncoding) {
-    _checkMutable();
+  set chunkedTransferEncoding(bool chunkedTransferEncoding) {
     if (chunkedTransferEncoding && protocolVersion == '1.0') {
       throw HttpException("Trying to set 'Transfer-Encoding: Chunked' on HTTP 1.0 headers");
     }
-    if (chunkedTransferEncoding == _chunkedTransferEncoding) return;
+    if (chunkedTransferEncoding == chunked) return;
     if (chunkedTransferEncoding) {
-      List<String>? values = _headers[AstraHeaders.transferEncodingHeader];
+      List<String>? values = headers[HttpHeaders.transferEncodingHeader];
       if (values == null || !values.contains('chunked')) {
         // Headers does not specify chunked encoding - add it if set.
-        _addValue(AstraHeaders.transferEncodingHeader, 'chunked');
+        _addValue(HttpHeaders.transferEncodingHeader, 'chunked');
       }
       contentLength = -1;
     } else {
       // Headers does specify chunked encoding - remove it if not set.
-      remove(AstraHeaders.transferEncodingHeader, 'chunked');
+      remove(HttpHeaders.transferEncodingHeader, 'chunked');
     }
-    _chunkedTransferEncoding = chunkedTransferEncoding;
+    chunked = chunkedTransferEncoding;
   }
 
   @override
   String? get host => _host;
 
   @override
-  void set host(String? host) {
-    _checkMutable();
+  set host(String? host) {
     _host = host;
     _updateHostHeader();
   }
@@ -221,15 +165,14 @@ class NativeHeaders implements AstraHeaders {
   int? get port => _port;
 
   @override
-  void set port(int? port) {
-    _checkMutable();
+  set port(int? port) {
     _port = port;
     _updateHostHeader();
   }
 
   @override
   DateTime? get ifModifiedSince {
-    List<String>? values = _headers[AstraHeaders.ifModifiedSinceHeader];
+    List<String>? values = headers[HttpHeaders.ifModifiedSinceHeader];
     if (values != null) {
       assert(values.isNotEmpty);
       try {
@@ -242,20 +185,19 @@ class NativeHeaders implements AstraHeaders {
   }
 
   @override
-  void set ifModifiedSince(DateTime? ifModifiedSince) {
-    _checkMutable();
+  set ifModifiedSince(DateTime? ifModifiedSince) {
     if (ifModifiedSince == null) {
-      _headers.remove(AstraHeaders.ifModifiedSinceHeader);
+      headers.remove(HttpHeaders.ifModifiedSinceHeader);
     } else {
       // Format "ifModifiedSince" header with date in Greenwich Mean Time (GMT).
       String formatted = HttpDate.format(ifModifiedSince.toUtc());
-      _set(AstraHeaders.ifModifiedSinceHeader, formatted);
+      _set(HttpHeaders.ifModifiedSinceHeader, formatted);
     }
   }
 
   @override
   DateTime? get date {
-    List<String>? values = _headers[AstraHeaders.dateHeader];
+    List<String>? values = headers[HttpHeaders.dateHeader];
     if (values != null) {
       assert(values.isNotEmpty);
       try {
@@ -268,20 +210,18 @@ class NativeHeaders implements AstraHeaders {
   }
 
   @override
-  void set date(DateTime? date) {
-    _checkMutable();
+  set date(DateTime? date) {
     if (date == null) {
-      _headers.remove(AstraHeaders.dateHeader);
+      headers.remove(HttpHeaders.dateHeader);
     } else {
       // Format "DateTime" header with date in Greenwich Mean Time (GMT).
       String formatted = HttpDate.format(date.toUtc());
-      _set(AstraHeaders.dateHeader, formatted);
+      _set(HttpHeaders.dateHeader, formatted);
     }
   }
 
-  @override
   DateTime? get expires {
-    List<String>? values = _headers[AstraHeaders.expiresHeader];
+    List<String>? values = headers[HttpHeaders.expiresHeader];
     if (values != null) {
       assert(values.isNotEmpty);
       try {
@@ -293,95 +233,90 @@ class NativeHeaders implements AstraHeaders {
     return null;
   }
 
-  @override
-  void set expires(DateTime? expires) {
-    _checkMutable();
+  set expires(DateTime? expires) {
     if (expires == null) {
-      _headers.remove(AstraHeaders.expiresHeader);
+      headers.remove(HttpHeaders.expiresHeader);
     } else {
       // Format "Expires" header with date in Greenwich Mean Time (GMT).
       String formatted = HttpDate.format(expires.toUtc());
-      _set(AstraHeaders.expiresHeader, formatted);
+      _set(HttpHeaders.expiresHeader, formatted);
     }
   }
 
-  @override
-  ContentType? get contentType {
-    var values = _headers[AstraHeaders.contentTypeHeader];
-    if (values != null) {
-      return ContentType.parse(values[0]);
-    } else {
+  String? get contentType {
+    var values = this[HttpHeaders.contentTypeHeader];
+
+    if (values == null) {
       return null;
     }
+
+    return values.join();
   }
 
-  @override
-  void set contentType(ContentType? contentType) {
-    _checkMutable();
+  set contentType(String? contentType) {
     if (contentType == null) {
-      _headers.remove(AstraHeaders.contentTypeHeader);
+      headers.remove(HttpHeaders.contentTypeHeader);
     } else {
-      _set(AstraHeaders.contentTypeHeader, contentType.toString());
+      _set(HttpHeaders.contentTypeHeader, contentType);
     }
   }
 
   @override
   void clear() {
-    _checkMutable();
-    _headers.clear();
+    headers.clear();
     _contentLength = -1;
-    _persistentConnection = true;
-    _chunkedTransferEncoding = false;
+    persistent = true;
+    chunked = false;
     _host = null;
     _port = null;
   }
 
   // [name] must be a lower-case version of the name.
-  void _add(String name, Object value) {
-    assert(name == _validateField(name));
+  void _add(String name, value) {
+    assert(name == validateField(name));
     // Use the length as index on what method to call. This is notable
     // faster than computing hash and looking up in a hash-map.
     switch (name.length) {
       case 4:
-        if (AstraHeaders.dateHeader == name) {
+        if (HttpHeaders.dateHeader == name) {
           _addDate(name, value);
           return;
         }
-        if (AstraHeaders.hostHeader == name) {
+        if (HttpHeaders.hostHeader == name) {
           _addHost(name, value);
           return;
         }
         break;
       case 7:
-        if (AstraHeaders.expiresHeader == name) {
+        if (HttpHeaders.expiresHeader == name) {
           _addExpires(name, value);
           return;
         }
         break;
       case 10:
-        if (AstraHeaders.connectionHeader == name) {
-          _addConnection(name, value as String);
+        if (HttpHeaders.connectionHeader == name) {
+          _addConnection(name, value);
           return;
         }
         break;
       case 12:
-        if (AstraHeaders.contentTypeHeader == name) {
-          _addContentType(name, value as String);
+        if (HttpHeaders.contentTypeHeader == name) {
+          _addContentType(name, value);
           return;
         }
         break;
       case 14:
-        if (AstraHeaders.contentLengthHeader == name) {
+        if (HttpHeaders.contentLengthHeader == name) {
           _addContentLength(name, value);
           return;
         }
         break;
       case 17:
-        if (AstraHeaders.transferEncodingHeader == name) {
+        if (HttpHeaders.transferEncodingHeader == name) {
           _addTransferEncoding(name, value);
           return;
         }
-        if (AstraHeaders.ifModifiedSinceHeader == name) {
+        if (HttpHeaders.ifModifiedSinceHeader == name) {
           _addIfModifiedSince(name, value);
           return;
         }
@@ -395,7 +330,7 @@ class NativeHeaders implements AstraHeaders {
         throw HttpException('Content-Length must contain only digits');
       }
     } else if (value is String) {
-      if (!_digitsValidator.hasMatch(value)) {
+      if (!digitsValidator.hasMatch(value)) {
         throw HttpException('Content-Length must contain only digits');
       }
       value = int.parse(value);
@@ -405,45 +340,45 @@ class NativeHeaders implements AstraHeaders {
     contentLength = value;
   }
 
-  void _addTransferEncoding(String name, Object value) {
+  void _addTransferEncoding(String name, value) {
     if (value == 'chunked') {
       chunkedTransferEncoding = true;
     } else {
-      _addValue(AstraHeaders.transferEncodingHeader, value);
+      _addValue(HttpHeaders.transferEncodingHeader, value);
     }
   }
 
-  void _addDate(String name, Object value) {
+  void _addDate(String name, value) {
     if (value is DateTime) {
       date = value;
     } else if (value is String) {
-      _set(AstraHeaders.dateHeader, value);
+      _set(HttpHeaders.dateHeader, value);
     } else {
       throw HttpException('Unexpected type for header named $name');
     }
   }
 
-  void _addExpires(String name, Object value) {
+  void _addExpires(String name, value) {
     if (value is DateTime) {
       expires = value;
     } else if (value is String) {
-      _set(AstraHeaders.expiresHeader, value);
+      _set(HttpHeaders.expiresHeader, value);
     } else {
       throw HttpException('Unexpected type for header named $name');
     }
   }
 
-  void _addIfModifiedSince(String name, Object value) {
+  void _addIfModifiedSince(String name, value) {
     if (value is DateTime) {
       ifModifiedSince = value;
     } else if (value is String) {
-      _set(AstraHeaders.ifModifiedSinceHeader, value);
+      _set(HttpHeaders.ifModifiedSinceHeader, value);
     } else {
       throw HttpException('Unexpected type for header named $name');
     }
   }
 
-  void _addHost(String name, Object value) {
+  void _addHost(String name, value) {
     if (value is String) {
       // value.indexOf will only work for ipv4, ipv6 which has multiple : in its
       // host part needs lastIndexOf
@@ -453,7 +388,7 @@ class NativeHeaders implements AstraHeaders {
       // https://serverfault.com/questions/205793/how-can-one-distinguish-the-host-and-the-port-in-an-ipv6-url
       if (pos == -1 || value.startsWith('[') && value.endsWith(']')) {
         _host = value;
-        _port = 80;
+        _port = HttpClient.defaultHttpPort;
       } else {
         if (pos > 0) {
           _host = value.substring(0, pos);
@@ -461,7 +396,7 @@ class NativeHeaders implements AstraHeaders {
           _host = null;
         }
         if (pos + 1 == value.length) {
-          _port = 80;
+          _port = HttpClient.defaultHttpPort;
         } else {
           try {
             _port = int.parse(value.substring(pos + 1));
@@ -470,8 +405,7 @@ class NativeHeaders implements AstraHeaders {
           }
         }
       }
-
-      _set(AstraHeaders.hostHeader, value);
+      _set(HttpHeaders.hostHeader, value);
     } else {
       throw HttpException('Unexpected type for header named $name');
     }
@@ -480,41 +414,35 @@ class NativeHeaders implements AstraHeaders {
   void _addConnection(String name, String value) {
     var lowerCaseValue = value.toLowerCase();
     if (lowerCaseValue == 'close') {
-      _persistentConnection = false;
+      persistent = false;
     } else if (lowerCaseValue == 'keep-alive') {
-      _persistentConnection = true;
+      persistent = true;
     }
     _addValue(name, value);
   }
 
-  void _addContentType(String name, String value) {
-    _set(AstraHeaders.contentTypeHeader, value);
+  void _addContentType(String name, value) {
+    _set(HttpHeaders.contentTypeHeader, value);
   }
 
   void _addValue(String name, Object value) {
-    var values = (_headers[name] ??= <String>[]);
+    List<String> values = (headers[name] ??= <String>[]);
     values.add(_valueToString(value));
   }
 
   String _valueToString(Object value) {
     if (value is DateTime) {
       return HttpDate.format(value);
-    }
-
-    if (value is String) {
+    } else if (value is String) {
       return value; // TODO(39784): no _validateValue?
+    } else {
+      return validateValue(value.toString()) as String;
     }
-
-    return _validateValue(value.toString()) as String;
   }
 
   void _set(String name, String value) {
-    assert(name == _validateField(name));
-    _headers[name] = <String>[value];
-  }
-
-  void _checkMutable() {
-    if (!_mutable) throw HttpException('HTTP headers are not mutable');
+    assert(name == validateField(name));
+    headers[name] = <String>[value];
   }
 
   void _updateHostHeader() {
@@ -526,8 +454,8 @@ class NativeHeaders implements AstraHeaders {
   }
 
   bool _foldHeader(String name) {
-    if (name == AstraHeaders.setCookieHeader) return false;
-    var noFoldingHeaders = _noFoldingHeaders;
+    if (name == HttpHeaders.setCookieHeader) return false;
+    var noFoldingHeaders = this.noFoldingHeaders;
     return noFoldingHeaders == null || !noFoldingHeaders.contains(name);
   }
 
@@ -541,42 +469,42 @@ class NativeHeaders implements AstraHeaders {
     // Content-Length header field when the request message does not
     // contain a payload body and the method semantics do not anticipate
     // such a body.
-    String? ignoreHeader = _contentLength == 0 && skipZeroContentLength ? AstraHeaders.contentLengthHeader : null;
-    _headers.forEach((String name, List<String> values) {
+    String? ignoreHeader = _contentLength == 0 && skipZeroContentLength ? HttpHeaders.contentLengthHeader : null;
+    headers.forEach((String name, List<String> values) {
       if (ignoreHeader == name) {
         return;
       }
-      String originalName = _originalHeaderName(name);
+      String originalName = originalHeaderName(name);
       bool fold = _foldHeader(name);
       var nameData = originalName.codeUnits;
       builder.add(nameData);
-      builder.addByte(CharCodes.colon);
-      builder.addByte(CharCodes.sp);
+      builder.addByte(_CharCode.COLON);
+      builder.addByte(_CharCode.SP);
       for (int i = 0; i < values.length; i++) {
         if (i > 0) {
           if (fold) {
-            builder.addByte(CharCodes.comma);
-            builder.addByte(CharCodes.sp);
+            builder.addByte(_CharCode.COMMA);
+            builder.addByte(_CharCode.SP);
           } else {
-            builder.addByte(CharCodes.cr);
-            builder.addByte(CharCodes.lf);
+            builder.addByte(_CharCode.CR);
+            builder.addByte(_CharCode.LF);
             builder.add(nameData);
-            builder.addByte(CharCodes.colon);
-            builder.addByte(CharCodes.sp);
+            builder.addByte(_CharCode.COLON);
+            builder.addByte(_CharCode.SP);
           }
         }
         builder.add(values[i].codeUnits);
       }
-      builder.addByte(CharCodes.cr);
-      builder.addByte(CharCodes.lf);
+      builder.addByte(_CharCode.CR);
+      builder.addByte(_CharCode.LF);
     });
   }
 
   @override
   String toString() {
     StringBuffer sb = StringBuffer();
-    _headers.forEach((String name, List<String> values) {
-      String originalName = _originalHeaderName(name);
+    headers.forEach((String name, List<String> values) {
+      String originalName = originalHeaderName(name);
       sb
         ..write(originalName)
         ..write(': ');
@@ -599,26 +527,87 @@ class NativeHeaders implements AstraHeaders {
     return sb.toString();
   }
 
-  static String _validateField(String field) {
-    for (var i = 0; i < field.length; i++) {
-      if (!Parser.isTokenChar(field.codeUnitAt(i))) {
-        throw FormatException('Invalid HTTP header field name: ${json.encode(field)}', field, i);
+  List<Cookie> _parseCookies() {
+    // Parse a Cookie header value according to the rules in RFC 6265.
+    var cookies = <Cookie>[];
+    void parseCookieString(String s) {
+      int index = 0;
+
+      bool done() => index == -1 || index == s.length;
+
+      void skipWS() {
+        while (!done()) {
+          if (s[index] != ' ' && s[index] != '\t') return;
+          index++;
+        }
+      }
+
+      String parseName() {
+        int start = index;
+        while (!done()) {
+          if (s[index] == ' ' || s[index] == '\t' || s[index] == '=') break;
+          index++;
+        }
+        return s.substring(start, index);
+      }
+
+      String parseValue() {
+        int start = index;
+        while (!done()) {
+          if (s[index] == ' ' || s[index] == '\t' || s[index] == ';') break;
+          index++;
+        }
+        return s.substring(start, index);
+      }
+
+      bool expect(String expected) {
+        if (done()) return false;
+        if (s[index] != expected) return false;
+        index++;
+        return true;
+      }
+
+      while (!done()) {
+        skipWS();
+        if (done()) return;
+        String name = parseName();
+        skipWS();
+        if (!expect('=')) {
+          index = s.indexOf(';', index);
+          continue;
+        }
+        skipWS();
+        String value = parseValue();
+        try {
+          cookies.add(_Cookie(name, value));
+        } catch (_) {
+          // Skip it, invalid cookie data.
+        }
+        skipWS();
+        if (done()) return;
+        if (!expect(';')) {
+          index = s.indexOf(';', index);
+          continue;
+        }
       }
     }
-    return field.toLowerCase();
-  }
 
-  static Object _validateValue(Object value) {
-    if (value is! String) return value;
-    for (var i = 0; i < (value).length; i++) {
-      if (!Parser.isValueChar((value).codeUnitAt(i))) {
-        throw FormatException('Invalid HTTP header field value: ${json.encode(value)}', value, i);
+    List<String>? values = headers[HttpHeaders.cookieHeader];
+    if (values != null) {
+      for (var headerValue in values) {
+        parseCookieString(headerValue);
       }
     }
-    return value;
+    return cookies;
   }
 
-  String _originalHeaderName(String name) {
-    return _originalHeaderNames?[name] ?? name;
+  String originalHeaderName(String name) {
+    var originalHeaderNames = this.originalHeaderNames;
+
+    if (originalHeaderNames == null) {
+      return name;
+    }
+
+    return originalHeaderNames[name] ?? name;
   }
 }
