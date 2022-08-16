@@ -9,6 +9,9 @@ import 'package:astra/src/isolate/isolate.dart';
 import 'package:astra/src/serve/h11.dart';
 import 'package:logging/logging.dart';
 
+export 'package:astra/src/serve/h11.dart';
+export 'package:astra/src/serve/utils.dart';
+
 extension ServeHandlerExtension on Handler {
   // TODO: add options: concurency, debug, ...
   // TODO: h1*, h2, h3, ..., websocket

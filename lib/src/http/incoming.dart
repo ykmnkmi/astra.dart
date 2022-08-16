@@ -13,7 +13,7 @@ class Incoming extends Stream<Uint8List> {
 
   final Stream<Uint8List> stream;
 
-  final Completer<bool> _dataCompleter = Completer<bool>();
+  final Completer<bool> dataCompleter = Completer<bool>();
 
   bool fullBodyRead = false;
 
@@ -26,13 +26,13 @@ class Incoming extends Stream<Uint8List> {
   Uri? uri;
 
   Future<bool> get dataDone {
-    return _dataCompleter.future;
+    return dataCompleter.future;
   }
 
   void close(bool closing) {
     fullBodyRead = true;
     hasSubscriber = true;
-    _dataCompleter.complete(closing);
+    dataCompleter.complete(closing);
   }
 
   @override

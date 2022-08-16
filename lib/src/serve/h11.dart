@@ -85,6 +85,7 @@ class H11Server implements Server {
   }
 }
 
+// No async/await here
 extension on FutureOr<Response?> Function(Request) {
   StreamSubscription<HttpRequest> handleRequests(Stream<HttpRequest> requests, [Logger? logger]) {
     void onRequest(HttpRequest request) {
