@@ -1,23 +1,54 @@
 part of '../../http.dart';
 
-class Incoming {
-  Incoming(Headers headers, int transferLength, Stream<Uint8List> body) {
-    throw UnimplementedError();
-  }
+class Incoming extends Stream<Uint8List> {
+  Incoming(this.headers, this.transferLength, this.stream);
 
-  set upgraded(bool upgraded) {
-    throw UnimplementedError();
-  }
+  final Headers headers;
 
-  set uri(Uri uri) {
-    throw UnimplementedError();
-  }
+  // The transfer length if the length of the message body as it
+  // appears in the message (RFC 2616 section 4.4). This can be -1 if
+  // the length of the massage body is not known due to transfer
+  // codings.
+  final int transferLength;
 
-  set method(String method) {
-    throw UnimplementedError();
+  final Stream<Uint8List> stream;
+
+  final Completer<bool> _dataCompleter = Completer<bool>();
+
+  bool fullBodyRead = false;
+
+  bool upgraded = false;
+
+  bool hasSubscriber = false;
+
+  String? method;
+
+  Uri? uri;
+
+  Future<bool> get dataDone {
+    return _dataCompleter.future;
   }
 
   void close(bool closing) {
-    throw UnimplementedError();
+    fullBodyRead = true;
+    hasSubscriber = true;
+    _dataCompleter.complete(closing);
+  }
+
+  @override
+  StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData, //
+      {Function? onError,
+      void Function()? onDone,
+      bool? cancelOnError}) {
+    hasSubscriber = true;
+
+    void onError(dynamic error) {
+      throw HttpException(error.message as String, uri: uri);
+    }
+
+    return stream.handleError(onError).listen(onData, //
+        onError: onError,
+        onDone: onDone,
+        cancelOnError: cancelOnError);
   }
 }

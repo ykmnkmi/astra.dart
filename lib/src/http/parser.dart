@@ -586,20 +586,19 @@ class Parser extends Stream<Incoming> {
             }
 
             var headers = this.headers!;
-            var values = headers[field] ??= <String>[];
 
             if (field == HttpHeaders.connectionHeader) {
               var tokens = tokenizeFieldValue(value);
 
               for (var token in tokens) {
-                if ((caseInsensitiveCompare('upgrade'.codeUnits, token.codeUnits))) {
+                if (caseInsensitiveCompare('upgrade'.codeUnits, token.codeUnits)) {
                   connectionUpgrade = true;
                 }
 
-                values.add(token);
+                headers.add(field, token);
               }
             } else {
-              values.add(value);
+              headers.add(field, value);
             }
 
             headerFieldBuffer.clear();
