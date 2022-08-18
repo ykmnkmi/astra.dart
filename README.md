@@ -18,11 +18,12 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
 - ...
 
 ### Experimenting
-- Shelf Request/Response based HttpServer alternative:
-  - dart:io Socket 🤔
+- Shelf Request/Response based HttpServer alternatives:
+  - dart:io Socket (without HttpRequest/HttpResponse) 🤔
+  - dart:ffi and Rust/C++ web server adapter
   - ...
 - HTTP/2
-- Hot-Reload `build_runner` integration
+- Hot-Reload and `build_runner` integration
 
 ## Quickstart
 

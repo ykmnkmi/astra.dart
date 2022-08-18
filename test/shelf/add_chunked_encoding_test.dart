@@ -8,57 +8,62 @@ import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
 import 'package:test/test.dart';
 
+FutureOr<Response> chunkResponse(int statusCode, [Object? body, Map<String, Object>? headers]) {
+  Response innerHandler(Request request) {
+    return Response(statusCode, body: body, headers: headers);
+  }
+
+  var handler = addChunkedEncoding(innerHandler);
+  return handler(Request('GET', Uri.parse('http://example.com/')));
+}
+
 void main() {
   test('adds chunked encoding with no transfer-encoding header', () async {
-    var response = await _chunkResponse(Response.ok(Stream.value('hi'.codeUnits)));
+    var response = await chunkResponse(200, Stream.value('hi'.codeUnits));
     expect(response.headers, containsPair('transfer-encoding', 'chunked'));
     expect(response.readAsString(), completion(equals('2\r\nhi\r\n0\r\n\r\n')));
   });
 
   test('adds chunked encoding with transfer-encoding: identity', () async {
-    var response =
-        await _chunkResponse(Response.ok(Stream.value('hi'.codeUnits), headers: {'transfer-encoding': 'identity'}));
+    var headers = {'transfer-encoding': 'identity'};
+    var response = await chunkResponse(200, Stream.value('hi'.codeUnits), headers);
     expect(response.headers, containsPair('transfer-encoding', 'chunked'));
     expect(response.readAsString(), completion(equals('2\r\nhi\r\n0\r\n\r\n')));
   });
 
   test("doesn't add chunked encoding with content length", () async {
-    var response = await _chunkResponse(Response.ok('hi'));
+    var response = await chunkResponse(200, 'hi');
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.readAsString(), completion(equals('hi')));
   });
 
   test("doesn't add chunked encoding with status 1xx", () async {
-    var response = await _chunkResponse(Response(123, body: Stream<List<int>>.empty()));
+    var response = await chunkResponse(123, Stream<List<int>>.empty());
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.read().toList(), completion(isEmpty));
   });
 
   test("doesn't add chunked encoding with status 204", () async {
-    var response = await _chunkResponse(Response(204, body: Stream<List<int>>.empty()));
+    var response = await chunkResponse(204, Stream<List<int>>.empty());
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.read().toList(), completion(isEmpty));
   });
 
   test("doesn't add chunked encoding with status 304", () async {
-    var response = await _chunkResponse(Response(204, body: Stream<List<int>>.empty()));
+    var response = await chunkResponse(204, Stream<List<int>>.empty());
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.read().toList(), completion(isEmpty));
   });
 
   test("doesn't add chunked encoding with status 204", () async {
-    var response = await _chunkResponse(Response(204, body: Stream<List<int>>.empty()));
+    var response = await chunkResponse(204, Stream<List<int>>.empty());
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.read().toList(), completion(isEmpty));
   });
 
   test("doesn't add chunked encoding with status 204", () async {
-    var response = await _chunkResponse(Response(204, body: Stream<List<int>>.empty()));
+    var response = await chunkResponse(204, Stream<List<int>>.empty());
     expect(response.headers, isNot(contains('transfer-encoding')));
     expect(response.read().toList(), completion(isEmpty));
   });
-}
-
-FutureOr<Response> _chunkResponse(Response response) {
-  return addChunkedEncoding((request) => response)(Request('GET', Uri.parse('http://example.com/')));
 }

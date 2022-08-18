@@ -7,31 +7,34 @@ import 'package:test/test.dart';
 
 import 'test_util.dart';
 
+Response handler1(Request request) {
+  if (request.headers['one'] == 'false') {
+    return Response.notFound('handler 1');
+  }
+
+  return Response.ok('handler 1');
+}
+
+Response handler2(Request request) {
+  if (request.headers['two'] == 'false') {
+    return Response.notFound('handler 2');
+  }
+
+  return Response.ok('handler 2');
+}
+
+Response handler3(Request request) {
+  if (request.headers['three'] == 'false') {
+    return Response.notFound('handler 3');
+  }
+
+  return Response.ok('handler 3');
+}
+
 void main() {
   group('a cascade with several handlers', () {
-    late Handler handler;
-
-    setUp(() {
-      handler = Cascade().add((request) {
-        if (request.headers['one'] == 'false') {
-          return Response.notFound('handler 1');
-        } else {
-          return Response.ok('handler 1');
-        }
-      }).add((request) {
-        if (request.headers['two'] == 'false') {
-          return Response.notFound('handler 2');
-        } else {
-          return Response.ok('handler 2');
-        }
-      }).add((request) {
-        if (request.headers['three'] == 'false') {
-          return Response.notFound('handler 3');
-        } else {
-          return Response.ok('handler 3');
-        }
-      }).handler;
-    });
+    var cascade = Cascade().add(handler1).add(handler2).add(handler3);
+    var handler = cascade.handler;
 
     test('the first response should be returned if it matches', () async {
       var response = await makeSimpleRequest(handler);
@@ -39,9 +42,7 @@ void main() {
       expect(response.readAsString(), completion(equals('handler 1')));
     });
 
-    test(
-        'the second response should be returned if it matches and the first '
-        "doesn't", () async {
+    test('the second response should be returned if it matches and the first doesn\'t', () async {
       var headers = {'one': 'false'};
       var response = await handler(Request('GET', localhostUri, headers: headers));
       expect(response.statusCode, equals(200));
@@ -64,45 +65,81 @@ void main() {
   });
 
   test('a 404 response triggers a cascade by default', () async {
-    var handler = Cascade() //
-        .add((request) => Response.notFound('handler 1'))
-        .add((request) => Response.ok('handler 2'))
-        .handler;
+    Response handler1(Request request) {
+      return Response.notFound('handler 1');
+    }
 
-    var response = await makeSimpleRequest(handler);
+    Response handler2(Request request) {
+      return Response.ok('handler 2');
+    }
+
+    var cascade = Cascade().add(handler1).add(handler2);
+    var response = await makeSimpleRequest(cascade.handler);
     expect(response.statusCode, equals(200));
     expect(response.readAsString(), completion(equals('handler 2')));
   });
 
   test('a 405 response triggers a cascade by default', () async {
-    var handler = Cascade().add((request) => Response(405)).add((request) => Response.ok('handler 2')).handler;
-    var response = await makeSimpleRequest(handler);
+    Response handler1(Request request) {
+      return Response(405);
+    }
+
+    Response handler2(Request request) {
+      return Response.ok('handler 2');
+    }
+
+    var cascade = Cascade().add(handler1).add(handler2);
+    var response = await makeSimpleRequest(cascade.handler);
     expect(response.statusCode, equals(200));
     expect(response.readAsString(), completion(equals('handler 2')));
   });
 
   test('[statusCodes] controls which statuses cause cascading', () async {
-    var handler = Cascade(statusCodes: [302, 403])
-        .add((request) => Response.found('/'))
-        .add((request) => Response.forbidden('handler 2'))
-        .add((request) => Response.notFound('handler 3'))
-        .add((request) => Response.ok('handler 4'))
-        .handler;
+    Response handler1(Request request) {
+      return Response.found('/');
+    }
 
-    var response = await makeSimpleRequest(handler);
+    Response handler2(Request request) {
+      return Response.forbidden('handler 2');
+    }
+
+    Response handler3(Request request) {
+      return Response.notFound('handler 3');
+    }
+
+    Response handler4(Request request) {
+      return Response.ok('handler 4');
+    }
+
+    var cascade = Cascade(statusCodes: <int>[302, 403]).add(handler1).add(handler2).add(handler3).add(handler4);
+    var response = await makeSimpleRequest(cascade.handler);
     expect(response.statusCode, equals(404));
     expect(response.readAsString(), completion(equals('handler 3')));
   });
 
   test('[shouldCascade] controls which responses cause cascading', () async {
-    var handler = Cascade(shouldCascade: (response) => response.statusCode % 2 == 1)
-        .add((request) => Response.movedPermanently('/'))
-        .add((request) => Response.forbidden('handler 2'))
-        .add((request) => Response.notFound('handler 3'))
-        .add((request) => Response.ok('handler 4'))
-        .handler;
+    bool shouldCascade(Response response) {
+      return response.statusCode % 2 == 1;
+    }
 
-    var response = await makeSimpleRequest(handler);
+    Response handler1(Request request) {
+      return Response.movedPermanently('/');
+    }
+
+    Response handler2(Request request) {
+      return Response.forbidden('handler 2');
+    }
+
+    Response handler3(Request request) {
+      return Response.notFound('handler 3');
+    }
+
+    Response handler4(Request request) {
+      return Response.ok('handler 4');
+    }
+
+    var cascade = Cascade(shouldCascade: shouldCascade).add(handler1).add(handler2).add(handler3).add(handler4);
+    var response = await makeSimpleRequest(cascade.handler);
     expect(response.statusCode, equals(404));
     expect(response.readAsString(), completion(equals('handler 3')));
   });
@@ -113,7 +150,11 @@ void main() {
     });
 
     test('passing [statusCodes] and [shouldCascade] at the same time fails', () {
-      expect(() => Cascade(statusCodes: [404, 405], shouldCascade: (_) => false), throwsArgumentError);
+      bool shouldCascade(Response response) {
+        return false;
+      }
+
+      expect(() => Cascade(statusCodes: <int>[404, 405], shouldCascade: shouldCascade), throwsArgumentError);
     });
   });
 }

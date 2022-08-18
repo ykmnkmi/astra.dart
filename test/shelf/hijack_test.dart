@@ -12,84 +12,97 @@ import 'test_util.dart';
 
 void main() {
   test('hijacking a non-hijackable request throws a StateError', () {
-    expect(() => Request('GET', localhostUri).hijack((_) {}), throwsStateError);
+    void callback(StreamChannel<List<int>> channel) {}
+
+    expect(() => Request('GET', localhostUri).hijack(callback), throwsStateError);
   });
 
   test(
       'hijacking a hijackable request throws a HijackException and calls '
       'onHijack', () {
-    var request = Request('GET', localhostUri, onHijack: expectAsync1((callback) {
-      var streamController = StreamController<List<int>>();
-      streamController.add([1, 2, 3]);
-      streamController.close();
+    void onHijack(void Function(StreamChannel<List<int>>) callback) {
+      var streamController = StreamController<List<int>>()
+        ..add([1, 2, 3])
+        ..close();
 
       var sinkController = StreamController<List<int>>();
       expect(sinkController.stream.first, completion(equals([4, 5, 6])));
 
       callback(StreamChannel(streamController.stream, sinkController));
-    }));
+    }
 
-    expect(
-        () => request.hijack(expectAsync1((channel) {
-              expect(channel.stream.first, completion(equals([1, 2, 3])));
-              channel.sink.add([4, 5, 6]);
-              channel.sink.close();
-            })),
-        throwsHijackException);
+    var request = Request('GET', localhostUri, onHijack: expectAsync1(onHijack));
+
+    void callback(StreamChannel<List<int>> channel) {
+      expect(channel.stream.first, completion(equals([1, 2, 3])));
+
+      channel.sink
+        ..add([4, 5, 6])
+        ..close();
+    }
+
+    expect(() => request.hijack(expectAsync1(callback)), throwsHijackException);
   });
 
   test('hijacking a hijackable request twice throws a StateError', () {
+    void onHijack(void Function(StreamChannel<List<int>>) callback) {}
+
     // Assert that the [onHijack] callback is only called once.
-    var request = Request('GET', localhostUri, onHijack: expectAsync1((_) {}, count: 1));
+    var request = Request('GET', localhostUri, onHijack: expectAsync1(onHijack, count: 1));
 
-    expect(() => request.hijack((_) {}), throwsHijackException);
+    void callback(StreamChannel<List<int>> channel) {}
 
-    expect(() => request.hijack((_) {}), throwsStateError);
+    expect(() => request.hijack(callback), throwsHijackException);
+    expect(() => request.hijack(callback), throwsStateError);
   });
 
   group('calling change', () {
     test('hijacking a non-hijackable request throws a StateError', () {
       var request = Request('GET', localhostUri);
       var newRequest = request.change();
-      expect(() => newRequest.hijack((_) {}), throwsStateError);
+
+      void callback(StreamChannel<List<int>> channel) {}
+
+      expect(() => newRequest.hijack(callback), throwsStateError);
     });
 
-    test(
-        'hijacking a hijackable request throws a HijackException and calls '
-        'onHijack', () {
-      var request = Request('GET', localhostUri, onHijack: expectAsync1((callback) {
-        var streamController = StreamController<List<int>>();
-        streamController.add([1, 2, 3]);
-        streamController.close();
+    test('hijacking a hijackable request throws a HijackException and calls onHijack', () {
+      void onHijack(void Function(StreamChannel<List<int>>) callback) {
+        var streamController = StreamController<List<int>>()
+          ..add(<int>[1, 2, 3])
+          ..close();
 
         var sinkController = StreamController<List<int>>();
-        expect(sinkController.stream.first, completion(equals([4, 5, 6])));
+        expect(sinkController.stream.first, completion(equals(<int>[4, 5, 6])));
 
         callback(StreamChannel(streamController.stream, sinkController));
-      }));
+      }
 
+      var request = Request('GET', localhostUri, onHijack: expectAsync1(onHijack));
       var newRequest = request.change();
 
-      expect(
-          () => newRequest.hijack(expectAsync1((channel) {
-                expect(channel.stream.first, completion(equals([1, 2, 3])));
-                channel.sink.add([4, 5, 6]);
-                channel.sink.close();
-              })),
-          throwsHijackException);
+      void callback(StreamChannel<List<int>> channel) {
+        expect(channel.stream.first, completion(equals(<int>[1, 2, 3])));
+
+        channel.sink
+          ..add(<int>[4, 5, 6])
+          ..close();
+      }
+
+      expect(() => newRequest.hijack(expectAsync1(callback)), throwsHijackException);
     });
 
-    test(
-        'hijacking the original request after calling change throws a '
-        'StateError', () {
-      // Assert that the [onHijack] callback is only called once.
-      var request = Request('GET', localhostUri, onHijack: expectAsync1((_) {}, count: 1));
+    test('hijacking the original request after calling change throws a StateError', () {
+      void onHijack(void Function(StreamChannel<List<int>>) callback) {}
 
+      // Assert that the [onHijack] callback is only called once.
+      var request = Request('GET', localhostUri, onHijack: expectAsync1(onHijack, count: 1));
       var newRequest = request.change();
 
-      expect(() => newRequest.hijack((_) {}), throwsHijackException);
+      void callback(StreamChannel<List<int>> channel) {}
 
-      expect(() => request.hijack((_) {}), throwsStateError);
+      expect(() => newRequest.hijack(callback), throwsHijackException);
+      expect(() => request.hijack(callback), throwsStateError);
     });
   });
 }

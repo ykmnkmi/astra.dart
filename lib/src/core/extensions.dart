@@ -5,12 +5,12 @@ import 'package:astra/src/core/shelf.dart';
 
 /// [Middleware] extension.
 extension MiddlewareExtension on Middleware {
-  /// Similar to [Pipeline.addMiddleware].
+  /// Similar to [Pipeline.addHandler].
   Handler handle(Handler handler) {
     return this(handler);
   }
 
-  /// Similar to [Pipeline.addHandler].
+  /// Similar to [Pipeline.addMiddleware].
   Middleware next(Middleware middleware) {
     return (Handler handler) {
       return this(middleware(handler));

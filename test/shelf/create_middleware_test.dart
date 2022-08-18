@@ -10,65 +10,90 @@ import 'package:test/test.dart';
 
 import 'test_util.dart';
 
+final Response middlewareResponse = Response.ok('middleware content', headers: {'from': 'middleware'});
+
+Response failHandler(Request request) {
+  fail('should never get here');
+}
+
 void main() {
   test('forwards the request and response if both handlers are null', () async {
-    var middleware = createMiddleware();
-
-    Response handlerWrapper(Request request) {
+    Response handler(Request request) {
       return syncHandler(request, headers: {'from': 'innerHandler'});
     }
 
-    var handler = const Pipeline().addMiddleware(middleware).addHandler(handlerWrapper);
-    var response = await makeSimpleRequest(handler);
-    expect(response.headers['from'], 'innerHandler');
+    var response = await makeSimpleRequest(createMiddleware().handle(handler));
+    expect(response.headers['from'], equals('innerHandler'));
   });
 
   group('requestHandler', () {
     test('sync null response forwards to inner handler', () async {
-      var middleware = createMiddleware(requestHandler: (request) => null);
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
-      var response = await makeSimpleRequest(handler);
+      Response? requestHandler(request) {
+        return null;
+      }
+
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      var response = await makeSimpleRequest(middleware.handle(syncHandler));
       expect(response.headers['from'], isNull);
     });
 
     test('async null response forwards to inner handler', () async {
-      var middleware = createMiddleware(requestHandler: (request) => Future.value(null));
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
-      var response = await makeSimpleRequest(handler);
+      Future<Response?> requestHandler(Request request) {
+        return Future<Response?>.value(null);
+      }
+
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      var response = await makeSimpleRequest(middleware.handle(syncHandler));
       expect(response.headers['from'], isNull);
     });
 
     test('sync response is returned', () async {
-      var middleware = createMiddleware(requestHandler: (request) => middlewareResponse);
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(failHandler);
-      var response = await makeSimpleRequest(handler);
-      expect(response.headers['from'], 'middleware');
+      Response requestHandler(Request request) {
+        return middlewareResponse;
+      }
+
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      var response = await makeSimpleRequest(middleware.handle(failHandler));
+      expect(response.headers['from'], equals('middleware'));
     });
 
     test('async response is returned', () async {
-      var middleware = createMiddleware(requestHandler: (request) => Future.value(middlewareResponse));
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(failHandler);
-      var response = await makeSimpleRequest(handler);
-      expect(response.headers['from'], 'middleware');
+      Future<Response> requestHandler(Request request) {
+        return Future<Response>.value(middlewareResponse);
+      }
+
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      var response = await makeSimpleRequest(middleware.handle(failHandler));
+      expect(response.headers['from'], equals('middleware'));
     });
 
     group('with responseHandler', () {
       test('with sync result, responseHandler is not called', () async {
-        var middleware = createMiddleware(
-            requestHandler: (request) => middlewareResponse,
-            responseHandler: (response) => fail('should not be called'));
-        var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
-        var response = await makeSimpleRequest(handler);
-        expect(response.headers['from'], 'middleware');
+        Response requestHandler(Request request) {
+          return middlewareResponse;
+        }
+
+        Response responseHandler(Response response) {
+          fail('should not be called');
+        }
+
+        var middleware = createMiddleware(requestHandler: requestHandler, responseHandler: responseHandler);
+        var response = await makeSimpleRequest(middleware.handle(syncHandler));
+        expect(response.headers['from'], equals('middleware'));
       });
 
       test('with async result, responseHandler is not called', () async {
-        var middleware = createMiddleware(
-            requestHandler: (request) => Future.value(middlewareResponse),
-            responseHandler: (response) => fail('should not be called'));
-        var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
-        var response = await makeSimpleRequest(handler);
-        expect(response.headers['from'], 'middleware');
+        Future<Response> requestHandler(Request request) {
+          return Future<Response>.value(middlewareResponse);
+        }
+
+        Response responseHandler(Response response) {
+          fail('should not be called');
+        }
+
+        var middleware = createMiddleware(requestHandler: requestHandler, responseHandler: responseHandler);
+        var response = await makeSimpleRequest(middleware.handle(syncHandler));
+        expect(response.headers['from'], equals('middleware'));
       });
     });
   });
@@ -82,120 +107,129 @@ void main() {
 
       var middleware = createMiddleware(responseHandler: responseHandler);
 
-
-      var handler = const Pipeline().addMiddleware(middleware).addHandler((request) {
+      Response handler(Request request) {
         return syncHandler(request, headers: {'from': 'handler'});
-      });
+      }
 
-      var response = await makeSimpleRequest(handler);
-      expect(response.headers['from'], 'middleware');
+      var response = await makeSimpleRequest(middleware.handle(handler));
+      expect(response.headers['from'], equals('middleware'));
     });
 
     test('innerHandler async response is seen, async value continues', () async {
-      var handler = const Pipeline().addMiddleware(createMiddleware(responseHandler: (response) {
+      Future<Response> responseHandler(Response response) {
         expect(response.headers['from'], 'handler');
-        return Future.value(middlewareResponse);
-      })).addHandler((request) {
-        return Future(() => syncHandler(request, headers: {'from': 'handler'}));
-      });
+        return Future<Response>.value(middlewareResponse);
+      }
 
-      var response = await makeSimpleRequest(handler);
-      expect(response.headers['from'], 'middleware');
+      var middleware = createMiddleware(responseHandler: responseHandler);
+
+      Future<Response> handler(Request request) {
+        return Future(() => syncHandler(request, headers: {'from': 'handler'}));
+      }
+
+      var response = await makeSimpleRequest(middleware.handle(handler));
+      expect(response.headers['from'], equals('middleware'));
     });
   });
 
   group('error handling', () {
     test('sync error thrown by requestHandler bubbles down', () {
-      var handler = const Pipeline()
-          .addMiddleware(createMiddleware(requestHandler: (request) => throw 'middleware error'))
-          .addHandler(failHandler);
+      Response requestHandler(Request request) {
+        throw 'middleware error';
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('middleware error'));
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      expect(makeSimpleRequest(middleware.handle(failHandler)), throwsA('middleware error'));
     });
 
     test('async error thrown by requestHandler bubbles down', () {
-      var handler = const Pipeline()
-          .addMiddleware(createMiddleware(requestHandler: (request) => Future.error('middleware error')))
-          .addHandler(failHandler);
+      Future<Response> requestHandler(Request request) {
+        return Future<Response>.error('middleware error');
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('middleware error'));
+      var middleware = createMiddleware(requestHandler: requestHandler);
+      expect(makeSimpleRequest(middleware.handle(failHandler)), throwsA('middleware error'));
     });
 
     test('throw from responseHandler does not hit error handler', () {
-      var middleware = createMiddleware(
-          responseHandler: (response) {
-            throw 'middleware error';
-          },
-          errorHandler: (e, s) => fail('should never get here'));
+      Future<Response> responseHandler(Response response) {
+        throw 'middleware error';
+      }
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
+      Response errorHandler(Object error, StackTrace stack) {
+        fail('should never get here');
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('middleware error'));
+      var middleware = createMiddleware(responseHandler: responseHandler, errorHandler: errorHandler);
+      expect(makeSimpleRequest(middleware.handle(syncHandler)), throwsA('middleware error'));
     });
 
     test('requestHandler throw does not hit errorHandlers', () {
-      var middleware = createMiddleware(
-          requestHandler: (request) {
-            throw 'middleware error';
-          },
-          errorHandler: (e, s) => fail('should never get here'));
+      Response requestHandler(Request request) {
+        throw 'middleware error';
+      }
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler(syncHandler);
+      Response errorHandler(Object error, StackTrace stack) {
+        fail('should never get here');
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('middleware error'));
+      var middleware = createMiddleware(requestHandler: requestHandler, errorHandler: errorHandler);
+      expect(makeSimpleRequest(middleware.handle(syncHandler)), throwsA('middleware error'));
     });
 
     test('inner handler throws, is caught by errorHandler with response', () async {
-      var middleware = createMiddleware(errorHandler: (error, stack) {
+      Response errorHandler(Object error, StackTrace stack) {
         expect(error, 'bad handler');
         return middlewareResponse;
-      });
+      }
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler((request) {
+      var middleware = createMiddleware(errorHandler: errorHandler);
+
+      Response handler(Request request) {
         throw 'bad handler';
-      });
+      }
 
-      var response = await makeSimpleRequest(handler);
-      expect(response.headers['from'], 'middleware');
+      var response = await makeSimpleRequest(middleware.handle(handler));
+      expect(response.headers['from'], equals('middleware'));
     });
 
     test('inner handler throws, is caught by errorHandler and rethrown', () {
-      var middleware = createMiddleware(errorHandler: (Object error, stack) {
+      Response errorHandler(Object error, StackTrace stack) {
         expect(error, 'bad handler');
         throw error;
-      });
+      }
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler((request) {
+      var middleware = createMiddleware(errorHandler: errorHandler);
+
+      Response handler(Request request) {
         throw 'bad handler';
-      });
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('bad handler'));
+      expect(makeSimpleRequest(middleware.handle(handler)), throwsA('bad handler'));
     });
 
-    test(
-        'error thrown by inner handler without a middleware errorHandler is '
-        'rethrown', () {
+    test('error thrown by inner handler without a middleware errorHandler is rethrown', () {
       var middleware = createMiddleware();
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler((request) {
+      Response handler(Request request) {
         throw 'bad handler';
-      });
+      }
 
-      expect(makeSimpleRequest(handler), throwsA('bad handler'));
+      expect(makeSimpleRequest(middleware.handle(handler)), throwsA('bad handler'));
     });
 
-    test("doesn't handle HijackException", () {
-      var middleware = createMiddleware(errorHandler: (error, stack) {
-        fail("error handler shouldn't be called");
-      });
+    test('doesn\'t handle HijackException', () {
+      Response errorHandler(Object error, StackTrace stack) {
+        fail('error handler shouldn\'t be called');
+      }
 
-      var handler = const Pipeline().addMiddleware(middleware).addHandler((request) => throw const HijackException());
+      var middleware = createMiddleware(errorHandler: errorHandler);
 
-      expect(makeSimpleRequest(handler), throwsHijackException);
+      Response handler(Request request) {
+        throw const HijackException();
+      }
+
+      expect(makeSimpleRequest(middleware.handle(handler)), throwsHijackException);
     });
   });
 }
-
-Response failHandler(Request request) => fail('should never get here');
-
-final Response middlewareResponse = Response.ok('middleware content', headers: {'from': 'middleware'});
