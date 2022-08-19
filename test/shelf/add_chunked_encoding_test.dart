@@ -25,7 +25,7 @@ void main() {
   });
 
   test('adds chunked encoding with transfer-encoding: identity', () async {
-    var headers = {'transfer-encoding': 'identity'};
+    var headers = <String, String>{'transfer-encoding': 'identity'};
     var response = await chunkResponse(200, Stream.value('hi'.codeUnits), headers);
     expect(response.headers, containsPair('transfer-encoding', 'chunked'));
     expect(response.readAsString(), completion(equals('2\r\nhi\r\n0\r\n\r\n')));

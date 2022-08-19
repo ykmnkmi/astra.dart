@@ -6,53 +6,49 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:astra/core.dart';
+import 'package:astra/serve.dart';
 import 'package:http/http.dart' as http;
-import 'package:shelf/shelf_io.dart';
 import 'package:test/test.dart';
 
 import 'test_util.dart';
 
 void main() {
-  late IOServer server;
+  late H11Server server;
 
   setUp(() async {
     try {
-      server = await IOServer.bind(InternetAddress.loopbackIPv6, 0);
-    } on SocketException catch (_) {
-      server = await IOServer.bind(InternetAddress.loopbackIPv4, 0);
+      server = await H11Server.bind(InternetAddress.loopbackIPv6, 0);
+    } on SocketException {
+      server = await H11Server.bind(InternetAddress.loopbackIPv4, 0);
     }
   });
 
-  tearDown(() => server.close());
+  tearDown(server.close);
 
   test('serves HTTP requests with the mounted handler', () async {
-    server.mount(syncHandler);
-    expect(await http.read(server.url), equals('Hello from /'));
+    await server.mount(syncHandler.asApplication());
+    expect(http.read(server.url), completion(equals('Hello from /')));
   });
 
   test('Handles malformed requests gracefully.', () async {
-    server.mount(syncHandler);
-    final rs = await http.get(Uri.parse('${server.url}/%D0%C2%BD%A8%CE%C4%BC%FE%BC%D0.zip'));
-    expect(rs.statusCode, 400);
-    expect(rs.body, 'Bad Request');
+    await server.mount(syncHandler.asApplication());
+
+    var url = Uri.parse('${server.url}/%D0%C2%BD%A8%CE%C4%BC%FE%BC%D0.zip');
+    var response = await http.get(url);
+    expect(response.statusCode, 400);
+    expect(response.body, 'Bad Request');
   });
 
   test('delays HTTP requests until a handler is mounted', () async {
     expect(http.read(server.url), completion(equals('Hello from /')));
     await Future<void>.delayed(Duration.zero);
-
-    server.mount(asyncHandler);
+    await server.mount(asyncHandler.asApplication());
   });
 
   test('disallows more than one handler from being mounted', () async {
-    server.mount((_) => throw UnimplementedError());
-    expect(
-      () => server.mount((_) => throw UnimplementedError()),
-      throwsStateError,
-    );
-    expect(
-      () => server.mount((_) => throw UnimplementedError()),
-      throwsStateError,
-    );
+    await server.mount(Application());
+    expect(() => server.mount(Application()), throwsStateError);
+    expect(() => server.mount(Application()), throwsStateError);
   });
 }

@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 
 import 'test_util.dart';
 
-final Response middlewareResponse = Response.ok('middleware content', headers: {'from': 'middleware'});
+final Response middlewareResponse = Response.ok('middleware content', headers: <String, String>{'from': 'middleware'});
 
 Response failHandler(Request request) {
   fail('should never get here');
@@ -19,7 +19,7 @@ Response failHandler(Request request) {
 void main() {
   test('forwards the request and response if both handlers are null', () async {
     Response handler(Request request) {
-      return syncHandler(request, headers: {'from': 'innerHandler'});
+      return syncHandler(request, headers: <String, String>{'from': 'innerHandler'});
     }
 
     var response = await makeSimpleRequest(createMiddleware().handle(handler));
@@ -108,7 +108,7 @@ void main() {
       var middleware = createMiddleware(responseHandler: responseHandler);
 
       Response handler(Request request) {
-        return syncHandler(request, headers: {'from': 'handler'});
+        return syncHandler(request, headers: <String, String>{'from': 'handler'});
       }
 
       var response = await makeSimpleRequest(middleware.handle(handler));
@@ -124,7 +124,7 @@ void main() {
       var middleware = createMiddleware(responseHandler: responseHandler);
 
       Future<Response> handler(Request request) {
-        return Future(() => syncHandler(request, headers: {'from': 'handler'}));
+        return Future(() => syncHandler(request, headers: <String, String>{'from': 'handler'}));
       }
 
       var response = await makeSimpleRequest(middleware.handle(handler));

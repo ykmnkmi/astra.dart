@@ -2,7 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:shelf/shelf.dart';
+import 'package:astra/core.dart';
+import 'package:astra/middlewares.dart';
 import 'package:test/test.dart';
 
 import 'test_util.dart';
@@ -23,42 +24,45 @@ void main() {
   }
 
   test('logs a request with a synchronous response', () async {
-    var handler = const Pipeline().addMiddleware(logRequests(logger: logger)).addHandler(syncHandler);
-
+    var handler = logRequests(logger: logger).handle(syncHandler);
     await makeSimpleRequest(handler);
     expect(gotLog, isTrue);
   });
 
   test('logs a request with an asynchronous response', () async {
-    var handler = const Pipeline().addMiddleware(logRequests(logger: logger)).addHandler(asyncHandler);
-
+    var handler = logRequests(logger: logger).handle(asyncHandler);
     await makeSimpleRequest(handler);
     expect(gotLog, isTrue);
   });
 
   test('logs a request with an asynchronous error response', () {
-    var handler = const Pipeline().addMiddleware(logRequests(logger: (msg, isError) {
+    void logger(String message, bool isError) {
       expect(gotLog, isFalse);
       gotLog = true;
       expect(isError, isTrue);
-      expect(msg, contains('\tGET\t/'));
-      expect(msg, contains('testing logging throw'));
-    })).addHandler((request) {
-      throw 'testing logging throw';
-    });
+      expect(message, contains('\tGET\t/'));
+      expect(message, contains('testing logging throw'));
+    }
 
+    Response throwingHandler(Request request) {
+      throw 'testing logging throw';
+    }
+
+    var handler = logRequests(logger: logger).handle(throwingHandler);
     expect(makeSimpleRequest(handler), throwsA('testing logging throw'));
   });
 
   test("doesn't log a HijackException", () {
-    var handler = const Pipeline()
-        .addMiddleware(logRequests(logger: logger))
-        .addHandler((request) => throw const HijackException());
+    Response throwingHandler(request) {
+      throw const HijackException();
+    }
 
-    expect(
-        makeSimpleRequest(handler).whenComplete(() {
-          expect(gotLog, isFalse);
-        }),
-        throwsHijackException);
+    var handler = logRequests(logger: logger).handle(throwingHandler);
+
+    void onComplete() {
+      expect(gotLog, isFalse);
+    }
+
+    expect(makeSimpleRequest(handler).whenComplete(onComplete), throwsHijackException);
   });
 }

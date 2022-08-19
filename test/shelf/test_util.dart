@@ -4,16 +4,16 @@
 
 import 'dart:async';
 
-import 'package:shelf/shelf.dart';
+import 'package:astra/core.dart';
 import 'package:test/test.dart';
 
 // "hello,"
-const helloBytes = [104, 101, 108, 108, 111, 44];
+const List<int> helloBytes = <int>[104, 101, 108, 108, 111, 44];
 
 // " world"
-const worldBytes = [32, 119, 111, 114, 108, 100];
+const List<int> worldBytes = <int>[32, 119, 111, 114, 108, 100];
 
-final Matcher throwsHijackException = throwsA(TypeMatcher<HijackException>());
+final Matcher throwsHijackException = throwsA(isA<HijackException>());
 
 /// A simple, synchronous handler for [Request].
 ///
@@ -24,11 +24,13 @@ Response syncHandler(Request request, {int? statusCode, Map<String, String>? hea
 }
 
 /// Calls [syncHandler] and wraps the response in a [Future].
-Future<Response> asyncHandler(Request request) => Future(() => syncHandler(request));
+Future<Response> asyncHandler(Request request) {
+  return Future<Response>(() => syncHandler(request));
+}
 
 /// Makes a simple GET request to [handler] and returns the result.
-Future<Response> makeSimpleRequest(Handler handler) => Future.sync(() => handler(_request));
+Future<Response> makeSimpleRequest(Handler handler) => Future.sync(() => handler(request));
 
-final _request = Request('GET', localhostUri);
+final Request request = Request('GET', localhostUri);
 
-final localhostUri = Uri.parse('http://localhost/');
+final Uri localhostUri = Uri.parse('http://localhost/');

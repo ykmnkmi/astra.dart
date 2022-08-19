@@ -31,6 +31,18 @@ class H11Server implements Server {
     return server.port;
   }
 
+  Uri get url {
+    if (address.isLoopback) {
+      return Uri(scheme: 'http', host: 'localhost', port: port);
+    }
+
+    if (address.type == InternetAddressType.IPv6) {
+      return Uri(scheme: 'http', host: '[${address.address}]', port: port);
+    }
+
+    return Uri(scheme: 'http', host: address.address, port: port);
+  }
+
   @override
   Future<void> mount(Application application, [Logger? logger]) async {
     if (mounted) {

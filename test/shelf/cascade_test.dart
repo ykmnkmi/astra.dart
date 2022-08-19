@@ -43,21 +43,21 @@ void main() {
     });
 
     test('the second response should be returned if it matches and the first doesn\'t', () async {
-      var headers = {'one': 'false'};
+      var headers = <String, String>{'one': 'false'};
       var response = await handler(Request('GET', localhostUri, headers: headers));
       expect(response.statusCode, equals(200));
       expect(response.readAsString(), completion(equals('handler 2')));
     });
 
     test('the third response should be returned if it matches and the first two don\'t', () async {
-      var headers = {'one': 'false', 'two': 'false'};
+      var headers = <String, String>{'one': 'false', 'two': 'false'};
       var response = await handler(Request('GET', localhostUri, headers: headers));
       expect(response.statusCode, equals(200));
       expect(response.readAsString(), completion(equals('handler 3')));
     });
 
     test('the third response should be returned if no response matches', () async {
-      var headers = {'one': 'false', 'two': 'false', 'three': 'false'};
+      var headers = <String, String>{'one': 'false', 'two': 'false', 'three': 'false'};
       var response = await handler(Request('GET', localhostUri, headers: headers));
       expect(response.statusCode, equals(404));
       expect(response.readAsString(), completion(equals('handler 3')));
