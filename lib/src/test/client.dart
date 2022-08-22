@@ -9,7 +9,7 @@ import 'package:http/http.dart' show BaseClient, BaseRequest, ClientException, S
 import 'package:http/io_client.dart' show IOStreamedResponse;
 
 class TestClient extends BaseClient {
-  TestClient(this.handler, {this.host = '127.0.0.1', this.port = 0, this.context})
+  TestClient(this.handler, {this.host = 'localhost', this.port = 0, this.context})
       : scheme = context == null ? 'http' : 'https' {
     client = HttpClient(context: context);
   }
