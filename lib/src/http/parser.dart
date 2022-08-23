@@ -226,7 +226,7 @@ class _HttpParser extends Stream<Incoming> {
   final bool _requestParser;
   int _state = State.START;
   int? _httpVersionIndex;
-  int _messageType = _MessageType.UNDETERMINED;
+  bool _determined = false;
   int _statusCode = 0;
   int _statusCodeLength = 0;
   final List<int> _method = [];
@@ -342,7 +342,7 @@ class _HttpParser extends Stream<Incoming> {
     // If a request message has neither Content-Length nor
     // Transfer-Encoding the message must not have a body (RFC
     // 2616 section 4.3).
-    if (_messageType == _MessageType.REQUEST && _transferLength < 0 && _chunked == false) {
+    if (_determined && _transferLength < 0 && _chunked == false) {
       _transferLength = 0;
     }
     if (_connectionUpgrade) {
@@ -366,7 +366,7 @@ class _HttpParser extends Stream<Incoming> {
       _controller.add(incoming);
       return true;
     }
-    if (_transferLength == 0 || (_messageType == _MessageType.RESPONSE && _noMessageBody)) {
+    if (_transferLength == 0) {
       _reset();
       _closeIncoming();
       _controller.add(incoming);
@@ -550,7 +550,7 @@ class _HttpParser extends Stream<Incoming> {
 
         case State.REQUEST_LINE_ENDING:
           _expect(byte, CharCodes.lf);
-          _messageType = _MessageType.REQUEST;
+          _determined = true;
           _state = State.HEADER_START;
           break;
 
@@ -589,7 +589,7 @@ class _HttpParser extends Stream<Incoming> {
 
         case State.RESPONSE_LINE_ENDING:
           _expect(byte, CharCodes.lf);
-          _messageType == _MessageType.RESPONSE;
+          _determined == false;
           // Check whether this response will never have a body.
           if (_statusCode <= 199 || _statusCode == 204 || _statusCode == 304) {
             _noMessageBody = true;
@@ -679,14 +679,12 @@ class _HttpParser extends Stream<Incoming> {
             var headers = _headers!;
             if (headerField == HttpHeaders.connectionHeader) {
               List<String> tokens = _tokenizeFieldValue(headerValue);
-              final bool isResponse = _messageType == _MessageType.RESPONSE;
-              final bool isUpgradeCode =
-                  (_statusCode == HttpStatus.upgradeRequired) || (_statusCode == HttpStatus.switchingProtocols);
+
               for (int i = 0; i < tokens.length; i++) {
-                final bool isUpgrade = _caseInsensitiveCompare('upgrade'.codeUnits, tokens[i].codeUnits);
-                if ((isUpgrade && !isResponse) || (isUpgrade && isResponse && isUpgradeCode)) {
+                if (_caseInsensitiveCompare('upgrade'.codeUnits, tokens[i].codeUnits)) {
                   _connectionUpgrade = true;
                 }
+
                 headers._add(headerField, tokens[i]);
               }
             } else {
@@ -899,7 +897,6 @@ class _HttpParser extends Stream<Incoming> {
     return null;
   }
 
-  int get messageType => _messageType;
   int get transferLength => _transferLength;
   bool get upgrade => _connectionUpgrade && _state == State.UPGRADED;
   bool get persistentConnection => _persistentConnection;
@@ -927,7 +924,7 @@ class _HttpParser extends Stream<Incoming> {
   void _reset() {
     if (_state == State.UPGRADED) return;
     _state = State.START;
-    _messageType = _MessageType.UNDETERMINED;
+    _determined = false;
     _headerField.clear();
     _headerValue.clear();
     _headersReceivedSize = 0;

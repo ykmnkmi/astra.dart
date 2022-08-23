@@ -38,17 +38,17 @@ class TestClient extends BaseClient {
           scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
           host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
           port: port == 0 ? server.port : requestedUrl.port);
-      var ioRequest = await client.openUrl(request.method, url);
+      var clientRequest = await client.openUrl(request.method, url);
 
-      ioRequest
+      clientRequest
         ..followRedirects = request.followRedirects
         ..maxRedirects = request.maxRedirects
         ..contentLength = (request.contentLength ?? -1)
         ..persistentConnection = request.persistentConnection;
 
-      request.headers.forEach(ioRequest.headers.set);
+      request.headers.forEach(clientRequest.headers.set);
 
-      var response = await stream.pipe(ioRequest) as HttpClientResponse;
+      var response = await stream.pipe(clientRequest) as HttpClientResponse;
       var headers = <String, String>{};
 
       response.headers.forEach((key, values) {
