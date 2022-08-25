@@ -2,9 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of 'http.dart';
+import 'dart:collection' show HashMap;
+import 'dart:convert' show json;
+import 'dart:io' show ContentType, HttpClient, HttpDate, HttpException, HttpHeaders;
 
-final RegExp digitsValidator = RegExp(r'^\d+$');
+import 'dart:typed_data' show BytesBuilder;
+
+import 'package:astra/src/http/parser.dart';
+
+final _digitsValidator = RegExp(r'^\d+$');
 
 class NativeHeaders {
   final Map<String, List<String>> _headers;
@@ -12,7 +18,7 @@ class NativeHeaders {
   Map<String, String>? _originalHeaderNames;
   final String protocolVersion;
 
-  bool _mutable = true; // Are the headers currently mutable?
+  bool mutable = true; // Are the headers currently mutable?
   List<String>? _noFoldingHeaders;
 
   int _contentLength = -1;
@@ -23,7 +29,8 @@ class NativeHeaders {
 
   final int _defaultPortForScheme;
 
-  NativeHeaders(this.protocolVersion, {int defaultPortForScheme = 80, NativeHeaders? initialHeaders})
+  NativeHeaders(this.protocolVersion,
+      {int defaultPortForScheme = HttpClient.defaultHttpPort, NativeHeaders? initialHeaders})
       : _headers = HashMap<String, List<String>>(),
         _defaultPortForScheme = defaultPortForScheme {
     if (initialHeaders != null) {
@@ -68,10 +75,10 @@ class NativeHeaders {
   void _addAll(String name, Object value) {
     if (value is Iterable<Object>) {
       for (var v in value) {
-        _add(name, _validateValue(v));
+        addValue(name, _validateValue(v));
       }
     } else {
-      _add(name, _validateValue(value));
+      addValue(name, _validateValue(value));
     }
   }
 
@@ -314,7 +321,7 @@ class NativeHeaders {
   }
 
   // [name] must be a lower-case version of the name.
-  void _add(String name, Object value) {
+  void addValue(String name, Object value) {
     assert(name == _validateField(name));
     // Use the length as index on what method to call. This is notable
     // faster than computing hash and looking up in a hash-map.
@@ -355,7 +362,7 @@ class NativeHeaders {
         break;
       case 17:
         if (HttpHeaders.transferEncodingHeader == name) {
-          _addTransferEncoding(name, value as String);
+          _addTransferEncoding(name, value);
           return;
         }
         if (HttpHeaders.ifModifiedSinceHeader == name) {
@@ -372,7 +379,7 @@ class NativeHeaders {
         throw HttpException('Content-Length must contain only digits');
       }
     } else if (value is String) {
-      if (!digitsValidator.hasMatch(value)) {
+      if (!_digitsValidator.hasMatch(value)) {
         throw HttpException('Content-Length must contain only digits');
       }
       value = int.parse(value);
@@ -382,7 +389,7 @@ class NativeHeaders {
     contentLength = value;
   }
 
-  void _addTransferEncoding(String name, String value) {
+  void _addTransferEncoding(String name, Object value) {
     if (value == 'chunked') {
       chunkedTransferEncoding = true;
     } else {
@@ -430,7 +437,7 @@ class NativeHeaders {
       // https://serverfault.com/questions/205793/how-can-one-distinguish-the-host-and-the-port-in-an-ipv6-url
       if (pos == -1 || value.startsWith('[') && value.endsWith(']')) {
         _host = value;
-        _port = 80;
+        _port = HttpClient.defaultHttpPort;
       } else {
         if (pos > 0) {
           _host = value.substring(0, pos);
@@ -438,7 +445,7 @@ class NativeHeaders {
           _host = null;
         }
         if (pos + 1 == value.length) {
-          _port = 80;
+          _port = HttpClient.defaultHttpPort;
         } else {
           try {
             _port = int.parse(value.substring(pos + 1));
@@ -488,7 +495,7 @@ class NativeHeaders {
   }
 
   void _checkMutable() {
-    if (!_mutable) throw HttpException('HTTP headers are not mutable');
+    if (!mutable) throw HttpException('HTTP headers are not mutable');
   }
 
   void _updateHostHeader() {
@@ -505,11 +512,11 @@ class NativeHeaders {
     return noFoldingHeaders == null || !noFoldingHeaders.contains(name);
   }
 
-  void _finalize() {
-    _mutable = false;
+  void finalize() {
+    mutable = false;
   }
 
-  void _build(BytesBuilder builder, {bool skipZeroContentLength = false}) {
+  void build(BytesBuilder builder, {bool skipZeroContentLength = false}) {
     // per https://tools.ietf.org/html/rfc7230#section-3.3.2
     // A user agent SHOULD NOT send a
     // Content-Length header field when the request message does not
@@ -524,25 +531,25 @@ class NativeHeaders {
       bool fold = _foldHeader(name);
       var nameData = originalName.codeUnits;
       builder.add(nameData);
-      builder.addByte(CharCodes.colon);
-      builder.addByte(CharCodes.sp);
+      builder.addByte(CharCode.COLON);
+      builder.addByte(CharCode.SP);
       for (int i = 0; i < values.length; i++) {
         if (i > 0) {
           if (fold) {
-            builder.addByte(CharCodes.comma);
-            builder.addByte(CharCodes.sp);
+            builder.addByte(CharCode.COMMA);
+            builder.addByte(CharCode.SP);
           } else {
-            builder.addByte(CharCodes.cr);
-            builder.addByte(CharCodes.lf);
+            builder.addByte(CharCode.CR);
+            builder.addByte(CharCode.LF);
             builder.add(nameData);
-            builder.addByte(CharCodes.colon);
-            builder.addByte(CharCodes.sp);
+            builder.addByte(CharCode.COLON);
+            builder.addByte(CharCode.SP);
           }
         }
         builder.add(values[i].codeUnits);
       }
-      builder.addByte(CharCodes.cr);
-      builder.addByte(CharCodes.lf);
+      builder.addByte(CharCode.CR);
+      builder.addByte(CharCode.LF);
     });
   }
 
@@ -575,7 +582,7 @@ class NativeHeaders {
 
   static String _validateField(String field) {
     for (var i = 0; i < field.length; i++) {
-      if (!_HttpParser._isTokenChar(field.codeUnitAt(i))) {
+      if (!Parser.isTokenChar(field.codeUnitAt(i))) {
         throw FormatException('Invalid HTTP header field name: ${json.encode(field)}', field, i);
       }
     }
@@ -585,7 +592,7 @@ class NativeHeaders {
   static Object _validateValue(Object value) {
     if (value is! String) return value;
     for (var i = 0; i < (value).length; i++) {
-      if (!_HttpParser._isValueChar((value).codeUnitAt(i))) {
+      if (!Parser.isValueChar((value).codeUnitAt(i))) {
         throw FormatException('Invalid HTTP header field value: ${json.encode(value)}', value, i);
       }
     }

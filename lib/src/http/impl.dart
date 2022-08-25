@@ -2,13 +2,45 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of 'http.dart';
+import 'dart:async';
+import 'dart:collection' show HashMap, LinkedList, LinkedListEntry;
+import 'dart:convert' show ByteConversionSink, Encoding, latin1;
+import 'dart:io'
+    show
+        ContentType,
+        Cookie,
+        HandshakeException,
+        HttpClient,
+        HttpConnectionInfo,
+        HttpConnectionsInfo,
+        HttpException,
+        HttpHeaders,
+        HttpStatus,
+        IOSink,
+        InternetAddress,
+        InternetAddressType,
+        RawSocketOption,
+        SecureServerSocket,
+        SecureSocket,
+        SecurityContext,
+        ServerSocket,
+        Socket,
+        SocketException,
+        SocketOption,
+        TlsException,
+        X509Certificate,
+        ZLibEncoder;
+import 'dart:typed_data' show BytesBuilder, Uint8List;
+
+import 'package:astra/src/http/headers.dart';
+import 'package:astra/src/http/parser.dart';
 
 int _nextServiceId = 1;
 
 // TODO(ajohnsen): Use other way of getting a unique id.
 abstract class _ServiceObject {
   int __serviceId = 0;
+
   int get _serviceId {
     if (__serviceId == 0) __serviceId = _nextServiceId++;
     return __serviceId;
@@ -17,7 +49,7 @@ abstract class _ServiceObject {
 
 class _CopyingBytesBuilder implements BytesBuilder {
   // Start with 1024 bytes.
-  static const int _initSize = 1024;
+  static const int _INIT_SIZE = 1024;
 
   static final _emptyList = Uint8List(0);
 
@@ -62,8 +94,8 @@ class _CopyingBytesBuilder implements BytesBuilder {
     // We will create a list in the range of 2-4 times larger than
     // required.
     int newSize = required * 2;
-    if (newSize < _initSize) {
-      newSize = _initSize;
+    if (newSize < _INIT_SIZE) {
+      newSize = _INIT_SIZE;
     } else {
       newSize = _pow2roundup(newSize);
     }
@@ -113,7 +145,7 @@ class _CopyingBytesBuilder implements BytesBuilder {
   }
 }
 
-const int _outgoingBufferSize = 8 * 1024;
+const int _OUTGOING_BUFFER_SIZE = 8 * 1024;
 
 typedef _BytesConsumer = void Function(List<int> bytes);
 
@@ -150,8 +182,8 @@ class Incoming extends Stream<Uint8List> {
   StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     hasSubscriber = true;
-    return _stream.handleError((dynamic error) {
-      throw HttpException(error.message as String, uri: uri);
+    return _stream.handleError((Object error) {
+      throw HttpException((error as dynamic).message as String, uri: uri);
     }).listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
@@ -165,23 +197,12 @@ class Incoming extends Stream<Uint8List> {
   }
 }
 
-abstract class _InboundMessageListInt extends Stream<List<int>> {
-  final Incoming _incoming;
-
-  _InboundMessageListInt(this._incoming);
-
-  NativeHeaders get headers => _incoming.headers;
-  String get protocolVersion => headers.protocolVersion;
-  int get contentLength => headers.contentLength;
-  bool get persistentConnection => headers.persistentConnection;
-}
-
 abstract class InboundMessage extends Stream<Uint8List> {
-  final Incoming _incoming;
+  final Incoming incoming;
 
-  InboundMessage(this._incoming);
+  InboundMessage(this.incoming);
 
-  NativeHeaders get headers => _incoming.headers;
+  NativeHeaders get headers => incoming.headers;
   String get protocolVersion => headers.protocolVersion;
   int get contentLength => headers.contentLength;
   bool get persistentConnection => headers.persistentConnection;
@@ -190,13 +211,13 @@ abstract class InboundMessage extends Stream<Uint8List> {
 class NativeRequest extends InboundMessage {
   final NativeResponse response;
 
-  final NativeServer server;
+  final NativeServer _httpServer;
 
-  final Connection connection;
+  final Connection _httpConnection;
 
   Uri? _requestedUri;
 
-  NativeRequest(this.response, Incoming incoming, this.server, this.connection) : super(incoming) {
+  NativeRequest(this.response, Incoming incoming, this._httpServer, this._httpConnection) : super(incoming) {
     if (headers.protocolVersion == '1.1') {
       response.headers
         ..chunkedTransferEncoding = true
@@ -207,10 +228,10 @@ class NativeRequest extends InboundMessage {
   @override
   StreamSubscription<Uint8List> listen(void Function(Uint8List event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-    return _incoming.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+    return incoming.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
-  Uri get uri => _incoming.uri!;
+  Uri get uri => incoming.uri!;
 
   Uri get requestedUri {
     var requestedUri = _requestedUri;
@@ -218,7 +239,7 @@ class NativeRequest extends InboundMessage {
     var proto = headers['x-forwarded-proto'];
     var scheme = proto != null
         ? proto.first
-        : connection._socket is SecureSocket
+        : _httpConnection._socket is SecureSocket
             ? 'https'
             : 'http';
     var hostList = headers['x-forwarded-host'];
@@ -230,18 +251,18 @@ class NativeRequest extends InboundMessage {
       if (hostList != null) {
         host = hostList.first;
       } else {
-        host = '${server.address.host}:${server.port}';
+        host = '${_httpServer.address.host}:${_httpServer.port}';
       }
     }
-    return _requestedUri = Uri.parse('$scheme://$host$uri');
+    return _requestedUri = Uri.parse("$scheme://$host$uri");
   }
 
-  String get method => _incoming.method!;
+  String get method => incoming.method!;
 
-  HttpConnectionInfo? get connectionInfo => connection.connectionInfo;
+  HttpConnectionInfo? get connectionInfo => _httpConnection.connectionInfo;
 
   X509Certificate? get certificate {
-    var socket = connection._socket;
+    var socket = _httpConnection._socket;
     if (socket is SecureSocket) return socket.peerCertificate;
     return null;
   }
@@ -410,8 +431,8 @@ class _IOSinkImpl extends _StreamSinkImpl<List<int>> implements IOSink {
   }
 
   @override
-  void writeAll(Iterable<Object?> objects, [String separator = '']) {
-    var iterator = objects.iterator;
+  void writeAll(Iterable objects, [String separator = '']) {
+    Iterator iterator = objects.iterator;
     if (!iterator.moveNext()) return;
     if (separator.isEmpty) {
       do {
@@ -438,7 +459,7 @@ class _IOSinkImpl extends _StreamSinkImpl<List<int>> implements IOSink {
   }
 }
 
-abstract class OutboundMessage<T> extends _IOSinkImpl {
+abstract class _HttpOutboundMessage<T> extends _IOSinkImpl {
   // Used to mark when the body should be written. This is used for HEAD
   // requests and in error handling.
   bool _encodingSet = false;
@@ -450,10 +471,11 @@ abstract class OutboundMessage<T> extends _IOSinkImpl {
 
   final NativeHeaders headers;
 
-  OutboundMessage(Uri uri, String protocolVersion, Outgoing outgoing, {NativeHeaders? initialHeaders})
+  _HttpOutboundMessage(Uri uri, String protocolVersion, Outgoing outgoing, {NativeHeaders? initialHeaders})
       : _uri = uri,
         headers = NativeHeaders(protocolVersion,
-            defaultPortForScheme: uri.isScheme('https') ? 443 : 80, initialHeaders: initialHeaders),
+            defaultPortForScheme: uri.isScheme('https') ? HttpClient.defaultHttpsPort : HttpClient.defaultHttpPort,
+            initialHeaders: initialHeaders),
         _outgoing = outgoing,
         super(outgoing, latin1) {
     _outgoing.outbound = this;
@@ -511,9 +533,10 @@ abstract class OutboundMessage<T> extends _IOSinkImpl {
   bool get _isConnectionClosed => false;
 }
 
-class NativeResponse extends OutboundMessage<NativeResponse> {
+class NativeResponse extends _HttpOutboundMessage<NativeResponse> {
   int _statusCode = 200;
   String? _reasonPhrase;
+  List<Cookie>? _cookies;
   NativeRequest? _httpRequest;
   Duration? _deadline;
   Timer? _deadlineTimer;
@@ -526,7 +549,9 @@ class NativeResponse extends OutboundMessage<NativeResponse> {
   }
 
   @override
-  bool get _isConnectionClosed => _httpRequest!.connection._isClosing;
+  bool get _isConnectionClosed => _httpRequest!._httpConnection._isClosing;
+
+  List<Cookie> get cookies => _cookies ??= <Cookie>[];
 
   int get statusCode => _statusCode;
   set statusCode(int statusCode) {
@@ -540,7 +565,7 @@ class NativeResponse extends OutboundMessage<NativeResponse> {
     _reasonPhrase = reasonPhrase;
   }
 
-  Future redirect(Uri location, {int status = HttpStatus.movedTemporarily}) {
+  Future<void> redirect(Uri location, {int status = HttpStatus.movedTemporarily}) {
     if (_outgoing.headersWritten) throw StateError('Header already sent');
     statusCode = status;
     headers.set(HttpHeaders.locationHeader, location.toString());
@@ -550,7 +575,7 @@ class NativeResponse extends OutboundMessage<NativeResponse> {
   Future<Socket> detachSocket({bool writeHeaders = true}) {
     if (_outgoing.headersWritten) throw StateError('Headers already sent');
     deadline = null; // Be sure to stop any deadline.
-    var future = _httpRequest!.connection.detachSocket();
+    var future = _httpRequest!._httpConnection.detachSocket();
     if (writeHeaders) {
       var headersFuture = _outgoing.writeHeaders(drainRequest: false, setOutgoing: false);
       assert(headersFuture == null);
@@ -577,33 +602,33 @@ class NativeResponse extends OutboundMessage<NativeResponse> {
 
     if (d == null) return;
     _deadlineTimer = Timer(d, () {
-      _httpRequest!.connection.destroy();
+      _httpRequest!._httpConnection.destroy();
     });
   }
 
   @override
   void _writeHeader() {
-    BytesBuilder buffer = _CopyingBytesBuilder(_outgoingBufferSize);
+    BytesBuilder buffer = _CopyingBytesBuilder(_OUTGOING_BUFFER_SIZE);
 
     // Write status line.
     if (headers.protocolVersion == '1.1') {
-      buffer.add(Constants.http11);
+      buffer.add(Const.HTTP11);
     } else {
-      buffer.add(Constants.http10);
+      buffer.add(Const.HTTP10);
     }
-    buffer.addByte(CharCodes.sp);
+    buffer.addByte(CharCode.SP);
     buffer.add(statusCode.toString().codeUnits);
-    buffer.addByte(CharCodes.sp);
+    buffer.addByte(CharCode.SP);
     buffer.add(reasonPhrase.codeUnits);
-    buffer.addByte(CharCodes.cr);
-    buffer.addByte(CharCodes.lf);
+    buffer.addByte(CharCode.CR);
+    buffer.addByte(CharCode.LF);
 
-    headers._finalize();
+    headers.finalize();
 
     // Write headers.
-    headers._build(buffer);
-    buffer.addByte(CharCodes.cr);
-    buffer.addByte(CharCodes.lf);
+    headers.build(buffer);
+    buffer.addByte(CharCode.CR);
+    buffer.addByte(CharCode.LF);
     Uint8List headerBytes = buffer.takeBytes();
     _outgoing.setHeader(headerBytes, headerBytes.length);
   }
@@ -735,16 +760,16 @@ class _HttpGZipSink extends ByteConversionSink {
 // one before gzip (_gzipBuffer) and one after (_buffer).
 class Outgoing implements StreamConsumer<List<int>> {
   static const List<int> _footerAndChunk0Length = [
-    CharCodes.cr,
-    CharCodes.lf,
+    CharCode.CR,
+    CharCode.LF,
     0x30,
-    CharCodes.cr,
-    CharCodes.lf,
-    CharCodes.cr,
-    CharCodes.lf
+    CharCode.CR,
+    CharCode.LF,
+    CharCode.CR,
+    CharCode.LF
   ];
 
-  static const List<int> _chunk0Length = [0x30, CharCodes.cr, CharCodes.lf, CharCodes.cr, CharCodes.lf];
+  static const List<int> _chunk0Length = [0x30, CharCode.CR, CharCode.LF, CharCode.CR, CharCode.LF];
 
   final Completer<Socket> _doneCompleter = Completer<Socket>();
   final Socket socket;
@@ -773,7 +798,7 @@ class Outgoing implements StreamConsumer<List<int>> {
 
   bool _socketError = false;
 
-  OutboundMessage? outbound;
+  _HttpOutboundMessage? outbound;
 
   Outgoing(this.socket);
 
@@ -787,7 +812,7 @@ class Outgoing implements StreamConsumer<List<int>> {
     var response = outbound!;
     if (response is NativeResponse) {
       // Server side.
-      if (response._httpRequest!.server.autoCompress &&
+      if (response._httpRequest!._httpServer.autoCompress &&
           response.bufferOutput &&
           response.headers.chunkedTransferEncoding) {
         List<String>? acceptEncodings = response._httpRequest!.headers[HttpHeaders.acceptEncodingHeader];
@@ -801,7 +826,7 @@ class Outgoing implements StreamConsumer<List<int>> {
           gzip = true;
         }
       }
-      if (drainRequest && !response._httpRequest!._incoming.hasSubscriber) {
+      if (drainRequest && !response._httpRequest!.incoming.hasSubscriber) {
         drainFuture = response._httpRequest!.drain<void>().catchError((_) {});
       }
     } else {
@@ -886,7 +911,7 @@ class Outgoing implements StreamConsumer<List<int>> {
     }
     return socket.addStream(controller.stream).then((_) {
       return outbound;
-    }, onError: (Object error, StackTrace stackTrace) {
+    }, onError: (Object error, [StackTrace? stackTrace]) {
       // Be sure to close it in case of an error.
       if (_gzip) _gzipSink!.close();
       _socketError = true;
@@ -900,7 +925,7 @@ class Outgoing implements StreamConsumer<List<int>> {
   }
 
   @override
-  Future close() {
+  Future<void> close() {
     // If we are already closed, return that future.
     var closeFuture = _closeFuture;
     if (closeFuture != null) return closeFuture;
@@ -967,7 +992,7 @@ class Outgoing implements StreamConsumer<List<int>> {
       return socket.flush().then((_) {
         _doneCompleter.complete(socket);
         return outbound;
-      }, onError: (Object error, StackTrace stackTrace) {
+      }, onError: (Object error, [StackTrace? stackTrace]) {
         _doneCompleter.completeError(error, stackTrace);
         if (_ignoreError(error)) {
           return outbound;
@@ -995,7 +1020,7 @@ class Outgoing implements StreamConsumer<List<int>> {
   set gzip(bool value) {
     _gzip = value;
     if (value) {
-      _gzipBuffer = Uint8List(_outgoingBufferSize);
+      _gzipBuffer = Uint8List(_OUTGOING_BUFFER_SIZE);
       assert(_gzipSink == null);
       _gzipSink = ZLibEncoder(gzip: true).startChunkedConversion(_HttpGZipSink((data) {
         // We are closing down prematurely, due to an error. Discard.
@@ -1018,10 +1043,10 @@ class Outgoing implements StreamConsumer<List<int>> {
     var gzipBuffer = _gzipBuffer!;
     if (chunk.length > gzipBuffer.length - _gzipBufferLength) {
       add(Uint8List.view(gzipBuffer.buffer, gzipBuffer.offsetInBytes, _gzipBufferLength));
-      _gzipBuffer = Uint8List(_outgoingBufferSize);
+      _gzipBuffer = Uint8List(_OUTGOING_BUFFER_SIZE);
       _gzipBufferLength = 0;
     }
-    if (chunk.length > _outgoingBufferSize) {
+    if (chunk.length > _OUTGOING_BUFFER_SIZE) {
       add(chunk);
     } else {
       var currentLength = _gzipBufferLength;
@@ -1046,10 +1071,10 @@ class Outgoing implements StreamConsumer<List<int>> {
     }
     if (chunk.length > _buffer!.length - _length) {
       add(Uint8List.view(_buffer!.buffer, _buffer!.offsetInBytes, _length));
-      _buffer = Uint8List(_outgoingBufferSize);
+      _buffer = Uint8List(_OUTGOING_BUFFER_SIZE);
       _length = 0;
     }
-    if (chunk.length > _outgoingBufferSize) {
+    if (chunk.length > _OUTGOING_BUFFER_SIZE) {
       add(chunk);
     } else {
       _buffer!.setRange(_length, _length + chunk.length, chunk);
@@ -1072,38 +1097,38 @@ class Outgoing implements StreamConsumer<List<int>> {
     }
     var footerAndHeader = Uint8List(size + 2);
     if (_pendingChunkedFooter == 2) {
-      footerAndHeader[0] = CharCodes.cr;
-      footerAndHeader[1] = CharCodes.lf;
+      footerAndHeader[0] = CharCode.CR;
+      footerAndHeader[1] = CharCode.LF;
     }
     int index = size;
     while (index > _pendingChunkedFooter) {
       footerAndHeader[--index] = hexDigits[length & 15];
       length = length >> 4;
     }
-    footerAndHeader[size + 0] = CharCodes.cr;
-    footerAndHeader[size + 1] = CharCodes.lf;
+    footerAndHeader[size + 0] = CharCode.CR;
+    footerAndHeader[size + 1] = CharCode.LF;
     return footerAndHeader;
   }
 }
 
 class Connection extends LinkedListEntry<Connection> with _ServiceObject {
-  static const _active = 0;
-  static const _idle = 1;
-  static const _closing = 2;
-  static const _detached = 3;
+  static const _ACTIVE = 0;
+  static const _IDLE = 1;
+  static const _CLOSING = 2;
+  static const _DETACHED = 3;
 
   // Use HashMap, as we don't need to keep order.
   static final Map<int, Connection> _connections = HashMap<int, Connection>();
 
   final Socket _socket;
   final NativeServer _httpServer;
-  final _HttpParser _httpParser;
-  int _state = _idle;
+  final Parser _httpParser;
+  int _state = _IDLE;
   StreamSubscription? _subscription;
   bool _idleMark = false;
   Future? _streamFuture;
 
-  Connection(this._socket, this._httpServer) : _httpParser = _HttpParser.requestParser() {
+  Connection(this._socket, this._httpServer) : _httpParser = Parser.requestParser() {
     _connections[_serviceId] = this;
     _httpParser.listenToStream(_socket);
     _subscription = _httpParser.listen((incoming) {
@@ -1115,7 +1140,7 @@ class Connection extends LinkedListEntry<Connection> with _ServiceObject {
       // Only handle one incoming request at the time. Keep the
       // stream paused until the request has been send.
       _subscription!.pause();
-      _state = _active;
+      _state = _ACTIVE;
       var outgoing = Outgoing(_socket);
       var response = NativeResponse(incoming.uri!, incoming.headers.protocolVersion, outgoing,
           _httpServer.defaultResponseHeaders, _httpServer.serverHeader);
@@ -1126,13 +1151,13 @@ class Connection extends LinkedListEntry<Connection> with _ServiceObject {
       var request = NativeRequest(response, incoming, _httpServer, this);
       _streamFuture = outgoing.done.then((_) {
         response.deadline = null;
-        if (_state == _detached) return;
+        if (_state == _DETACHED) return;
         if (response.persistentConnection &&
             request.persistentConnection &&
             incoming.fullBodyRead &&
             !_httpParser.upgrade &&
             !_httpServer.closed) {
-          _state = _idle;
+          _state = _IDLE;
           _idleMark = false;
           _httpServer._markIdle(this);
           // Resume the subscription for incoming requests as the
@@ -1164,19 +1189,19 @@ class Connection extends LinkedListEntry<Connection> with _ServiceObject {
   bool get isMarkedIdle => _idleMark;
 
   void destroy() {
-    if (_state == _closing || _state == _detached) return;
-    _state = _closing;
+    if (_state == _CLOSING || _state == _DETACHED) return;
+    _state = _CLOSING;
     _socket.destroy();
     _httpServer._connectionClosed(this);
     _connections.remove(_serviceId);
   }
 
   Future<Socket> detachSocket() {
-    _state = _detached;
+    _state = _DETACHED;
     // Remove connection from server.
     _httpServer._connectionClosed(this);
 
-    _HttpDetachedIncoming detachedIncoming = _httpParser.detachIncoming();
+    var detachedIncoming = _httpParser.detachIncoming();
 
     return _streamFuture!.then((_) {
       _connections.remove(_serviceId);
@@ -1186,10 +1211,10 @@ class Connection extends LinkedListEntry<Connection> with _ServiceObject {
 
   HttpConnectionInfo? get connectionInfo => _HttpConnectionInfo.create(_socket);
 
-  bool get _isActive => _state == _active;
-  bool get _isIdle => _state == _idle;
-  bool get _isClosing => _state == _closing;
-  bool get _isDetached => _state == _detached;
+  bool get _isActive => _state == _ACTIVE;
+  bool get _isIdle => _state == _IDLE;
+  bool get _isClosing => _state == _CLOSING;
+  bool get _isDetached => _state == _DETACHED;
 }
 
 // HTTP server waiting for socket connections.
@@ -1204,29 +1229,18 @@ class NativeServer extends Stream<NativeRequest> with _ServiceObject {
   Duration? _idleTimeout;
   Timer? _idleTimer;
 
-  static Future<NativeServer> bind(Object address, int port, //
-      {int backlog = 0,
-      bool v6Only = false,
-      bool shared = false}) {
-    return ServerSocket.bind(address, port, //
-            backlog: backlog,
-            v6Only: v6Only,
-            shared: shared)
+  static Future<NativeServer> bind(Object address, int port,
+      {int backlog = 0, bool v6Only = false, bool shared = false}) {
+    return ServerSocket.bind(address, port, backlog: backlog, v6Only: v6Only, shared: shared)
         .then<NativeServer>((socket) {
       return NativeServer._(socket, true);
     });
   }
 
-  static Future<NativeServer> bindSecure(Object address, int port, SecurityContext? context, //
-      {int backlog = 0,
-      bool v6Only = false,
-      bool requestClientCertificate = false,
-      bool shared = false}) {
-    return SecureServerSocket.bind(address, port, context, //
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared)
+  static Future<NativeServer> bindSecure(Object address, int port, SecurityContext? context,
+      {int backlog = 0, bool v6Only = false, bool requestClientCertificate = false, bool shared = false}) {
+    return SecureServerSocket.bind(address, port, context,
+            backlog: backlog, v6Only: v6Only, requestClientCertificate: requestClientCertificate, shared: shared)
         .then<NativeServer>((socket) {
       return NativeServer._(socket, true);
     });
@@ -1287,7 +1301,7 @@ class NativeServer extends Stream<NativeRequest> with _ServiceObject {
       // Accept the client connection.
       Connection connection = Connection(socket, this);
       _idleConnections.add(connection);
-    }, onError: (Object error, StackTrace stackTrace) {
+    }, onError: (Object error, [StackTrace? stackTrace]) {
       // Ignore HandshakeExceptions as they are bound to a single request,
       // and are not fatal for the server.
       if (error is! HandshakeException) {
@@ -1297,14 +1311,14 @@ class NativeServer extends Stream<NativeRequest> with _ServiceObject {
     return _controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
-  Future close({bool force = false}) {
+  Future<void> close({bool force = false}) {
     closed = true;
-    Future result;
+    Future<void> result;
+
     if (_closeServer) {
-      // TODO: dynamic
-      result = (_serverSocket as dynamic).close() as Future;
+      result = (_serverSocket as dynamic).close() as Future<void>;
     } else {
-      result = Future.value();
+      result = Future<void>.value();
     }
     idleTimeout = null;
     if (force) {
@@ -1320,22 +1334,20 @@ class NativeServer extends Stream<NativeRequest> with _ServiceObject {
   }
 
   int get port {
-    if (closed) throw HttpException('HttpServer is not bound to a socket');
-    // TODO: dynamic
+    if (closed) throw HttpException('NativeServer is not bound to a socket');
     return (_serverSocket as dynamic).port as int;
   }
 
   InternetAddress get address {
-    if (closed) throw HttpException('HttpServer is not bound to a socket');
-    // TODO: dynamic
+    if (closed) throw HttpException('NativeServer is not bound to a socket');
     return (_serverSocket as dynamic).address as InternetAddress;
   }
 
   void _handleRequest(NativeRequest request) {
-    if (closed) {
-      request.connection.destroy();
-    } else {
+    if (!closed) {
       _controller.add(request);
+    } else {
+      request._httpConnection.destroy();
     }
   }
 
@@ -1397,12 +1409,16 @@ class _HttpConnectionInfo implements HttpConnectionInfo {
   _HttpConnectionInfo(this.remoteAddress, this.remotePort, this.localPort);
 
   static _HttpConnectionInfo? create(Socket? socket) {
-    if (socket == null) return null;
+    if (socket == null) {
+      return null;
+    }
+
     try {
       return _HttpConnectionInfo(socket.remoteAddress, socket.remotePort, socket.port);
-    } catch (e) {
+    } catch (error) {
       // pass
     }
+
     return null;
   }
 }
@@ -1443,7 +1459,7 @@ class _DetachedSocket extends Stream<Uint8List> implements Socket {
   }
 
   @override
-  void writeAll(Iterable objects, [String separator = '']) {
+  void writeAll(Iterable<Object?> objects, [String separator = '']) {
     _socket.writeAll(objects, separator);
   }
 
@@ -1456,7 +1472,7 @@ class _DetachedSocket extends Stream<Uint8List> implements Socket {
   void addError(Object error, [StackTrace? stackTrace]) => _socket.addError(error, stackTrace);
 
   @override
-  Future addStream(Stream<List<int>> stream) {
+  Future<void> addStream(Stream<List<int>> stream) {
     return _socket.addStream(stream);
   }
 
@@ -1466,13 +1482,13 @@ class _DetachedSocket extends Stream<Uint8List> implements Socket {
   }
 
   @override
-  Future flush() => _socket.flush();
+  Future<void> flush() => _socket.flush();
 
   @override
-  Future close() => _socket.close();
+  Future<void> close() => _socket.close();
 
   @override
-  Future get done => _socket.done;
+  Future<void> get done => _socket.done;
 
   @override
   int get port => _socket.port;
