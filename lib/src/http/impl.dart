@@ -771,9 +771,7 @@ class NativeResponse extends OutboundMessage<NativeResponse> {
       ..addByte(CharCode.cr)
       ..addByte(CharCode.lf);
 
-    headers
-      ..finalize()
-      ..build(buffer);
+    headers.build(buffer);
 
     buffer
       ..addByte(CharCode.cr)
@@ -1674,7 +1672,7 @@ class NativeServer extends Stream<NativeRequest> {
 
   static NativeHeaders initDefaultResponseHeaders() {
     var defaultResponseHeaders = NativeHeaders('1.1');
-    defaultResponseHeaders.contentType = ContentType.text;
+    defaultResponseHeaders.set('Content-Type', 'text/plain; charset=utf-8');
     defaultResponseHeaders.set('X-Frame-Options', 'SAMEORIGIN');
     defaultResponseHeaders.set('X-Content-Type-Options', 'nosniff');
     defaultResponseHeaders.set('X-XSS-Protection', '1; mode=block');

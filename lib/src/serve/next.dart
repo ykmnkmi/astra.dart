@@ -13,8 +13,8 @@ import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [ServerSocket].
-class H11Astra implements Server {
-  H11Astra(this.server) : mounted = false;
+class H11Next implements Server {
+  H11Next(this.server) : mounted = false;
 
   /// The underlying [HttpServer].
   final NativeServer server;
@@ -72,8 +72,8 @@ class H11Astra implements Server {
     return server.close(force: force);
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [H11Astra].
-  static Future<H11Astra> bind(Object address, int port,
+  /// Calls [HttpServer.bind] and wraps the result in an [H11Next].
+  static Future<H11Next> bind(Object address, int port,
       {SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -94,7 +94,7 @@ class H11Astra implements Server {
           shared: shared);
     }
 
-    return H11Astra(server);
+    return H11Next(server);
   }
 }
 
@@ -236,7 +236,7 @@ extension on FutureOr<Response?> Function(Request) {
       ..statusCode = response.statusCode
       ..headers.chunkedTransferEncoding = false;
 
-    response.headersAll.forEach(nativeResponse.headers.set);
+    response.headersAll.forEach(nativeResponse.headers.setAll);
 
     var coding = response.headers['transfer-encoding'];
 

@@ -7,7 +7,7 @@ import 'dart:isolate';
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/isolate.dart';
 import 'package:astra/src/serve/base.dart';
-import 'package:astra/src/serve/astra11.dart';
+import 'package:astra/src/serve/next.dart';
 import 'package:logging/logging.dart';
 
 export 'package:astra/src/serve/base.dart';
@@ -65,7 +65,7 @@ extension ServeApplicationExtension on Application {
 
         break;
       case ServerType.next:
-        server = await H11Astra.bind(address, port, //
+        server = await H11Next.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,
