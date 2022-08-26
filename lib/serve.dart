@@ -6,21 +6,21 @@ import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/isolate.dart';
-import 'package:astra/src/serve/base.dart';
-import 'package:astra/src/serve/next.dart';
+import 'package:astra/src/serve/shelf.dart';
+import 'package:astra/src/serve/h11.dart';
 import 'package:logging/logging.dart';
 
-export 'package:astra/src/serve/base.dart';
+export 'package:astra/src/serve/shelf.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {
-  base,
-  next,
+  shelf,
+  h11,
 }
 
 extension ServeHandlerExtension on Handler {
   // TODO: add options: concurency, debug, ...
-  // TODO: h1*, h2, h3, ..., websocket
+  // TODO: h1*, h2, ...
   Future<Server> serve(Object address, int port,
       {SecurityContext? securityContext,
       int backlog = 0,
@@ -42,9 +42,9 @@ extension ServeHandlerExtension on Handler {
 
 extension ServeApplicationExtension on Application {
   // TODO: add options: concurency, debug, ...
-  // TODO: h1*, h2, h3, ..., websocket
+  // TODO: h1*, h2, ...
   Future<Server> serve(Object address, int port,
-      {ServerType type = ServerType.next,
+      {ServerType type = ServerType.h11,
       SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -55,29 +55,28 @@ extension ServeApplicationExtension on Application {
     Server server;
 
     switch (type) {
-      case ServerType.base:
+      case ServerType.shelf:
+        server = await ShelfServer.bind(address, port, //
+            securityContext: securityContext,
+            backlog: backlog,
+            v6Only: v6Only,
+            requestClientCertificate: requestClientCertificate,
+            shared: shared);
+        break;
+
+      case ServerType.h11:
         server = await H11Server.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,
             requestClientCertificate: requestClientCertificate,
             shared: shared);
-
-        break;
-      case ServerType.next:
-        server = await H11Next.bind(address, port, //
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared);
-
         break;
     }
 
     if (messagePort == null) {
       await server.mount(this, logger);
-      return OnCloseServer(server, close);
+      return server;
     }
 
     var isolate = IsolateServer(server, messagePort);

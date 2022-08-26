@@ -181,11 +181,11 @@ class ServeCommand extends CliCommand {
       'VERSION': packageVersion,
       'PACKAGE': 'package:$package/$package.dart',
       'TARGET': target,
-      'ISAPPLICATION': '${targetType.isApplication}',
       'CONCURRENCY': '$concurrency',
       'OBSERVE': '$observe',
       'RELOAD': '$reload',
       'WATCH': '$watch',
+      'CANRELOAD': '${targetType.canReload}',
       'ASSERTS': '$asserts',
       'VERBOSE': '$reload',
       'SCHEME': context == null ? 'http' : 'https',
@@ -216,7 +216,7 @@ class ServeCommand extends CliCommand {
       throw resolvedUnit.errors.first;
     }
 
-    var memberType = getTargetType(target, resolvedUnit);
+    var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
     var scriptPath = join('.dart_tool', 'astra.serve.dart');
     var script = File(join(directory.path, scriptPath));

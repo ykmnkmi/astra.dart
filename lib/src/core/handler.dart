@@ -1,22 +1,7 @@
-library astra.core.extensions;
-
 import 'package:astra/src/core/application.dart';
-import 'package:astra/src/core/shelf.dart';
+import 'package:shelf/shelf.dart';
 
-/// [Middleware] extension.
-extension MiddlewareExtension on Middleware {
-  /// Similar to [Pipeline.addHandler].
-  Handler handle(Handler handler) {
-    return this(handler);
-  }
-
-  /// Similar to [Pipeline.addMiddleware].
-  Middleware next(Middleware middleware) {
-    return (Handler handler) {
-      return this(middleware(handler));
-    };
-  }
-}
+export 'package:shelf/shelf.dart' show Handler;
 
 /// [Middleware] extension.
 extension HandlerExtension on Handler {

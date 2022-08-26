@@ -10,9 +10,8 @@ import 'package:http/io_client.dart' show IOStreamedResponse;
 
 class TestClient extends BaseClient {
   TestClient(this.handler, {this.host = 'localhost', this.port = 0, this.context})
-      : scheme = context == null ? 'http' : 'https' {
-    client = HttpClient(context: context);
-  }
+      : scheme = context == null ? 'http' : 'https',
+        client = HttpClient(context: context);
 
   final Handler handler;
 
@@ -24,7 +23,7 @@ class TestClient extends BaseClient {
 
   final SecurityContext? context;
 
-  late HttpClient client;
+  final HttpClient client;
 
   @override
   Future<StreamedResponse> send(BaseRequest request) async {
@@ -48,12 +47,16 @@ class TestClient extends BaseClient {
 
       request.headers.forEach(clientRequest.headers.set);
 
-      var response = await stream.pipe(clientRequest) as HttpClientResponse;
+      await clientRequest.addStream(stream);
+
+      var response = await clientRequest.close();
       var headers = <String, String>{};
 
-      response.headers.forEach((key, values) {
+      void action(String key, List<String> values) {
         headers[key] = values.join(',');
-      });
+      }
+
+      response.headers.forEach(action);
 
       streamedResponse = IOStreamedResponse(response, response.statusCode,
           contentLength: response.contentLength == -1 ? null : response.contentLength,

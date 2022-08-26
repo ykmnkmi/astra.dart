@@ -1,8 +1,6 @@
-library astra.core.application;
-
 import 'dart:async';
 
-import 'package:astra/src/core/shelf.dart';
+import 'package:astra/src/core/handler.dart';
 
 /// An object that defines the behavior specific to your application.
 class Application {

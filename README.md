@@ -109,26 +109,6 @@ Future<void> main() async {
 
 The `--target` option allows loading the application with different name and different types, defaults to `application`.
 
-`Handler` function:
-```console
-$ astra serve --target echo
-```
-```dart
-Response echo(Request request) {
-  return Response.ok('hello world!');
-}
-```
-
-`Handler` factory:
-```console
-$ astra serve --target getHandler
-```
-```dart
-FutureOr<Handler> getHandler() {
-  // ...
-}
-```
-
 `Application` instance:
 ```console
 $ astra serve --target example
@@ -157,8 +137,34 @@ FutureOr<Application> getApplication() {
 }
 ```
 
+`Handler` function:
+```console
+$ astra serve --target echo
+```
+```dart
+Response echo(Request request);
+```
+
+`Handler` like callable class:
+```console
+$ astra serve --target Handler
+```
+```dart
+class Router {
+  Response call(Request request);
+}
+```
+
+`Handler` factory:
+```console
+$ astra serve --target buildRouter
+```
+```dart
+FutureOr<Handler> buildRouter();
+```
+
 Not yet:
-- `Handler` like callable class, instance and factory
+- `Handler` like callable class, instance
 - package URI (if possible)
 
 [shelf]: https://github.com/dart-lang/shelf

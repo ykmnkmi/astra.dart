@@ -7,26 +7,18 @@ import 'dart:isolate';
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/message.dart';
 import 'package:logging/logging.dart';
-import 'package:meta/meta.dart';
 
 class IsolateServer implements Server {
-  IsolateServer(this.server, this.messagePort)
-      : receivePort = RawReceivePort(),
-        mounted = false {
+  IsolateServer(this.server, this.messagePort) : receivePort = RawReceivePort() {
     receivePort.handler = onMessage;
     messagePort.send(receivePort.sendPort);
   }
 
-  @internal
   final Server server;
 
-  @internal
   final SendPort messagePort;
 
-  @internal
   final RawReceivePort receivePort;
-
-  bool mounted;
 
   @override
   InternetAddress get address {
@@ -52,13 +44,7 @@ class IsolateServer implements Server {
   // TODO: catch error
   @override
   Future<void> mount(Application application, [Logger? logger]) async {
-    if (mounted) {
-      // TODO: add error message
-      throw StateError('');
-    }
-
-    mounted = true;
-    await application.prepare();
+    await server.mount(application, logger);
 
     Future<ServiceExtensionResponse> reload(String isolateId, Map<String, String> data) async {
       try {
@@ -71,7 +57,6 @@ class IsolateServer implements Server {
     }
 
     registerExtension('ext.astra.reload', reload);
-    await server.mount(application, logger);
     messagePort.send(IsolateMessage.ready);
   }
 

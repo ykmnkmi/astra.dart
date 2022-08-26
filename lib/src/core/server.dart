@@ -26,7 +26,7 @@ abstract class Server {
 
   /// Mounts [application] as the base handler for this server.
   ///
-  /// All requests to [url] or and URLs beneath it will be sent to [handler]
+  /// All requests to [url] or and URLs beneath it will be sent to [handlerFunction]
   /// until [close] is called.
   ///
   /// Throws a [StateError] if there's already a handler mounted.
@@ -38,33 +38,4 @@ abstract class Server {
   /// Once this is called, no more requests will be passed to this server's
   /// handler. Otherwise, the cleanup behavior is implementation-dependent.
   Future<void> close({bool force = false});
-}
-
-class OnCloseServer implements Server {
-  OnCloseServer(this.server, this.onClose);
-
-  final Server server;
-
-  final Future<void> Function() onClose;
-
-  @override
-  InternetAddress get address {
-    return server.address;
-  }
-
-  @override
-  int get port {
-    return server.port;
-  }
-
-  @override
-  Future<void> mount(Application application, [Logger? logger]) async {
-    await server.mount(application, logger);
-  }
-
-  @override
-  Future<void> close({bool force = false}) async {
-    await server.close(force: force);
-    await onClose();
-  }
 }

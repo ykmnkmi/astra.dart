@@ -15,8 +15,6 @@ import 'package:vm_service/vm_service_io.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
-const bool isApplication = __ISAPPLICATION__;
-
 const int concurrency = __CONCURRENCY__;
 
 const bool observe = __OBSERVE__;
@@ -24,6 +22,8 @@ const bool observe = __OBSERVE__;
 const bool hotReload = __RELOAD__;
 
 const bool watchLib = __WATCH__;
+
+const bool canReload = __CANRELOAD__;
 
 const bool verbose = __VERBOSE__;
 
@@ -129,7 +129,7 @@ Future<void> main(List<String> arguments) async {
       Future<void> reload(String isolateId) async {
         var result = await service.reloadSources(isolateId);
 
-        if (isApplication && result.success == true) {
+        if (canReload && result.success == true) {
           await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
         }
       }

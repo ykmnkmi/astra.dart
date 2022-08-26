@@ -11,7 +11,7 @@ Middleware debug() {
       } on HijackException {
         rethrow;
       } catch (error) {
-        var body = htmlEscape.convert(error.toString());
+        var body = htmlEscape.convert('$error');
         var accept = request.headers['accept'];
         Map<String, String>? headers;
 

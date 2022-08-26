@@ -1,4 +1,4 @@
-library astra.serve.h11;
+library astra.serve.next;
 
 import 'dart:async';
 import 'dart:io';
@@ -9,17 +9,18 @@ import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:logging/logging.dart';
-import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [ServerSocket].
-class H11Next implements Server {
-  H11Next(this.server) : mounted = false;
+class H11Server implements Server {
+  H11Server(this.server) : mounted = false;
 
   /// The underlying [HttpServer].
   final NativeServer server;
 
-  @protected
+  /// Mounted [Application]
+  late Application application;
+
   bool mounted;
 
   @override
@@ -50,6 +51,7 @@ class H11Next implements Server {
       throw StateError('Can\'t mount two handlers for the same server.');
     }
 
+    this.application = application;
     mounted = true;
 
     await application.prepare();
@@ -68,12 +70,13 @@ class H11Next implements Server {
   }
 
   @override
-  Future<void> close({bool force = false}) {
-    return server.close(force: force);
+  Future<void> close({bool force = false}) async {
+    await server.close(force: force);
+    return application.close();
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [H11Next].
-  static Future<H11Next> bind(Object address, int port,
+  /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
+  static Future<H11Server> bind(Object address, int port,
       {SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -94,7 +97,7 @@ class H11Next implements Server {
           shared: shared);
     }
 
-    return H11Next(server);
+    return H11Server(server);
   }
 }
 
@@ -257,7 +260,7 @@ extension on FutureOr<Response?> Function(Request) {
     }
 
     if (!response.headers.containsKey(HttpHeaders.serverHeader)) {
-      nativeResponse.headers.set(HttpHeaders.serverHeader, 'Astra $packageVersion');
+      nativeResponse.headers.set('x-powered-by', 'Astra $packageVersion');
     }
 
     if (!response.headers.containsKey(HttpHeaders.dateHeader)) {
