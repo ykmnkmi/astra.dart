@@ -1,7 +1,5 @@
 Future<void> create(SendPort sendPort) async {
-  var object = _.__TARGET__();
-  var handler = object.call;
-  var application = handler.asApplication();
+  var application = await _.__TARGET__;
   await application.serve(address, port, //
       securityContext: __CONTEXT__,
       backlog: backlog,

@@ -22,14 +22,16 @@ extension ServeHandlerExtension on Handler {
   // TODO: add options: concurency, debug, ...
   // TODO: h1*, h2, ...
   Future<Server> serve(Object address, int port,
-      {SecurityContext? securityContext,
+      {Future<void> Function()? onReload,
+      SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
       bool requestClientCertificate = false,
       bool shared = false,
       Logger? logger,
       SendPort? messagePort}) async {
-    return asApplication().serve(address, port, //
+    var application = asApplication(onReload: onReload);
+    return application.serve(address, port, //
         securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,

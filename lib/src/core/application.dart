@@ -17,7 +17,7 @@ class Application {
 
   /// Override this method to rerun any initialization tasks or update any
   /// resources while developing.
-  FutureOr<void> reload() {}
+  Future<void> reload() async {}
 
   /// Override this method to release any resources created in prepare.
   Future<void> close() async {}

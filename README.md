@@ -6,6 +6,7 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
 **WORK IN PROGRESS**
 
 ### ToDo
+- Incremental compilation 🔥
 - Errors, error handling and verbose output 🔥
 - More API Documentation 🔥
 - Logging
@@ -19,10 +20,10 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
 
 ### Experimenting
 - Shelf Request/Response based HttpServer alternatives:
-  - dart:io Socket (without HttpRequest/HttpResponse) 🤔
-  - dart:ffi and Rust/C++ web server adapter
+  - dart:io Socket (without HttpRequest/HttpResponse) 🔥
+  - dart:ffi and Rust (hyper) web server adapter 🤔
   - ...
-- HTTP/2
+- HTTP/2 🤔
 - Hot-Reload and `build_runner` integration
 
 ## Quickstart
@@ -107,24 +108,26 @@ Future<void> main() async {
 
 ### Application target
 
-The `--target` option allows loading the application with different name and different types, defaults to `application`.
+The `--target` option allows loading the application with different names and different types, defaults to `application`.
+
+`Application` class:
+```console
+$ astra serve --target HelloWorld
+```
+```dart
+class HelloWorld extends Application {
+  // ...
+}
+```
 
 `Application` instance:
 ```console
 $ astra serve --target example
 ```
 ```dart
-const Example example = Example();
-```
+FutureOr<Application> example;
 
-`Application` class:
-```console
-$ astra serve --target Example
-```
-```dart
-class Example extends Application {
-  // ...
-}
+FutureOr<Application> get example;
 ```
 
 `Application` factory:
@@ -132,9 +135,7 @@ class Example extends Application {
 $ astra serve --target getApplication
 ```
 ```dart
-FutureOr<Application> getApplication() {
-  // ...
-}
+FutureOr<Application> getApplication();
 ```
 
 `Handler` function:
@@ -147,12 +148,22 @@ Response echo(Request request);
 
 `Handler` like callable class:
 ```console
-$ astra serve --target Handler
+$ astra serve --target Router
 ```
 ```dart
 class Router {
   Response call(Request request);
 }
+```
+
+`Handler` like callable class instance:
+```console
+$ astra serve --target router
+```
+```dart
+FutureOr<Router> router;
+
+FutureOr<Router> get router;
 ```
 
 `Handler` factory:
@@ -164,7 +175,6 @@ FutureOr<Handler> buildRouter();
 ```
 
 Not yet:
-- `Handler` like callable class, instance
 - package URI (if possible)
 
 [shelf]: https://github.com/dart-lang/shelf

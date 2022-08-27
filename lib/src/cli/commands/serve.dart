@@ -162,7 +162,8 @@ class ServeCommand extends CliCommand {
     }
 
     var template = await File.fromUri(templateResolvedUri).readAsString();
-    return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), (match) {
+
+    String replace(Match match) {
       var variable = match.group(1);
 
       if (variable == null) {
@@ -170,7 +171,9 @@ class ServeCommand extends CliCommand {
       }
 
       return data[variable]!;
-    });
+    }
+
+    return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), replace);
   }
 
   Future<String> createSource(TargetType targetType) async {
@@ -185,7 +188,6 @@ class ServeCommand extends CliCommand {
       'OBSERVE': '$observe',
       'RELOAD': '$reload',
       'WATCH': '$watch',
-      'CANRELOAD': '${targetType.canReload}',
       'ASSERTS': '$asserts',
       'VERBOSE': '$reload',
       'SCHEME': context == null ? 'http' : 'https',

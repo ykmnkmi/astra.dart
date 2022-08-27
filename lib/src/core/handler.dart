@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:astra/src/core/application.dart';
 import 'package:shelf/shelf.dart';
 
@@ -10,18 +12,29 @@ extension HandlerExtension on Handler {
     return middleware(this);
   }
 
-  Application asApplication() {
-    return HandlerApplication(this);
+  Application asApplication({Future<void> Function()? onReload}) {
+    return HandlerApplication(this, onReload: onReload);
   }
 }
 
 class HandlerApplication extends Application {
-  const HandlerApplication(this.handler);
+  const HandlerApplication(this.handler, {this.onReload});
 
   final Handler handler;
+
+  final Future<void> Function()? onReload;
 
   @override
   Handler get entryPoint {
     return handler;
+  }
+
+  @override
+  Future<void> reload() async {
+    var onReload = this.onReload;
+
+    if (onReload != null) {
+      await onReload();
+    }
   }
 }

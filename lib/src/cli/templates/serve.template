@@ -23,8 +23,6 @@ const bool hotReload = __RELOAD__;
 
 const bool watchLib = __WATCH__;
 
-const bool canReload = __CANRELOAD__;
-
 const bool verbose = __VERBOSE__;
 
 const bool asserts = __ASSERTS__;
@@ -81,7 +79,11 @@ Future<void> main(List<String> arguments) async {
   }
 
   Future<void> stopAll() {
-    return Future.wait<void>(supervisors.map<Future<void>>((supervisor) => supervisor.stop()));
+    Future<void> stop(IsolateSupervisor supervisor) {
+      return supervisor.stop();
+    }
+
+    return Future.wait<void>(supervisors.map<Future<void>>(stop));
   }
 
   Future<void> shutdownAll() async {
@@ -129,7 +131,7 @@ Future<void> main(List<String> arguments) async {
       Future<void> reload(String isolateId) async {
         var result = await service.reloadSources(isolateId);
 
-        if (canReload && result.success == true) {
+        if (result.success == true) {
           await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
         }
       }
@@ -189,6 +191,10 @@ Future<void> main(List<String> arguments) async {
     stdout.writeln('* serving at $scheme://$address:$port');
 
     await for (var event in controller.stream) {
+      if (event is String) {
+        event = event.trim();
+      }
+
       // from keyboard or file system
       if (event == 'r' || event is FileSystemEvent) {
         await reload();

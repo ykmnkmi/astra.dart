@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:astra/core.dart';
 
-// astra serve --t handler
+// astra serve -t handler
 Future<Response> handler(Request request) async {
+  print('${DateTime.now()}: ${request.requestedUri}');
+
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');
@@ -17,20 +19,27 @@ Future<Response> handler(Request request) async {
   }
 }
 
-// astra serve --t Router
+// astra serve -t echo
+Future<Handler> get echo async {
+  return handler;
+}
+
+// astra serve -t Router
 class Router {
   Future<Response> call(Request request) {
     return handler(request);
   }
 }
 
-// astra serve --t router
+// astra serve -t router
 final router = Router();
 
-// astra serve --t getRouter
-final getRouter = Router.new;
+// astra serve -t getRouter
+Router getRouter() {
+  return router;
+}
 
-// astra serve --t App
+// astra serve -t App
 class App extends Application {
   const App();
 
@@ -40,10 +49,10 @@ class App extends Application {
   }
 }
 
-// astra serve --t app
+// astra serve -t app
 const app = App();
 
-// astra serve --t getApp
+// astra serve -t getApp
 Future<Application> getApp() async {
   return app;
 }
