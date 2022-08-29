@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
+import 'package:astra/serve.dart';
 import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/type.dart';
 import 'package:astra/src/core/version.dart';
@@ -13,16 +14,28 @@ import 'package:path/path.dart';
 class ServeCommand extends CliCommand {
   ServeCommand() {
     argParser
+      // application
       ..addSeparator('Application options:')
       ..addOption('target', //
           abbr: 't',
           help: 'Serve target.',
           valueHelp: 'application')
+
+      // server
+      ..addSeparator('Server options:')
+      ..addOption('server-type', //
+          abbr: 's',
+          help: 'Server type.',
+          allowed: <String>['shelf', 'h11'],
+          allowedHelp: <String, String>{
+            'shelf': 'Default shelf adapter.',
+            'h11': 'Experimental HTTP/1.1 adapter.',
+          },
+          valueHelp: 'shelf')
       ..addOption('concurrency', //
           abbr: 'j',
           help: 'Number of isolates to run.',
           valueHelp: '1')
-      ..addSeparator('Server options:')
       ..addOption('address', //
           abbr: 'a',
           help: 'The address to listen.',
@@ -49,6 +62,8 @@ class ServeCommand extends CliCommand {
       ..addOption('ssl-key-password', //
           help: 'The password of private key file.',
           valueHelp: 'passphrase')
+
+      // debug
       ..addSeparator('Debugging options:')
       ..addFlag('reload', //
           abbr: 'r',
@@ -80,6 +95,11 @@ class ServeCommand extends CliCommand {
 
   String get target {
     return getString('target') ?? 'application';
+  }
+
+  ServerType get serverType {
+    var type = getString('address') ?? 'shelf';
+    return ServerType.values.byName(type);
   }
 
   int get concurrency {
@@ -184,6 +204,7 @@ class ServeCommand extends CliCommand {
       'VERSION': packageVersion,
       'PACKAGE': 'package:$package/$package.dart',
       'TARGET': target,
+      'SERVERTYPE': '$serverType',
       'CONCURRENCY': '$concurrency',
       'OBSERVE': '$observe',
       'RELOAD': '$reload',
@@ -199,6 +220,7 @@ class ServeCommand extends CliCommand {
       'V6ONLY': '$v6Only',
     };
 
+    data['APPLICATIONSERVE'] = await renderTemplate('serve/_.serve', data);
     data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
     return renderTemplate('serve', data);
   }
@@ -262,8 +284,7 @@ class ServeCommand extends CliCommand {
 
     try {
       var process = await Process.start(Platform.executable, arguments, //
-          workingDirectory: directory.path,
-          runInShell: true);
+          workingDirectory: directory.path);
 
       sigintSubscription = ProcessSignal.sigint.watch().listen(process.stdin.writeln);
       stdinSubscription = stdin.listen(process.stdin.add);

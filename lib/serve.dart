@@ -14,8 +14,8 @@ export 'package:astra/src/serve/shelf.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {
-  shelf,
   h11,
+  shelf,
 }
 
 extension ServeHandlerExtension on Handler {
@@ -23,6 +23,7 @@ extension ServeHandlerExtension on Handler {
   // TODO: h1*, h2, ...
   Future<Server> serve(Object address, int port,
       {Future<void> Function()? onReload,
+      ServerType type = ServerType.shelf,
       SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -46,7 +47,7 @@ extension ServeApplicationExtension on Application {
   // TODO: add options: concurency, debug, ...
   // TODO: h1*, h2, ...
   Future<Server> serve(Object address, int port,
-      {ServerType type = ServerType.h11,
+      {ServerType type = ServerType.shelf,
       SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -57,8 +58,8 @@ extension ServeApplicationExtension on Application {
     Server server;
 
     switch (type) {
-      case ServerType.shelf:
-        server = await ShelfServer.bind(address, port, //
+      case ServerType.h11:
+        server = await H11Server.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,
@@ -66,8 +67,8 @@ extension ServeApplicationExtension on Application {
             shared: shared);
         break;
 
-      case ServerType.h11:
-        server = await H11Server.bind(address, port, //
+      case ServerType.shelf:
+        server = await ShelfServer.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,

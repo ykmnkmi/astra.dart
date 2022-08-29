@@ -1,20 +1,22 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/restart. Inspired by [uvicorn][uvicorn].
+Astra is a [Shelf][shelf] web server adapter with multi-threaded support and hot reload/restart.
+Inspired by [uvicorn][uvicorn].
 
 **WORK IN PROGRESS**
 
 ### ToDo
-- Incremental compilation 🔥
 - Errors, error handling and verbose output 🔥
 - More API Documentation 🔥
+- Full-Restart (relaunch) 🔥
 - Logging
-- Environment variables
+- Environment variables, Configuration file
 - Tests
 - Commands:
   - create
   - generate
+  - build
   - ...
 - ...
 
@@ -24,7 +26,7 @@ Astra is a [Shelf][shelf] web server with multi-threaded support and hot reload/
   - dart:ffi and Rust (hyper) web server adapter 🤔
   - ...
 - HTTP/2 🤔
-- Hot-Reload and `build_runner` integration
+- `build_runner` integration
 
 ## Quickstart
 
@@ -69,9 +71,14 @@ Common options:
 
 Application options:
 -t, --target=<application>             Serve target.
--j, --concurrency=<1>                  Number of isolates to run.
 
 Server options:
+-s, --server-type=<shelf>              Server type.
+
+          [h11]                        Experimental HTTP/1.1 adapter.
+          [shelf]                      Default shelf adapter.
+
+-j, --concurrency=<1>                  Number of isolates to run.
 -a, --address=<localhost>              The address to listen.
 -p, --port=<8080>                      The port to listen.
     --backlog=<0>                      Maximum number of connections to hold in backlog.
@@ -108,11 +115,11 @@ Future<void> main() async {
 
 ### Application target
 
-The `--target` option allows loading the application with different names and different types, defaults to `application`.
+The `-t/--target` option allows loading the application with different names and different types, defaults to `application`.
 
 `Application` class:
 ```console
-$ astra serve --target HelloWorld
+$ astra serve -t HelloWorld
 ```
 ```dart
 class HelloWorld extends Application {
@@ -122,7 +129,7 @@ class HelloWorld extends Application {
 
 `Application` instance:
 ```console
-$ astra serve --target example
+$ astra serve -t example
 ```
 ```dart
 FutureOr<Application> example;
@@ -132,7 +139,7 @@ FutureOr<Application> get example;
 
 `Application` factory:
 ```console
-$ astra serve --target getApplication
+$ astra serve -t getApplication
 ```
 ```dart
 FutureOr<Application> getApplication();
@@ -140,7 +147,7 @@ FutureOr<Application> getApplication();
 
 `Handler` function:
 ```console
-$ astra serve --target echo
+$ astra serve -t echo
 ```
 ```dart
 Response echo(Request request);
@@ -148,7 +155,7 @@ Response echo(Request request);
 
 `Handler` like callable class:
 ```console
-$ astra serve --target Router
+$ astra serve -t Router
 ```
 ```dart
 class Router {
@@ -158,7 +165,7 @@ class Router {
 
 `Handler` like callable class instance:
 ```console
-$ astra serve --target router
+$ astra serve -t router
 ```
 ```dart
 FutureOr<Router> router;
@@ -168,7 +175,7 @@ FutureOr<Router> get router;
 
 `Handler` factory:
 ```console
-$ astra serve --target buildRouter
+$ astra serve -t buildRouter
 ```
 ```dart
 FutureOr<Handler> buildRouter();

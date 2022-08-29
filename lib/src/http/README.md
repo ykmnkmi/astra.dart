@@ -1,19 +1,40 @@
-Modified code copied from `dart:_http`.
+Modified code copied from `dart:_http` and `shelf` package.
 
-From `Socket -> HttpServer -> HttpParser -> HttpRequest -> Requets`
-To `Socket -> Server -> Parser -> Request`
+Current:
+```dart
+// simplified version
+await for (Socket socket in SocketServer()) {
+  // ...
+  _HttpConnection connection = _HttpConnection(socket);
+  // ...
+  _HttpParser parser = _HttpParser(connection);
 
-Current call order:
+  // ...
+  await for (HttpRequest httpRequest in parser) {
+    // ...
+    Request request = fromHttpRequest(httpRequest);
+    Response response = await handler(request);
+    // ...
+    await writeResponse(response, httpRequest.httpResponse);
+  }
+}
+```
+
 ...
 
-New call order:
-...
+Expected:
+```dart
+// simplified version
+await for (Socket socket in SocketServer()) {
+  // ...
+  Connection connection = Connection(socket);
 
-ToDo:
-- `_HttpHeaders implements HttpHeaders` -> `NativeHeaders implements Map<String, List<String>>`
-  - ...
-- `_HttpRequest implements HttpRequest` -> `NativeRequest implements Request`
-  - `NativeRequest.respond(Response response)`
-  - ...
-- `_HttpServer implements HttpServer` -> `NativeServer implements Server`
-  - ...
+  // ...
+  await for (Request request in connection) {
+    Response response = await handler(request);
+    // ...
+    await request.respond(response);
+  }
+}
+```
+...

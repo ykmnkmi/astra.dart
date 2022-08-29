@@ -5,8 +5,6 @@ import 'package:astra/core.dart';
 
 // astra serve -t handler
 Future<Response> handler(Request request) async {
-  print('${DateTime.now()}: ${request.requestedUri}');
-
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');
