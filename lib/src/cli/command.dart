@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart';
-import 'package:stack_trace/stack_trace.dart';
 import 'package:yaml/yaml.dart';
 
 /// A exception thrown by command line interfaces.

@@ -1,16 +1,15 @@
-Modified code copied from `dart:_http` and `shelf` package.
+A modified code copied from `dart:_http` and `shelf`.
 
-Current:
+Current implementation:
+
 ```dart
 // simplified version
 await for (Socket socket in SocketServer()) {
   // ...
   _HttpConnection connection = _HttpConnection(socket);
-  // ...
-  _HttpParser parser = _HttpParser(connection);
 
   // ...
-  await for (HttpRequest httpRequest in parser) {
+  await for (HttpRequest httpRequest in connection) {
     // ...
     Request request = fromHttpRequest(httpRequest);
     Response response = await handler(request);
@@ -22,7 +21,8 @@ await for (Socket socket in SocketServer()) {
 
 ...
 
-Expected:
+Expected implementation:
+
 ```dart
 // simplified version
 await for (Socket socket in SocketServer()) {

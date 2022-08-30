@@ -1,5 +1,3 @@
-library astra.server.isolate.supervisor;
-
 import 'dart:async';
 import 'dart:isolate';
 

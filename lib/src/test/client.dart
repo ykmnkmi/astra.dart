@@ -1,5 +1,3 @@
-library astra.test.client;
-
 import 'dart:async';
 import 'dart:io';
 

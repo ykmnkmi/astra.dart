@@ -1,6 +1,5 @@
-library astra.serve.utils;
-
 import 'dart:async';
+import 'dart:io';
 
 /// Run [callback] and capture any errors that would otherwise be top-leveled.
 ///
@@ -13,4 +12,12 @@ void catchTopLevelErrors(void Function() callback, void Function(Object error, S
   } else {
     callback();
   }
+}
+
+/// Default function to log errors.
+void logError(Object error, StackTrace stackTrace) {
+  stderr
+    ..write('ERROR - ${DateTime.now()}')
+    ..writeln(error)
+    ..writeln(stackTrace);
 }

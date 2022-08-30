@@ -1,12 +1,9 @@
-library astra.server.isolate.server;
-
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/message.dart';
-import 'package:logging/logging.dart';
 
 class IsolateServer implements Server {
   IsolateServer(this.server, this.messagePort) : receivePort = RawReceivePort() {
@@ -21,6 +18,11 @@ class IsolateServer implements Server {
   final RawReceivePort receivePort;
 
   @override
+  Application? get application {
+    return server.application;
+  }
+
+  @override
   InternetAddress get address {
     return server.address;
   }
@@ -30,23 +32,28 @@ class IsolateServer implements Server {
     return server.port;
   }
 
-  // TODO: catch error
-  void onMessage(Object? message) {
-    if (message == IsolateMessage.close) {
-      close();
-      return;
-    }
-
-    // TODO: add error message
-    throw UnsupportedError('');
+  @override
+  Uri get url {
+    return server.url;
   }
 
-  // TODO: catch error
-  @override
-  Future<void> mount(Application application, [Logger? logger]) async {
-    await server.mount(application, logger);
+  void onMessage(Object? message) {
+    if (message != IsolateMessage.close) {
+      // TODO: add error message
+      throw UnsupportedError('');
+    }
 
-    Future<ServiceExtensionResponse> reload(String isolateId, Map<String, String> data) async {
+    close();
+  }
+
+  @override
+  Future<void> mount(Application application) async {
+    await server.mount(application);
+
+    Future<ServiceExtensionResponse> reload(
+      String isolateId,
+      Map<String, String> data,
+    ) async {
       try {
         await application.reload();
       } catch (error) {
@@ -60,7 +67,6 @@ class IsolateServer implements Server {
     messagePort.send(IsolateMessage.ready);
   }
 
-  // TODO: add error message
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);

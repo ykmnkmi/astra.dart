@@ -1,26 +1,30 @@
-library astra.serve.h11;
-
-import 'dart:async';
-import 'dart:io';
+import 'dart:async' show FutureOr, StreamSubscription;
+import 'dart:io'
+    show
+        HttpHeaders,
+        HttpRequest,
+        HttpResponse,
+        HttpServer,
+        InternetAddress,
+        InternetAddressType,
+        SecurityContext,
+        Socket;
 
 import 'package:astra/core.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
-import 'package:logging/logging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
-  ShelfServer(this.server) : mounted = false;
+  ShelfServer(this.server);
 
   /// The underlying [HttpServer].
   final HttpServer server;
 
   /// Mounted [Application].
-  late Application application;
-
-  bool mounted;
+  Application? application;
 
   @override
   InternetAddress get address {
@@ -32,6 +36,7 @@ class ShelfServer implements Server {
     return server.port;
   }
 
+  @override
   Uri get url {
     if (address.isLoopback) {
       return Uri(scheme: 'http', host: 'localhost', port: port);
@@ -45,24 +50,22 @@ class ShelfServer implements Server {
   }
 
   @override
-  Future<void> mount(Application application, [Logger? logger]) async {
-    if (mounted) {
+  Future<void> mount(Application application) async {
+    if (this.application != null) {
       throw StateError('Can\'t mount two handlers for the same server.');
     }
 
     this.application = application;
-    mounted = true;
-
     await application.prepare();
 
     var handler = application.entryPoint;
 
     void body() {
-      handler.handleRequests(server, logger);
+      handler.handleRequests(server);
     }
 
     void onError(Object error, StackTrace stackTrace) {
-      logger?.warning('Asynchronous error.', error, stackTrace);
+      logError('Asynchronous error.\n$error', stackTrace);
     }
 
     catchTopLevelErrors(body, onError);
@@ -71,7 +74,12 @@ class ShelfServer implements Server {
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-    return application.close();
+
+    var application = this.application;
+
+    if (application != null) {
+      await application.close();
+    }
   }
 
   /// Calls [HttpServer.bind] and wraps the result in an [ShelfServer].
@@ -100,103 +108,79 @@ class ShelfServer implements Server {
   }
 }
 
-// No async/await here
+// From `shelf` package with overriden logger.
 extension on FutureOr<Response?> Function(Request) {
-  StreamSubscription<HttpRequest> handleRequests(Stream<HttpRequest> requests, [Logger? logger]) {
-    void onRequest(HttpRequest request) {
-      handleRequest(request, logger);
-    }
-
-    return requests.listen(onRequest);
+  StreamSubscription<HttpRequest> handleRequests(Stream<HttpRequest> requests) {
+    return requests.listen(handleRequest);
   }
 
   // TODO: error response with message
-  Future<void> handleRequest(HttpRequest httpRequest, [Logger? logger]) {
+  Future<void> handleRequest(HttpRequest httpRequest) async {
     Request request;
 
     try {
       request = fromHttpRequest(httpRequest);
     } on ArgumentError catch (error, stackTrace) {
       if (error.name == 'method' || error.name == 'requestedUri') {
-        logger?.warning('Error parsing request.', error, stackTrace);
+        logError('Error parsing request.\n$error', stackTrace);
 
         var headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
         var response = Response.badRequest(body: 'Bad Request', headers: headers);
         return writeResponse(response, httpRequest.response);
       }
 
-      logger?.severe('Error parsing request.', error, stackTrace);
+      logError('Error parsing request.\n$error', stackTrace);
 
       var response = Response.internalServerError();
       return writeResponse(response, httpRequest.response);
     } catch (error, stackTrace) {
-      logger?.severe('Error parsing request.', error, stackTrace);
+      logError('Error parsing request.\n$error', stackTrace);
 
       var response = Response.internalServerError();
       return writeResponse(response, httpRequest.response);
     }
 
-    var done = Completer<void>.sync();
-    var response = Completer<Response?>();
+    Response? response;
 
-    // TODO: abstract out hijack handling to make it easier to implement an adapter.
-    Future<void> onResponse(Response? response) {
-      if (response == null) {
-        logger?.severe('Null response from handler.', '', StackTrace.current);
-        response = Response.internalServerError();
-        return writeResponse(response, httpRequest.response);
-      }
-
-      if (request.canHijack) {
-        return writeResponse(response, httpRequest.response);
-      }
-
-      var message = StringBuffer('got a response for hijacked request ')
-        ..write(request.method)
-        ..write(' ')
-        ..writeln(request.requestedUri)
-        ..writeln(response.statusCode);
-
-      void writeHeader(String key, String value) {
-        message.writeln('$key: $value');
-      }
-
-      response.headers.forEach(writeHeader);
-
-      throw Exception(message);
-    }
-
-    response.future.then<void>(onResponse).catchError(done.completeError);
-
-    FutureOr<Response?> computation() {
-      return this(request);
-    }
-
-    void onHijack(Object error, StackTrace stackTrace) {
+    try {
+      response = await this(request);
+    } on HijackException catch (error, stackTrace) {
       if (!request.canHijack) {
-        done.complete();
         return;
       }
 
-      logger?.severe('Caught HijackException, but the request wasn\'t hijacked.', error, stackTrace);
-      response.complete(Response.internalServerError());
+      logError("Caught HijackException, but the request wasn't hijacked.\n$error", stackTrace);
+      response = Response.internalServerError();
+    } catch (error, stackTrace) {
+      logError('Error thrown by handler.\n$error', stackTrace);
+      response = Response.internalServerError();
     }
 
-    bool hijactTest(Object error) {
-      return error is HijackException;
+    if (response == null) {
+      logError('Null response from handler.', StackTrace.current);
+      response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
+      return;
     }
 
-    void onError(Object error, StackTrace stackTrace) {
-      logger?.severe('Error thrown by handler.', error, stackTrace);
-      response.complete(Response.internalServerError());
+    if (request.canHijack) {
+      await writeResponse(response, httpRequest.response);
+      return;
     }
 
-    Future<Response?>.sync(computation)
-        .then<void>(response.complete)
-        .catchError(onHijack, test: hijactTest)
-        .catchError(onError);
+    var message = StringBuffer('Got a response for hijacked request ')
+      ..write(request.method)
+      ..write(' ')
+      ..write(request.requestedUri)
+      ..writeln(':')
+      ..writeln(response.statusCode);
 
-    return done.future;
+    void writeHeader(String key, String value) {
+      message.writeln('$key: $value');
+    }
+
+    response.headers.forEach(writeHeader);
+    throw Exception(message);
   }
 
   /// Creates a new [Request] from the provided [HttpRequest].
@@ -236,6 +220,10 @@ extension on FutureOr<Response?> Function(Request) {
 
     httpResponse
       ..statusCode = response.statusCode
+      // An adapter must not add or modify the `Transfer-Encoding` parameter,
+      // but the Dart SDK sets it by default. Set this before we fill in
+      // [response.headers] so that the user or Shelf can explicitly override
+      // it if necessary.
       ..headers.chunkedTransferEncoding = false;
 
     response.headersAll.forEach(httpResponse.headers.set);
@@ -258,7 +246,7 @@ extension on FutureOr<Response?> Function(Request) {
       httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
     }
 
-    if (!response.headers.containsKey(HttpHeaders.serverHeader)) {
+    if (!response.headers.containsKey('x-powered-by')) {
       httpResponse.headers.set('x-powered-by', 'Astra $packageVersion');
     }
 

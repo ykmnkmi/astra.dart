@@ -3,14 +3,12 @@ import 'dart:async';
 import 'package:astra/src/core/handler.dart';
 
 /// An object that defines the behavior specific to your application.
-class Application {
+abstract class Application {
   const Application();
 
   /// Implement this accessor to define how HTTP requests are handled by
   /// your application.
-  Handler get entryPoint {
-    throw UnimplementedError();
-  }
+  Handler get entryPoint;
 
   /// Override this method to perform initialization tasks.
   Future<void> prepare() async {}

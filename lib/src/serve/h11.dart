@@ -1,27 +1,22 @@
-library astra.serve.next;
-
-import 'dart:async';
-import 'dart:io';
+import 'dart:async' show FutureOr, StreamSubscription;
+import 'dart:io' show HttpHeaders, InternetAddress, InternetAddressType, SecurityContext, Socket;
 
 import 'package:astra/core.dart';
 import 'package:astra/http.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
-import 'package:logging/logging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-/// A HTTP/1.1 [Server] backed by a `dart:io` [ServerSocket].
+/// A HTTP/1.1 [Server] backed by a `dart:io` [Socket] server.
 class H11Server implements Server {
-  H11Server(this.server) : mounted = false;
+  H11Server(this.server);
 
   /// The underlying [HttpServer].
   final NativeServer server;
 
   /// Mounted [Application]
-  late Application application;
-
-  bool mounted;
+  Application? application;
 
   @override
   InternetAddress get address {
@@ -33,6 +28,7 @@ class H11Server implements Server {
     return server.port;
   }
 
+  @override
   Uri get url {
     if (address.isLoopback) {
       return Uri(scheme: 'http', host: 'localhost', port: port);
@@ -46,24 +42,22 @@ class H11Server implements Server {
   }
 
   @override
-  Future<void> mount(Application application, [Logger? logger]) async {
-    if (mounted) {
+  Future<void> mount(Application application) async {
+    if (this.application != null) {
       throw StateError('Can\'t mount two handlers for the same server.');
     }
 
     this.application = application;
-    mounted = true;
-
     await application.prepare();
 
     var handler = application.entryPoint;
 
     void body() {
-      handler.handleRequests(server, logger);
+      handler.handleRequests(server);
     }
 
     void onError(Object error, StackTrace stackTrace) {
-      logger?.warning('Asynchronous error.', error, stackTrace);
+      logError('Asynchronous error.\n$error', stackTrace);
     }
 
     catchTopLevelErrors(body, onError);
@@ -72,10 +66,15 @@ class H11Server implements Server {
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-    return application.close();
+
+    var application = this.application;
+
+    if (application != null) {
+      await application.close();
+    }
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [H11Server].
+  /// Bounds the server socket to the given [address] and [port] and wraps in an [H11Server].
   static Future<H11Server> bind(Object address, int port,
       {SecurityContext? securityContext,
       int backlog = 0,
@@ -101,107 +100,91 @@ class H11Server implements Server {
   }
 }
 
-// No async/await here
+// From `shelf` package with overriden logging.
+// TODO: sdk#27886.
+// An adapter must not add or modify the `Transfer-Encoding` parameter,
+// but the Dart SDK sets it by default. Set this before we fill in
+// [response.headers] so that the user or adapter can explicitly override
+// it if necessary.
 extension on FutureOr<Response?> Function(Request) {
-  StreamSubscription<NativeRequest> handleRequests(Stream<NativeRequest> requests, [Logger? logger]) {
-    void onRequest(NativeRequest request) {
-      handleRequest(request, logger);
-    }
-
-    return requests.listen(onRequest);
+  StreamSubscription<NativeRequest> handleRequests(Stream<NativeRequest> requests) {
+    return requests.listen(handleRequest);
   }
 
   // TODO: error response with message
-  Future<void> handleRequest(NativeRequest nativeRequest, [Logger? logger]) {
+  Future<void> handleRequest(NativeRequest httpRequest) async {
     Request request;
 
     try {
-      request = fromNativeRequest(nativeRequest);
+      request = fromHttpRequest(httpRequest);
     } on ArgumentError catch (error, stackTrace) {
       if (error.name == 'method' || error.name == 'requestedUri') {
-        logger?.warning('Error parsing request.', error, stackTrace);
+        logError('Error parsing request.\n$error', stackTrace);
 
         var headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
         var response = Response.badRequest(body: 'Bad Request', headers: headers);
-        return writeResponse(response, nativeRequest.response);
-      }
-
-      logger?.severe('Error parsing request.', error, stackTrace);
-
-      var response = Response.internalServerError();
-      return writeResponse(response, nativeRequest.response);
-    } catch (error, stackTrace) {
-      logger?.severe('Error parsing request.', error, stackTrace);
-
-      var response = Response.internalServerError();
-      return writeResponse(response, nativeRequest.response);
-    }
-
-    var done = Completer<void>.sync();
-    var response = Completer<Response?>();
-
-    // TODO: abstract out hijack handling to make it easier to implement an adapter.
-    Future<void> onResponse(Response? response) {
-      if (response == null) {
-        logger?.severe('Null response from handler.', '', StackTrace.current);
-        response = Response.internalServerError();
-        return writeResponse(response, nativeRequest.response);
-      }
-
-      if (request.canHijack) {
-        return writeResponse(response, nativeRequest.response);
-      }
-
-      var message = StringBuffer('got a response for hijacked request ')
-        ..write(request.method)
-        ..write(' ')
-        ..writeln(request.requestedUri)
-        ..writeln(response.statusCode);
-
-      void writeHeader(String key, String value) {
-        message.writeln('$key: $value');
-      }
-
-      response.headers.forEach(writeHeader);
-
-      throw Exception(message);
-    }
-
-    response.future.then<void>(onResponse).catchError(done.completeError);
-
-    FutureOr<Response?> computation() {
-      return this(request);
-    }
-
-    void onHijack(Object error, StackTrace stackTrace) {
-      if (!request.canHijack) {
-        done.complete();
+        await writeResponse(response, httpRequest.response);
         return;
       }
 
-      logger?.severe('Caught HijackException, but the request wasn\'t hijacked.', error, stackTrace);
-      response.complete(Response.internalServerError());
+      logError('Error parsing request.\n$error', stackTrace);
+
+      var response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
+      return;
+    } catch (error, stackTrace) {
+      logError('Error parsing request.\n$error', stackTrace);
+
+      var response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
+      return;
     }
 
-    bool hijactTest(Object error) {
-      return error is HijackException;
+    Response? response;
+
+    try {
+      response = await this(request);
+    } on HijackException catch (error, stackTrace) {
+      if (!request.canHijack) {
+        return;
+      }
+
+      logError("Caught HijackException, but the request wasn't hijacked.\n$error", stackTrace);
+      response = Response.internalServerError();
+    } catch (error, stackTrace) {
+      logError('Error thrown by handler.\n$error', stackTrace);
+      response = Response.internalServerError();
     }
 
-    void onError(Object error, StackTrace stackTrace) {
-      logger?.severe('Error thrown by handler.', error, stackTrace);
-      response.complete(Response.internalServerError());
+    if (response == null) {
+      logError('Null response from handler.', StackTrace.current);
+      response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
+      return;
     }
 
-    Future<Response?>.sync(computation)
-        .then<void>(response.complete)
-        .catchError(onHijack, test: hijactTest)
-        .catchError(onError);
+    if (request.canHijack) {
+      await writeResponse(response, httpRequest.response);
+      return;
+    }
 
-    return done.future;
+    var message = StringBuffer('Got a response for hijacked request ')
+      ..write(request.method)
+      ..write(' ')
+      ..write(request.requestedUri)
+      ..writeln(':')
+      ..writeln(response.statusCode);
+
+    void writeHeader(String key, String value) {
+      message.writeln('$key: $value');
+    }
+
+    response.headers.forEach(writeHeader);
+    throw Exception(message);
   }
 
   /// Creates a new [Request] from the provided [NativeRequest].
-  static Request fromNativeRequest(NativeRequest request) {
+  static Request fromHttpRequest(NativeRequest request) {
     var headers = <String, List<String>>{};
 
     void setHeader(String key, List<String> values) {
@@ -209,8 +192,6 @@ extension on FutureOr<Response?> Function(Request) {
     }
 
     request.headers.forEach(setHeader);
-
-    // Remove the Transfer-Encoding header per the adapter requirements.
     headers.remove(HttpHeaders.transferEncodingHeader);
 
     void onHijack(void Function(StreamChannel<List<int>>) callback) {
@@ -229,7 +210,7 @@ extension on FutureOr<Response?> Function(Request) {
         context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
   }
 
-  /// Writes a given [Response] to the provided [1HttpResponse].
+  /// Writes a given [Response] to the provided [NativeResponse].
   static Future<void> writeResponse(Response response, NativeResponse nativeResponse) {
     if (response.context.containsKey('shelf.io.buffer_output')) {
       nativeResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
@@ -246,7 +227,6 @@ extension on FutureOr<Response?> Function(Request) {
     if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
       // If the response is already in a chunked encoding, de-chunk it because
       // otherwise `dart:io` will try to add another layer of chunking.
-      // TODO: Do this more cleanly when sdk#27886 is fixed.
       response = response.change(body: chunkedCoding.decoder.bind(response.read()));
       nativeResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
     } else if (response.statusCode >= 200 &&
@@ -259,7 +239,7 @@ extension on FutureOr<Response?> Function(Request) {
       nativeResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
     }
 
-    if (!response.headers.containsKey(HttpHeaders.serverHeader)) {
+    if (!response.headers.containsKey('x-powered-by')) {
       nativeResponse.headers.set('x-powered-by', 'Astra $packageVersion');
     }
 

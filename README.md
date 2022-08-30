@@ -7,11 +7,11 @@ Inspired by [uvicorn][uvicorn].
 **WORK IN PROGRESS**
 
 ### ToDo
-- Errors, error handling and verbose output 🔥
+- Verbose output 🔥
 - More API Documentation 🔥
 - Full-Restart (relaunch) 🔥
 - Logging
-- Environment variables, Configuration file
+- Environment variables & configuration file
 - Tests
 - Commands:
   - create
@@ -21,8 +21,9 @@ Inspired by [uvicorn][uvicorn].
 - ...
 
 ### Experimenting
+- Serving package URI (if possible) 🤔
 - Shelf Request/Response based HttpServer alternatives:
-  - dart:io Socket (without HttpRequest/HttpResponse) 🔥
+  - dart:io Socket (without HttpRequest/HttpResponse, ...) 🔥
   - dart:ffi and Rust (hyper) web server adapter 🤔
   - ...
 - HTTP/2 🤔
@@ -180,9 +181,6 @@ $ astra serve -t buildRouter
 ```dart
 FutureOr<Handler> buildRouter();
 ```
-
-Not yet:
-- package URI (if possible)
 
 [shelf]: https://github.com/dart-lang/shelf
 [uvicorn]: https://github.com/encode/uvicorn

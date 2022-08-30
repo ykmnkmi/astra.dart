@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:astra/core.dart';
 
-// TODO: document this
 Middleware debug() {
   return (Handler handler) {
     return (Request request) async {
