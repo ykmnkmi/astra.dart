@@ -29,7 +29,10 @@ abstract class CliCommand extends Command<int> {
       ..addFlag('verbose', //
           abbr: 'v',
           negatable: false,
-          help: 'Output more informational messages.');
+          help: 'Output more informational messages.')
+      ..addFlag('version', //
+          negatable: false,
+          help: 'Prints tool version.');
   }
 
   @override
@@ -114,6 +117,10 @@ abstract class CliCommand extends Command<int> {
     return getBoolean('verbose');
   }
 
+  bool get version {
+    return getBoolean('version');
+  }
+
   bool getBoolean(String name) {
     return argResults[name] as bool? ?? false;
   }
@@ -136,5 +143,18 @@ abstract class CliCommand extends Command<int> {
 
   String? getString(String name) {
     return argResults[name] as String?;
+  }
+
+  Future<void> cleanup() async {}
+
+  Future<int> handle();
+
+  @override
+  Future<int> run() async {
+    try {
+      return await handle();
+    } finally {
+      await cleanup();
+    }
   }
 }
