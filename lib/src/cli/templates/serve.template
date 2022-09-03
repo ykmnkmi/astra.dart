@@ -63,6 +63,10 @@ Future<void> main(List<String> arguments) async {
   var shutdown = <FutureOr<void> Function()>[];
   var supervisors = <IsolateSupervisor>[];
 
+  var controller = StreamController<Object>(sync: true);
+
+  Future<void> Function() reload, restart;
+
   Future<void> startAll() async {
     for (var i = 0; i < concurrency; i += 1) {
       var receivePort = RawReceivePort();
@@ -91,19 +95,11 @@ Future<void> main(List<String> arguments) async {
     return Future.wait<void>(supervisors.map<Future<void>>(stop));
   }
 
-  Future<void> shutdownAll() async {
+  Future<void> shutDownAll() async {
     for (var callback in shutdown.reversed) {
       await callback();
     }
   }
-
-  shutdown.add(stopAll);
-
-  await startAll();
-
-  var controller = StreamController<Object>(sync: true);
-
-  Future<void> Function() reload, restart;
 
   if (hotReload) {
     var info = await Service.getInfo();
@@ -113,7 +109,7 @@ Future<void> main(List<String> arguments) async {
       throw CliException('reload: no vm service ws uri');
     }
 
-    var service = await vmServiceConnectUri(uri.toString());
+    var service = await vmServiceConnectUri('$uri');
     shutdown.add(service.dispose);
 
     var isolateIds = <String>[];
@@ -175,6 +171,10 @@ Future<void> main(List<String> arguments) async {
     };
   }
 
+  shutdown.add(stopAll);
+
+  await startAll();
+
   late bool echoMode, lineMode;
 
   if (!overriden) {
@@ -215,7 +215,7 @@ Future<void> main(List<String> arguments) async {
       // from keyboard, parent or process signal
       if (event == 'q' || event == 'SIGINT' || event == 'SIGTERM' || event is ProcessSignal) {
         stdout.writeln('* closing ...');
-        await shutdownAll();
+        await shutDownAll();
         break;
       }
 

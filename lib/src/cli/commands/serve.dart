@@ -246,22 +246,22 @@ class ServeCommand extends CliCommand {
     var script = File(join(directory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    var arguments = <String>[];
-
-    if (reload || observe) {
-      arguments.add('-DSILENT_OBSERVATORY=true');
-    }
-
-    arguments.add('run');
+    var arguments = <String>['run'];
 
     if (reload) {
       arguments
+        ..add('-DSILENT_OBSERVATORY=true')
         ..add('--enable-vm-service=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
     } else if (observe) {
-      arguments.add('--observe=$observePort');
+      arguments
+        ..add('-DSILENT_OBSERVATORY=true')
+        ..add('--observe=$observePort')
+        ..add('--disable-service-auth-codes')
+        ..add('--no-pause-isolates-on-exit')
+        ..add('--no-serve-devtools');
     }
 
     if (asserts) {
@@ -279,8 +279,8 @@ class ServeCommand extends CliCommand {
       ..echoMode = false
       ..lineMode = false;
 
-    late StreamSubscription<List<int>> stdinSubscription;
-    late StreamSubscription<ProcessSignal> sigintSubscription;
+    StreamSubscription<List<int>>? stdinSubscription;
+    StreamSubscription<ProcessSignal>? sigintSubscription;
 
     try {
       var process = await Process.start(Platform.executable, arguments, //
@@ -296,8 +296,8 @@ class ServeCommand extends CliCommand {
         ..echoMode = echoMode
         ..lineMode = lineMode;
 
-      stdinSubscription.cancel();
-      sigintSubscription.cancel();
+      stdinSubscription!.cancel();
+      sigintSubscription!.cancel();
     }
   }
 }
