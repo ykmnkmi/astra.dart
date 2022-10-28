@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
@@ -38,12 +39,13 @@ class IsolateServer implements Server {
   }
 
   void onMessage(Object? message) {
-    if (message != IsolateMessage.close) {
-      // TODO: add error message
-      throw UnsupportedError('');
+    if (message == IsolateMessage.close) {
+      close();
+      return;
     }
 
-    close();
+    // TODO: add error message
+    throw UnsupportedError('');
   }
 
   @override
@@ -56,8 +58,10 @@ class IsolateServer implements Server {
     ) async {
       try {
         await application.reload();
-      } catch (error) {
-        // TODO: log error
+      } catch (error, stackTrace) {
+        var data = <String, String>{'error': error.toString(), 'stackTrace': stackTrace.toString()};
+        var errorDetail = json.encode(data);
+        return ServiceExtensionResponse.error(ServiceExtensionResponse.extensionError, errorDetail);
       }
 
       return ServiceExtensionResponse.result('{}');

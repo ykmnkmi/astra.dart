@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:astra/core.dart';
 
-// astra serve -t handler
 Future<Response> handler(Request request) async {
   switch (request.url.path) {
     case '':
@@ -15,42 +14,4 @@ Future<Response> handler(Request request) async {
     default:
       return Response.notFound('Request for "${request.url}"');
   }
-}
-
-// astra serve -t echo
-Future<Handler> get echo async {
-  return handler;
-}
-
-// astra serve -t Router
-class Router {
-  Future<Response> call(Request request) {
-    return handler(request);
-  }
-}
-
-// astra serve -t router
-final router = Router();
-
-// astra serve -t getRouter
-Router getRouter() {
-  return router;
-}
-
-// astra serve -t App
-class App extends Application {
-  const App();
-
-  @override
-  Handler get entryPoint {
-    return handler;
-  }
-}
-
-// astra serve -t app
-const app = App();
-
-// astra serve -t getApp
-Future<Application> getApp() async {
-  return app;
 }

@@ -16,6 +16,7 @@ class H11Server implements Server {
   final NativeServer server;
 
   /// Mounted [Application]
+  @override
   Application? application;
 
   @override

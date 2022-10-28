@@ -246,18 +246,16 @@ class ServeCommand extends CliCommand {
     var script = File(join(directory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    var arguments = <String>['run'];
+    var arguments = <String>['-DSILENT_OBSERVATORY=true', 'run'];
 
     if (reload) {
       arguments
-        ..add('-DSILENT_OBSERVATORY=true')
         ..add('--enable-vm-service=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
     } else if (observe) {
       arguments
-        ..add('-DSILENT_OBSERVATORY=true')
         ..add('--observe=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-pause-isolates-on-exit')

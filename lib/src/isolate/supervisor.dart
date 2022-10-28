@@ -5,7 +5,7 @@ import 'package:astra/src/isolate/message.dart';
 import 'package:logging/logging.dart';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.isolate, this.receive) : logger = Logger(isolate.debugName!);
+  IsolateSupervisor(this.isolate, this.receive) : logger = Logger(isolate.debugName ?? 'isolate');
 
   final Isolate isolate;
 

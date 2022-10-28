@@ -18,14 +18,10 @@ enum TargetType {
   applicationFactoryAsync;
 
   static String? urlOfElement(DartType type) {
-    var element = type.element2;
+    var element = type.element;
 
     if (element == null) {
       return null;
-    }
-
-    if (element.kind == ElementKind.DYNAMIC) {
-      return 'dart:core#dynamic';
     }
 
     return element.librarySource!.uri.replace(fragment: element.name).toString();

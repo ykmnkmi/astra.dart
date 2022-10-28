@@ -1,4 +1,4 @@
-// TODO: add concurency, debug, ...
+// TODO: add debug, ...
 // TODO: move code from templates
 // TODO: h1*, h2, ...
 library astra.serve;
@@ -8,7 +8,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
-import 'package:astra/src/isolate/isolate.dart';
+import 'package:astra/isolate.dart';
 import 'package:astra/src/serve/shelf.dart';
 import 'package:astra/src/serve/h11.dart';
 
@@ -16,14 +16,14 @@ export 'package:astra/src/serve/shelf.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {
-  h11,
   shelf,
+  h11,
 }
 
 extension ServeHandlerExtension on Handler {
   Future<Server> serve(Object address, int port,
-      {Future<void> Function()? onReload,
-      ServerType type = ServerType.shelf,
+      {ServerType type = ServerType.shelf,
+      Future<void> Function()? onReload,
       SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -31,7 +31,9 @@ extension ServeHandlerExtension on Handler {
       bool shared = false,
       SendPort? messagePort}) async {
     var application = asApplication(onReload: onReload);
+
     return application.serve(address, port, //
+        type: type,
         securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,
@@ -53,8 +55,8 @@ extension ServeApplicationExtension on Application {
     Server server;
 
     switch (type) {
-      case ServerType.h11:
-        server = await H11Server.bind(address, port, //
+      case ServerType.shelf:
+        server = await ShelfServer.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,
@@ -62,8 +64,8 @@ extension ServeApplicationExtension on Application {
             shared: shared);
         break;
 
-      case ServerType.shelf:
-        server = await ShelfServer.bind(address, port, //
+      case ServerType.h11:
+        server = await H11Server.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,
@@ -77,8 +79,8 @@ extension ServeApplicationExtension on Application {
       return server;
     }
 
-    var isolate = IsolateServer(server, messagePort);
-    await isolate.mount(this);
-    return isolate;
+    server = IsolateServer(server, messagePort);
+    await server.mount(this);
+    return server;
   }
 }
