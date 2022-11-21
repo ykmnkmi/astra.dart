@@ -69,6 +69,7 @@ Usage: astra serve [arguments]
 Common options:
 -d, --directory=<path>                 Run this in the directory.
 -v, --verbose                          Output more informational messages.
+    --version                          Prints tool version.
 
 Application options:
 -t, --target=<application>             Serve target.

@@ -1,6 +1,4 @@
 // TODO: add debug, ...
-// TODO: move code from templates
-// TODO: h1*, h2, ...
 library astra.serve;
 
 import 'dart:async';
@@ -9,15 +7,14 @@ import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
+
 import 'package:astra/src/serve/shelf.dart';
-import 'package:astra/src/serve/h11.dart';
 
 export 'package:astra/src/serve/shelf.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {
   shelf,
-  h11,
 }
 
 extension ServeHandlerExtension on Handler {
@@ -30,9 +27,7 @@ extension ServeHandlerExtension on Handler {
       bool requestClientCertificate = false,
       bool shared = false,
       SendPort? messagePort}) async {
-    var application = asApplication(onReload: onReload);
-
-    return application.serve(address, port, //
+    return asApplication(onReload: onReload).serve(address, port, //
         type: type,
         securityContext: securityContext,
         backlog: backlog,
@@ -57,15 +52,6 @@ extension ServeApplicationExtension on Application {
     switch (type) {
       case ServerType.shelf:
         server = await ShelfServer.bind(address, port, //
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared);
-        break;
-
-      case ServerType.h11:
-        server = await H11Server.bind(address, port, //
             securityContext: securityContext,
             backlog: backlog,
             v6Only: v6Only,

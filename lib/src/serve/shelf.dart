@@ -1,4 +1,6 @@
-import 'dart:async' show FutureOr, StreamSubscription;
+library astra.serve.shelf;
+
+import 'dart:async' show FutureOr;
 import 'dart:io'
     show
         HttpHeaders,
@@ -11,10 +13,11 @@ import 'dart:io'
         Socket;
 
 import 'package:astra/core.dart';
-import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:stream_channel/stream_channel.dart';
+
+import 'package:astra/src/serve/utils.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
@@ -51,9 +54,9 @@ class ShelfServer implements Server {
   }
 
   @override
-  Future<void> mount(Application application) async {
+  Future<void> mount(Application application, {bool catchErrors = true}) async {
     if (this.application != null) {
-      throw StateError('Can\'t mount two handlers for the same server.');
+      throw StateError("Can't mount two handlers for the same server.");
     }
 
     this.application = application;
@@ -62,14 +65,20 @@ class ShelfServer implements Server {
     var handler = application.entryPoint;
 
     void body() {
-      handleRequests(handler, server);
+      void onRequest(HttpRequest request) {
+        handleRequest(handler, request);
+      }
+
+      server.listen(onRequest);
     }
 
-    void onError(Object error, StackTrace stackTrace) {
-      logError('Asynchronous error.\n$error', stackTrace);
-    }
+    if (catchErrors) {
+      void onError(Object error, StackTrace stackTrace) {
+        logError('Asynchronous error.\n$error', stackTrace);
+      }
 
-    catchTopLevelErrors(body, onError);
+      catchTopLevelErrors(body, onError);
+    }
   }
 
   @override
@@ -83,8 +92,8 @@ class ShelfServer implements Server {
     }
   }
 
-  /// Calls [HttpServer.bind] and wraps the result in an [ShelfServer].
-  static Future<ShelfServer> bind(Object address, int port,
+  /// Bounds the server socket to the given [address] and [port] and wraps in an [ShelfServer].
+  static Future<ShelfServer> bind(Object address, int port, //
       {SecurityContext? securityContext,
       int backlog = 0,
       bool v6Only = false,
@@ -109,15 +118,7 @@ class ShelfServer implements Server {
   }
 }
 
-StreamSubscription<HttpRequest> handleRequests(
-    FutureOr<Response?> Function(Request) handler, Stream<HttpRequest> requests) {
-  void onRequest(HttpRequest request) {
-    handleRequest(handler, request);
-  }
-
-  return requests.listen(onRequest);
-}
-
+/// Uses [Handler] to handle [HttpRequest].
 // TODO: error response with message
 Future<void> handleRequest(FutureOr<Response?> Function(Request) handler, HttpRequest httpRequest) async {
   Request request;
@@ -219,7 +220,7 @@ Request fromHttpRequest(HttpRequest request) {
       context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
 }
 
-/// Writes a given [Response] to the provided [1HttpResponse].
+/// Writes a given [Response] to the provided [HttpResponse].
 Future<void> writeResponse(Response response, HttpResponse httpResponse) {
   if (response.context.containsKey('shelf.io.buffer_output')) {
     httpResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
@@ -253,8 +254,8 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) {
     httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
   }
 
-  if (!response.headers.containsKey('x-powered-by')) {
-    httpResponse.headers.set('x-powered-by', 'Astra $packageVersion');
+  if (!response.headers.containsKey('X-Powered-By')) {
+    httpResponse.headers.set('X-Powered-By', 'astra.dart $packageVersion');
   }
 
   if (!response.headers.containsKey(HttpHeaders.dateHeader)) {
