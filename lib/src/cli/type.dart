@@ -24,7 +24,9 @@ enum TargetType {
       return null;
     }
 
-    return element.librarySource!.uri.replace(fragment: element.name).toString();
+    return element.librarySource!.uri
+        .replace(fragment: element.name)
+        .toString();
   }
 
   static bool isFuture(DartType type) {
@@ -44,7 +46,8 @@ enum TargetType {
   }
 
   static bool isApplication(DartType type) {
-    return urlOfElement(type) == 'package:astra/src/core/application.dart#Application';
+    return urlOfElement(type) ==
+        'package:astra/src/core/application.dart#Application';
   }
 
   static bool isHandler(DartType function) {
@@ -69,16 +72,19 @@ enum TargetType {
           return true;
         }
 
-        throw CliException('target parameter is not Request');
+        throw CliException('Target parameter is not Request');
       }
 
-      throw CliException('target parameters count not equal 1');
+      throw CliException('Target parameters count not equal 1');
     }
 
     return false;
   }
 
-  static TargetType getFor(ResolvedUnitResult resolvedUnitResult, {String target = 'application'}) {
+  static TargetType getFor(
+    ResolvedUnitResult resolvedUnitResult, {
+    String target = 'application',
+  }) {
     var library = resolvedUnitResult.libraryElement;
 
     for (var element in library.topLevelElements) {
@@ -113,7 +119,10 @@ enum TargetType {
           }
 
           if (returnType is InterfaceType) {
-            var types = <InterfaceType>[returnType, ...returnType.allSupertypes];
+            var types = <InterfaceType>[
+              returnType,
+              ...returnType.allSupertypes
+            ];
 
             for (var type in types) {
               // T = Application
@@ -137,12 +146,15 @@ enum TargetType {
             }
           }
 
-          throw CliException('target function is not supported');
+          throw CliException('Target function is not supported');
         }
 
         // class Target implements T
         if (element is ClassElement) {
-          var types = <InterfaceType>[element.thisType, ...element.allSupertypes];
+          var types = <InterfaceType>[
+            element.thisType,
+            ...element.allSupertypes
+          ];
 
           for (var type in types) {
             // T = Application
@@ -165,7 +177,7 @@ enum TargetType {
             }
           }
 
-          throw CliException('target type is not supported');
+          throw CliException('Target type is not supported');
         }
 
         // T target = ...
@@ -217,7 +229,7 @@ enum TargetType {
             }
           }
 
-          throw CliException('target instance is not supported');
+          throw CliException('Target instance is not supported');
         }
 
         throw CliException('$target is not supported');

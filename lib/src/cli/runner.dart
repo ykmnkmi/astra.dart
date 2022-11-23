@@ -5,7 +5,8 @@ import 'package:astra/src/cli/command.dart';
 import 'package:astra/src/cli/commands/serve.dart';
 
 class CliRunner extends CommandRunner<int> {
-  CliRunner() : super('astra', 'Astra CLI tool for managing Shelf applications.') {
+  CliRunner()
+      : super('astra', 'Astra CLI tool for managing Shelf applications.') {
     addCommand(ServeCommand());
   }
 

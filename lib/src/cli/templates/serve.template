@@ -47,8 +47,6 @@ const bool v6Only = __V6ONLY__;
 __CREATE__
 
 Future<void> main(List<String> arguments) async {
-  var overriden = arguments.isNotEmpty && arguments.contains('--overriden');
-
   if (observe) {
     var info = await Service.getInfo();
     var uri = info.serverUri;
@@ -65,15 +63,12 @@ Future<void> main(List<String> arguments) async {
 
   var controller = StreamController<Object>(sync: true);
 
-  Future<void> Function() reload, restart;
-
   Future<void> startAll() async {
     for (var i = 0; i < concurrency; i += 1) {
       var receivePort = RawReceivePort();
       var isolate = await Isolate.spawn(create, receivePort.sendPort, //
           paused: true,
           errorsAreFatal: false,
-          onError: receivePort.sendPort,
           debugName: 'isolate/${i + 1}');
       var supervisor = IsolateSupervisor(isolate, receivePort);
       supervisors.add(supervisor);
@@ -100,6 +95,9 @@ Future<void> main(List<String> arguments) async {
       await callback();
     }
   }
+
+  Future<void> Function() reload;
+  Future<void> Function() restart;
 
   if (hotReload) {
     var info = await Service.getInfo();
@@ -133,7 +131,10 @@ Future<void> main(List<String> arguments) async {
         var result = await service.reloadSources(isolateId);
 
         if (result.success == true) {
-          await service.callServiceExtension('ext.astra.reload', isolateId: isolateId);
+          await service.callServiceExtension(
+            'ext.astra.reload',
+            isolateId: isolateId,
+          );
         }
       }
 
@@ -173,11 +174,11 @@ Future<void> main(List<String> arguments) async {
 
   shutdown.add(stopAll);
 
-  await startAll();
+  var cliRun = const bool.fromEnvironment('ASTRA_CLI');
 
   late bool echoMode, lineMode;
 
-  if (!overriden) {
+  if (!cliRun) {
     echoMode = stdin.echoMode;
     lineMode = stdin.lineMode;
 
@@ -187,12 +188,17 @@ Future<void> main(List<String> arguments) async {
   }
 
   try {
-    var stdinSubscription = stdin.map<String>(String.fromCharCodes).listen(controller.add);
+    var stdinSubscription = stdin //
+        .map<String>(String.fromCharCodes)
+        .listen(controller.add);
     shutdown.add(stdinSubscription.cancel);
 
-    var sigintSubscription = ProcessSignal.sigint.watch().listen(controller.add);
+    var sigintSubscription = ProcessSignal.sigint //
+        .watch()
+        .listen(controller.add);
     shutdown.add(sigintSubscription.cancel);
 
+    await startAll();
     stdout.writeln('* serving at $scheme://$address:$port');
 
     await for (var event in controller.stream) {
@@ -213,7 +219,10 @@ Future<void> main(List<String> arguments) async {
       }
 
       // from keyboard, parent or process signal
-      if (event == 'q' || event == 'SIGINT' || event == 'SIGTERM' || event is ProcessSignal) {
+      if (event == 'q' ||
+          event == 'SIGINT' ||
+          event == 'SIGTERM' ||
+          event is ProcessSignal) {
         stdout.writeln('* closing ...');
         await shutDownAll();
         break;
@@ -232,10 +241,12 @@ Future<void> main(List<String> arguments) async {
       }
     }
   } finally {
-    if (!overriden) {
-      stdin
-        ..echoMode = echoMode
-        ..lineMode = lineMode;
+    if (!cliRun) {
+      stdin.lineMode = lineMode;
+
+      if (lineMode) {
+        stdin.echoMode = echoMode;
+      }
     }
   }
 }

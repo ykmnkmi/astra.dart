@@ -9,10 +9,9 @@ Inspired by [uvicorn][uvicorn].
 ### ToDo
 - Verbose output 🔥
 - More API Documentation 🔥
-- Full-Restart (relaunch) 🔥
-- Logging
+- Logging 🔥
 - Environment variables & configuration file
-- Tests
+- Tests 🔥
 - Commands:
   - create
   - generate
@@ -23,10 +22,10 @@ Inspired by [uvicorn][uvicorn].
 ### Experimenting
 - Serving package URI (if possible) 🤔
 - Shelf Request/Response based HttpServer alternatives:
-  - dart:io Socket (without HttpRequest/HttpResponse, ...) 🔥
+  - dart:io Socket (without HttpRequest/HttpResponse, ...) 🤔
   - dart:ffi and Rust (hyper) web server adapter 🤔
   - ...
-- HTTP/2 🤔
+- HTTP/2 🔥
 - `build_runner` integration
 
 ## Quickstart
@@ -77,8 +76,7 @@ Application options:
 Server options:
 -s, --server-type=<shelf>              Server type.
 
-          [h11]                        Experimental HTTP/1.1 adapter.
-          [shelf]                      Default shelf adapter.
+          [h11]                        Default HTTP/1.1 Shelf adapter.
 
 -j, --concurrency=<1>                  Number of isolates to run.
 -a, --address=<localhost>              The address to listen.
@@ -134,8 +132,6 @@ class HelloWorld extends Application {
 $ astra serve -t example
 ```
 ```dart
-FutureOr<Application> example;
-
 FutureOr<Application> get example;
 ```
 
@@ -152,7 +148,7 @@ FutureOr<Application> getApplication();
 $ astra serve -t echo
 ```
 ```dart
-Response echo(Request request);
+FutureOr<Response> echo(Request request);
 ```
 
 `Handler` like callable class:
@@ -161,7 +157,7 @@ $ astra serve -t Router
 ```
 ```dart
 class Router {
-  Response call(Request request);
+  FutureOr<Response> call(Request request);
 }
 ```
 
@@ -170,8 +166,6 @@ class Router {
 $ astra serve -t router
 ```
 ```dart
-FutureOr<Router> router;
-
 FutureOr<Router> get router;
 ```
 

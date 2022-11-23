@@ -2,16 +2,13 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:astra/src/isolate/message.dart';
-import 'package:logging/logging.dart';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.isolate, this.receive) : logger = Logger(isolate.debugName ?? 'isolate');
+  IsolateSupervisor(this.isolate, this.receive);
 
   final Isolate isolate;
 
   final RawReceivePort receive;
-
-  final Logger logger;
 
   SendPort? server;
 
@@ -19,7 +16,7 @@ class IsolateSupervisor {
 
   Completer<void>? stopCompleter;
 
-  void listener(Object? message) {
+  void onMessage(Object? message) {
     if (message is SendPort) {
       server = message;
       return;
@@ -28,8 +25,6 @@ class IsolateSupervisor {
     if (message == IsolateMessage.ready) {
       launchCompleter!.complete();
       launchCompleter = null;
-      // TODO: translate log message
-      logger.fine('${isolate.debugName} запущен.');
       return;
     }
 
@@ -37,24 +32,7 @@ class IsolateSupervisor {
       receive.close();
       stopCompleter!.complete();
       stopCompleter = null;
-      // TODO: translate log message
-      logger.fine('${isolate.debugName} завершился.');
       return;
-    }
-
-    if (message is List<String>) {
-      var error = message[0];
-      var trace = StackTrace.fromString(message[1]);
-
-      if (launchCompleter != null) {
-        launchCompleter!.completeError(error, trace);
-      } else if (stopCompleter != null) {
-        // TODO: translate log message
-        logger.severe('${isolate.debugName} завершился с иключение.', error, trace);
-        receive.close();
-      } else {
-        logger.severe('Uncaught exception in ${isolate.debugName}.', error, trace);
-      }
     }
   }
 
@@ -65,7 +43,7 @@ class IsolateSupervisor {
     }
 
     launchCompleter = Completer<void>();
-    receive.handler = listener;
+    receive.handler = onMessage;
     isolate.resume(isolate.pauseCapability!);
     return launchCompleter!.future;
   }

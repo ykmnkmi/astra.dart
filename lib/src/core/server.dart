@@ -33,7 +33,6 @@ abstract class Server {
   /// All requests will be sent to [application] until [close] is called.
   ///
   /// Throws a [StateError] if there's already a handler mounted.
-  // TODO(doc): add application preparing
   Future<void> mount(Application application);
 
   /// Closes the server and returns a Future that completes

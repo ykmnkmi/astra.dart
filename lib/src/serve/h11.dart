@@ -1,5 +1,3 @@
-library astra.serve.shelf;
-
 import 'dart:async' show FutureOr;
 import 'dart:io'
     show
@@ -13,11 +11,10 @@ import 'dart:io'
         Socket;
 
 import 'package:astra/core.dart';
+import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:stream_channel/stream_channel.dart';
-
-import 'package:astra/src/serve/utils.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
@@ -54,9 +51,9 @@ class ShelfServer implements Server {
   }
 
   @override
-  Future<void> mount(Application application, {bool catchErrors = true}) async {
+  Future<void> mount(Application application) async {
     if (this.application != null) {
-      throw StateError("Can't mount two handlers for the same server.");
+      throw StateError("Can't mount two handlers for the same server");
     }
 
     this.application = application;
@@ -64,21 +61,19 @@ class ShelfServer implements Server {
 
     var handler = application.entryPoint;
 
-    void body() {
-      void onRequest(HttpRequest request) {
-        handleRequest(handler, request);
-      }
+    void onRequest(HttpRequest request) {
+      handleRequest(handler, request);
+    }
 
+    void body() {
       server.listen(onRequest);
     }
 
-    if (catchErrors) {
-      void onError(Object error, StackTrace stackTrace) {
-        logError('Asynchronous error.\n$error', stackTrace);
-      }
-
-      catchTopLevelErrors(body, onError);
+    void onError(Object error, StackTrace stackTrace) {
+      logError('Asynchronous error\n$error', stackTrace);
     }
+
+    catchTopLevelErrors(body, onError);
   }
 
   @override
@@ -92,26 +87,36 @@ class ShelfServer implements Server {
     }
   }
 
-  /// Bounds the server socket to the given [address] and [port] and wraps in an [ShelfServer].
-  static Future<ShelfServer> bind(Object address, int port, //
-      {SecurityContext? securityContext,
-      int backlog = 0,
-      bool v6Only = false,
-      bool requestClientCertificate = false,
-      bool shared = false}) async {
+  /// Bounds the [ShelfServer] to the given [address] and [port].
+  static Future<ShelfServer> bind(
+    Object address,
+    int port, {
+    SecurityContext? securityContext,
+    int backlog = 0,
+    bool v6Only = false,
+    bool requestClientCertificate = false,
+    bool shared = false,
+  }) async {
     HttpServer server;
 
     if (securityContext == null) {
-      server = await HttpServer.bind(address, port, //
-          backlog: backlog,
-          v6Only: v6Only,
-          shared: shared);
+      server = await HttpServer.bind(
+        address,
+        port,
+        backlog: backlog,
+        v6Only: v6Only,
+        shared: shared,
+      );
     } else {
-      server = await HttpServer.bindSecure(address, port, securityContext, //
-          backlog: backlog,
-          v6Only: v6Only,
-          requestClientCertificate: requestClientCertificate,
-          shared: shared);
+      server = await HttpServer.bindSecure(
+        address,
+        port,
+        securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+      );
     }
 
     return ShelfServer(server);
@@ -120,28 +125,32 @@ class ShelfServer implements Server {
 
 /// Uses [Handler] to handle [HttpRequest].
 // TODO: error response with message
-Future<void> handleRequest(FutureOr<Response?> Function(Request) handler, HttpRequest httpRequest) async {
+Future<void> handleRequest(FutureOr<Response?> Function(Request) handler,
+    HttpRequest httpRequest) async {
   Request request;
 
   try {
     request = fromHttpRequest(httpRequest);
   } on ArgumentError catch (error, stackTrace) {
     if (error.name == 'method' || error.name == 'requestedUri') {
-      logError('Error parsing request.\n$error', stackTrace);
+      logError('Error parsing request\n$error', stackTrace);
 
-      var headers = <String, String>{HttpHeaders.contentTypeHeader: 'text/plain'};
+      var headers = <String, String>{
+        HttpHeaders.contentTypeHeader: 'text/plain'
+      };
+
       var response = Response.badRequest(body: 'Bad Request', headers: headers);
       await writeResponse(response, httpRequest.response);
       return;
     }
 
-    logError('Error parsing request.\n$error', stackTrace);
+    logError('Error parsing request\n$error', stackTrace);
 
     var response = Response.internalServerError();
     await writeResponse(response, httpRequest.response);
     return;
   } catch (error, stackTrace) {
-    logError('Error parsing request.\n$error', stackTrace);
+    logError('Error parsing request\n$error', stackTrace);
 
     var response = Response.internalServerError();
     await writeResponse(response, httpRequest.response);
@@ -157,7 +166,11 @@ Future<void> handleRequest(FutureOr<Response?> Function(Request) handler, HttpRe
       return;
     }
 
-    logError("Caught HijackException, but the request wasn't hijacked.\n$error", stackTrace);
+    logError(
+      "Caught HijackException, but the request wasn't hijacked.\n$error",
+      stackTrace,
+    );
+
     response = Response.internalServerError();
   } catch (error, stackTrace) {
     logError('Error thrown by handler.\n$error', stackTrace);
@@ -165,7 +178,7 @@ Future<void> handleRequest(FutureOr<Response?> Function(Request) handler, HttpRe
   }
 
   if (response == null) {
-    logError('Null response from handler.', StackTrace.current);
+    logError('Null response from handler', StackTrace.current);
     response = Response.internalServerError();
     await writeResponse(response, httpRequest.response);
     return;
@@ -212,18 +225,24 @@ Request fromHttpRequest(HttpRequest request) {
     request.response.detachSocket(writeHeaders: false).then<void>(onSocket);
   }
 
+  var context = <String, Object>{
+    'shelf.io.connection_info': request.connectionInfo!
+  };
+
   return Request(request.method, request.requestedUri,
       protocolVersion: request.protocolVersion,
       headers: headers,
       body: request,
       onHijack: onHijack,
-      context: <String, Object>{'shelf.io.connection_info': request.connectionInfo!});
+      context: context);
 }
 
 /// Writes a given [Response] to the provided [HttpResponse].
 Future<void> writeResponse(Response response, HttpResponse httpResponse) {
-  if (response.context.containsKey('shelf.io.buffer_output')) {
-    httpResponse.bufferOutput = response.context['shelf.io.buffer_output'] as bool;
+  var bufferOutput = response.context['shelf.io.buffer_output'] as bool?;
+
+  if (bufferOutput != null) {
+    httpResponse.bufferOutput = bufferOutput;
   }
 
   httpResponse
@@ -242,7 +261,10 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) {
     // If the response is already in a chunked encoding, de-chunk it because
     // otherwise `dart:io` will try to add another layer of chunking.
     // TODO: Do this more cleanly when sdk#27886 is fixed.
-    response = response.change(body: chunkedCoding.decoder.bind(response.read()));
+    response = response.change(
+      body: chunkedCoding.decoder.bind(response.read()),
+    );
+
     httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
   } else if (response.statusCode >= 200 &&
       response.statusCode != 204 &&

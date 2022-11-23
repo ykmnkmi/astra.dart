@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:astra/core.dart';
 
-Future<Response> handler(Request request) async {
+Future<Response> application(Request request) async {
   switch (request.url.path) {
     case '':
       return Response.ok('hello world!');

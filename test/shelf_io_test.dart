@@ -18,7 +18,11 @@ void main() {
 
   test('async handler returns a value to the client', () async {
     Future<Response> handler(Request request) {
-      return Future<Response>(() => Response.ok('Hello from ${request.requestedUri.path}'));
+      Response callback() {
+        return Response.ok('Hello from ${request.requestedUri.path}');
+      }
+
+      return Future<Response>(callback);
     }
 
     var client = TestClient(handler);

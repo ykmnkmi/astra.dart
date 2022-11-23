@@ -135,7 +135,7 @@ abstract class CliCommand extends Command<int> {
     var parsed = int.parse(value);
 
     if (parsed < 0) {
-      usageException('$name must be zero or positive');
+      usageException('$name must be zero or positive integer');
     }
 
     return parsed;

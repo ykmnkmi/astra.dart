@@ -26,11 +26,8 @@ class ServeCommand extends CliCommand {
       ..addOption('server-type', //
           abbr: 's',
           help: 'Server type.',
-          allowed: <String>['shelf', 'h11'],
-          allowedHelp: <String, String>{
-            'shelf': 'Default shelf adapter.',
-            'h11': 'Experimental HTTP/1.1 adapter.',
-          },
+          allowed: <String>['h11'],
+          allowedHelp: <String, String>{'h11': 'Default HTTP/1.1 adapter.'},
           valueHelp: 'shelf')
       ..addOption('concurrency', //
           abbr: 'j',
@@ -98,7 +95,7 @@ class ServeCommand extends CliCommand {
   }
 
   ServerType get serverType {
-    var type = getString('server-type') ?? 'shelf';
+    var type = getString('server-type') ?? 'h11';
     return ServerType.values.byName(type);
   }
 
@@ -174,11 +171,15 @@ class ServeCommand extends CliCommand {
   }
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
-    var templateUri = Uri(scheme: 'package', path: 'astra/src/cli/templates/$name.template');
+    var templateUri = Uri(
+      scheme: 'package',
+      path: 'astra/src/cli/templates/$name.template',
+    );
+
     var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
 
     if (templateResolvedUri == null) {
-      throw CliException('serve template uri not resolved');
+      throw CliException('Serve template uri not resolved');
     }
 
     var template = await File.fromUri(templateResolvedUri).readAsString();
@@ -187,7 +188,7 @@ class ServeCommand extends CliCommand {
       var variable = match.group(1);
 
       if (variable == null) {
-        throw StateError('template variable \'$variable\' not found.');
+        throw StateError('Template variable \'$variable\' not found');
       }
 
       return data[variable]!;
@@ -227,13 +228,14 @@ class ServeCommand extends CliCommand {
 
   @override
   Future<int> handle() async {
-    var collection = AnalysisContextCollection(includedPaths: <String>[directory.absolute.path]);
+    var includedPaths = <String>[directory.absolute.path];
+    var collection = AnalysisContextCollection(includedPaths: includedPaths);
     var context = collection.contextFor(directory.absolute.path);
     var session = context.currentSession;
     var resolvedUnit = await session.getResolvedUnit(library.absolute.path);
 
     if (resolvedUnit is! ResolvedUnitResult) {
-      throw CliException('library not resolved');
+      throw CliException('Library not resolved');
     }
 
     if (resolvedUnit.errors.isNotEmpty) {
@@ -242,20 +244,23 @@ class ServeCommand extends CliCommand {
 
     var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
-    var scriptPath = join('.dart_tool', 'astra.serve.dart');
+    var scriptPath = join('.dart_tool', 'astra.serve-$packageVersion.dart');
     var script = File(join(directory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    var arguments = <String>['-DSILENT_OBSERVATORY=true', 'run'];
+    var arguments = <String>['-DASTRA_CLI=true'];
 
     if (reload) {
       arguments
+        ..add('-DSILENT_OBSERVATORY=true')
         ..add('--enable-vm-service=$observePort')
         ..add('--disable-service-auth-codes')
+        ..add('--no-pause-isolates-on-exit')
         ..add('--no-serve-devtools')
         ..add('--no-dds');
     } else if (observe) {
       arguments
+        ..add('-DSILENT_OBSERVATORY=true')
         ..add('--observe=$observePort')
         ..add('--disable-service-auth-codes')
         ..add('--no-pause-isolates-on-exit')
@@ -266,9 +271,7 @@ class ServeCommand extends CliCommand {
       arguments.add('--enable-asserts');
     }
 
-    arguments
-      ..add(scriptPath)
-      ..add('--overriden');
+    arguments.add(scriptPath);
 
     var echoMode = stdin.echoMode;
     var lineMode = stdin.lineMode;
@@ -281,21 +284,26 @@ class ServeCommand extends CliCommand {
     StreamSubscription<ProcessSignal>? sigintSubscription;
 
     try {
-      var process = await Process.start(Platform.executable, arguments, //
-          workingDirectory: directory.path);
+      var process = await Process.start(
+        Platform.executable,
+        arguments,
+        workingDirectory: directory.path,
+      );
 
-      sigintSubscription = ProcessSignal.sigint.watch().listen(process.stdin.writeln);
+      sigintSubscription = ProcessSignal.sigint //
+          .watch()
+          .listen(process.stdin.writeln);
       stdinSubscription = stdin.listen(process.stdin.add);
       process.stdout.pipe(stdout);
       process.stderr.pipe(stderr);
       return await process.exitCode;
     } finally {
       stdin
-        ..echoMode = echoMode
-        ..lineMode = lineMode;
+        ..lineMode = lineMode
+        ..echoMode = echoMode;
 
-      stdinSubscription!.cancel();
-      sigintSubscription!.cancel();
+      stdinSubscription?.cancel();
+      sigintSubscription?.cancel();
     }
   }
 }
