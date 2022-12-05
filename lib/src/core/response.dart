@@ -1,3 +1,0 @@
-export 'package:shelf/shelf.dart' show Response;
-
-// TODO: add FileResponse, JsonResponse, ...

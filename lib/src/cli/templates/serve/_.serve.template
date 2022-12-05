@@ -1,7 +1,0 @@
-  await application.serve(address, port, //
-      type: __SERVERTYPE__,
-      securityContext: __CONTEXT__,
-      backlog: backlog,
-      v6Only: v6Only,
-      shared: shared,
-      messagePort: sendPort);

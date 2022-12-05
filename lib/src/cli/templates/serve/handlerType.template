@@ -1,6 +1,0 @@
-Future<void> create(SendPort sendPort) async {
-  var object = _.__TARGET__();
-  var handler = object.call;
-  var application = handler.asApplication();
-__APPLICATIONSERVE__
-}
