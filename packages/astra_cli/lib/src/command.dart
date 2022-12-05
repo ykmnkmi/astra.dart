@@ -21,18 +21,12 @@ class CliException implements Exception {
 abstract class CliCommand extends Command<int> {
   CliCommand() {
     argParser
-      ..addSeparator('Common options:')
       ..addOption('directory', //
-          abbr: 'd',
           help: 'Run this in the directory.',
           valueHelp: 'path')
       ..addFlag('verbose', //
-          abbr: 'v',
           negatable: false,
-          help: 'Output more informational messages.')
-      ..addFlag('version', //
-          negatable: false,
-          help: 'Prints tool version.');
+          help: 'Output more informational messages.');
   }
 
   @override
@@ -40,7 +34,7 @@ abstract class CliCommand extends Command<int> {
     var argResults = super.argResults;
 
     if (argResults == null) {
-      throw CliException('run is not called.');
+      throw CliException('Run is not called.');
     }
 
     return argResults;
@@ -63,35 +57,41 @@ abstract class CliCommand extends Command<int> {
       return directory;
     }
 
-    throw CliException('directory not found: $path');
+    throw CliException('Directory not found: $path');
   }
 
-  File get specificationFile {
-    return File(join(directory.path, 'pubspec.yaml'));
+  File? cachedPubspecFile;
+
+  File get pubspecFile {
+    return cachedPubspecFile ??= File(join(directory.path, 'pubspec.yaml'));
   }
 
-  Map<String, Object?>? cachedSpecification;
+  Map<String, Object?>? cachedPubspec;
 
-  Map<String, Object?> get specification {
-    var specification = cachedSpecification;
+  Map<String, Object?> get pubspec {
+    var pubspec = cachedPubspec;
 
-    if (specification != null) {
-      return specification;
+    if (pubspec != null) {
+      return pubspec;
     }
 
-    var file = specificationFile;
+    var file = pubspecFile;
 
     if (file.existsSync()) {
       var content = file.readAsStringSync();
       var yaml = loadYaml(content) as Map<Object?, Object?>;
-      return yaml.cast<String, Object?>();
+      pubspec = yaml.cast<String, Object?>();
+      cachedPubspec = pubspec;
+      return pubspec;
     }
 
-    throw CliException('failed to locate ${file.path}');
+    throw CliException('Failed to locate ${file.path}');
   }
 
+  String? cachedPackage;
+
   String get package {
-    return specification['name'] as String;
+    return cachedPackage ??= pubspec['name'] as String;
   }
 
   File? cachedLibrary;
@@ -110,7 +110,7 @@ abstract class CliCommand extends Command<int> {
       return library;
     }
 
-    throw CliException('failed to locate ${library.path}');
+    throw CliException('Failed to locate ${library.path}.');
   }
 
   bool get verbose {
@@ -135,7 +135,7 @@ abstract class CliCommand extends Command<int> {
     var parsed = int.parse(value);
 
     if (parsed < 0) {
-      usageException('$name must be zero or positive integer');
+      usageException('$name must be zero or positive integer.');
     }
 
     return parsed;

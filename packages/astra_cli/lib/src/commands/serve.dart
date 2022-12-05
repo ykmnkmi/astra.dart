@@ -16,68 +16,34 @@ class ServeCommand extends CliCommand {
     argParser
       // application
       ..addSeparator('Application options:')
-      ..addOption('target', //
-          abbr: 't',
-          help: 'Serve target.',
-          valueHelp: 'application')
+      ..addOption('target', abbr: 't', help: 'Serve target.')
 
       // server
       ..addSeparator('Server options:')
-      ..addOption('server-type', //
+      ..addOption('server-type',
           abbr: 's',
           help: 'Server type.',
           allowed: <String>['h11'],
-          allowedHelp: <String, String>{'h11': 'Default HTTP/1.1 adapter.'},
-          valueHelp: 'shelf')
-      ..addOption('concurrency', //
-          abbr: 'j',
-          help: 'Number of isolates to run.',
-          valueHelp: '1')
-      ..addOption('address', //
-          abbr: 'a',
-          help: 'The address to listen.',
-          valueHelp: 'localhost')
-      ..addOption('port', //
-          abbr: 'p',
-          help: 'The port to listen.',
-          valueHelp: '8080')
-      ..addOption('backlog', //
-          help: 'Maximum number of connections to hold in backlog.',
-          valueHelp: '0')
-      ..addFlag('shared', //
-          negatable: false,
-          help: 'Socket connections distributing.')
-      ..addFlag('v6Only', //
-          negatable: false,
-          help: 'Restrict connections to version 6.')
-      ..addOption('ssl-cert', //
-          help: 'The path to a SSL certificate.',
-          valueHelp: 'path')
-      ..addOption('ssl-key', //
-          help: 'The path to a private key.',
-          valueHelp: 'path')
-      ..addOption('ssl-key-password', //
-          help: 'The password of private key file.',
-          valueHelp: 'passphrase')
+          allowedHelp: <String, String>{'h11': 'Default HTTP/1.1 adapter.'})
+      ..addOption('concurrency', abbr: 'j', help: 'Number of isolates to run.')
+      ..addOption('address', abbr: 'a', help: 'The address to listen.')
+      ..addOption('port', abbr: 'p', help: 'The port to listen.')
+      ..addOption('backlog',
+          help: 'Maximum number of connections to hold in backlog.')
+      ..addFlag('shared',
+          negatable: false, help: 'Socket connections distributing.')
+      ..addFlag('v6Only',
+          negatable: false, help: 'Restrict connections to version 6.')
+      ..addOption('ssl-cert', help: 'The path to a SSL certificate.')
+      ..addOption('ssl-key', help: 'The path to a private key.')
+      ..addOption('ssl-key-password', help: 'The password of private key file.')
 
       // debug
       ..addSeparator('Debugging options:')
-      ..addFlag('reload', //
-          abbr: 'r',
-          negatable: false,
-          help: 'Enable hot-reload and hot-restart.')
-      ..addFlag('watch', //
-          abbr: 'w',
-          negatable: false,
-          help: 'Watch lib folder for changes and perform hot-reload.')
-      ..addOption('observe', //
-          abbr: 'o',
-          help: 'Enable VM observer.',
-          valueHelp: '8081')
-      ..addFlag('asserts', //
-          abbr: 'c',
-          negatable: false,
-          help: 'Enable asserts.');
+      ..addFlag('reload', negatable: false, help: 'Enable hot-reload.')
+      ..addFlag('watch', negatable: false, help: "Enable 'lib' folder watcher.")
+      ..addOption('debug', help: 'Enable VM observer.')
+      ..addFlag('asserts', help: 'Enable asserts.');
   }
 
   @override
@@ -92,6 +58,10 @@ class ServeCommand extends CliCommand {
 
   String get target {
     return getString('target') ?? 'application';
+  }
+
+  String get targetPath {
+    return getString('target-path') ?? library.path;
   }
 
   ServerType get serverType {

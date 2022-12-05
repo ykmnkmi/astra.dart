@@ -23,6 +23,13 @@ class CliRunner extends CommandRunner<int> {
     } on CliException catch (error) {
       stderr.writeln(error.message);
       return 1;
+    } catch (error, stackTrace) {
+      stderr
+        ..writeln(error)
+        ..writeln()
+        ..writeln(stackTrace);
+
+      return 1;
     }
   }
 }
