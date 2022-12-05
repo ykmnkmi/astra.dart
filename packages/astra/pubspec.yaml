@@ -1,0 +1,24 @@
+name: astra
+description: >
+  Astra is Shelf web server adapter and application framework.
+version: 1.0.0-dev.129
+homepage: https://github.com/ykmnkmi/astra.dart
+repository: https://github.com/ykmnkmi/astra.dart
+
+environment:
+  sdk: ">=2.18.0 <3.0.0"
+
+dependencies:
+  collection: ^1.17.0
+  http: ^0.13.5
+  http_parser: ^4.0.2
+  meta: ^1.8.0
+  shelf: ^1.4.0
+  stack_trace: ^1.11.0
+  stream_channel: ^2.1.1
+
+dev_dependencies:
+  build_runner: ^2.3.2
+  build_version: ^2.1.1
+  lints: ^2.0.1
+  test: ^1.22.0

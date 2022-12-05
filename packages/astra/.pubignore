@@ -1,0 +1,11 @@
+.dart_tool/
+.vscode/
+.DS_store
+.packages
+certificates/
+pubspec.lock
+pubspec_overrides.yaml
+**/**.dill
+**/**.jit
+**/**.aot
+**/**.exe
