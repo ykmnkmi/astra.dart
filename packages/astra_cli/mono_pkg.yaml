@@ -1,0 +1,10 @@
+sdk:
+  - stable
+  - beta
+
+stages:
+  - analyze:
+    - analyze: --fatal-infos .
+    - format:
+      sdk:
+      - dev
