@@ -5,10 +5,10 @@ import 'dart:math';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
-import 'package:astra/core.dart';
 import 'package:astra/serve.dart';
 import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/type.dart';
+import 'package:astra_cli/src/version.dart';
 import 'package:path/path.dart';
 
 class ServeCommand extends CliCommand {

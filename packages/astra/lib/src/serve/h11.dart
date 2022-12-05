@@ -277,7 +277,7 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) {
   }
 
   if (!response.headers.containsKey('X-Powered-By')) {
-    httpResponse.headers.set('X-Powered-By', 'astra.dart $packageVersion');
+    httpResponse.headers.set('X-Powered-By', 'Dart with package:astra');
   }
 
   if (!response.headers.containsKey(HttpHeaders.dateHeader)) {

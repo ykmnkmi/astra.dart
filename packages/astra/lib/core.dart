@@ -7,4 +7,3 @@ export 'package:astra/src/core/middleware.dart';
 export 'package:astra/src/core/request.dart';
 export 'package:astra/src/core/response.dart';
 export 'package:astra/src/core/server.dart';
-export 'package:astra/src/core/version.dart';
