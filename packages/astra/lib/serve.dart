@@ -1,13 +1,14 @@
 // TODO: add debug, ...
 library astra.serve;
 
-import 'dart:async';
-import 'dart:io';
-import 'dart:isolate';
+import 'dart:async' show Future;
+import 'dart:io' show SecurityContext;
+import 'dart:isolate' show SendPort;
 
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/src/serve/h11.dart';
+import 'package:astra/src/serve/utils.dart';
 
 export 'package:astra/src/serve/h11.dart';
 export 'package:astra/src/serve/utils.dart';
@@ -54,6 +55,8 @@ extension ServeApplicationExtension on Application {
     bool shared = false,
     SendPort? messagePort,
   }) async {
+    registerApplication(this);
+
     Server server;
 
     switch (type) {

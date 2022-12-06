@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:convert' show htmlEscape;
 
 import 'package:astra/core.dart';
 

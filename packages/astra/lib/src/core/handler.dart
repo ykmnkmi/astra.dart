@@ -1,5 +1,5 @@
 import 'package:astra/src/core/application.dart';
-import 'package:shelf/shelf.dart';
+import 'package:shelf/shelf.dart' show Handler, Middleware;
 
 export 'package:shelf/shelf.dart' show Handler;
 

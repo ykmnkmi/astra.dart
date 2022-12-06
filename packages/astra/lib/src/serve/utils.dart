@@ -1,7 +1,10 @@
-import 'dart:async';
-import 'dart:io';
+import 'dart:async' show Future, Zone, runZoned, runZonedGuarded;
+import 'dart:convert' show json;
+import 'dart:developer' show ServiceExtensionResponse, registerExtension;
+import 'dart:io' show stderr;
 
-import 'package:stack_trace/stack_trace.dart';
+import 'package:astra/core.dart';
+import 'package:stack_trace/stack_trace.dart' show Trace;
 
 /// Run [callback] and capture any errors that would otherwise be top-leveled.
 ///
@@ -27,4 +30,28 @@ void logError(Object error, StackTrace stackTrace) {
     ..write(' ')
     ..writeln(error)
     ..writeln(Trace.format(stackTrace));
+}
+
+void registerApplication(Application application) {
+  Future<ServiceExtensionResponse> reload(
+    String isolateId,
+    Map<String, String> data,
+  ) async {
+    try {
+      await application.reload();
+      return ServiceExtensionResponse.result('{}');
+    } catch (error, stackTrace) {
+      var data = <String, String>{
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      };
+
+      return ServiceExtensionResponse.error(
+        ServiceExtensionResponse.extensionError,
+        json.encode(data),
+      );
+    }
+  }
+
+  registerExtension('ext.astra.reload', reload);
 }

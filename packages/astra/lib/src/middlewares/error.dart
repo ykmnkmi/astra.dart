@@ -1,9 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:convert' show htmlEscape;
+import 'dart:io' show File;
 
 import 'package:astra/core.dart';
 import 'package:meta/meta.dart';
-import 'package:stack_trace/stack_trace.dart';
+import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
 @internal
 String renderPageTitle(Object error, Trace trace) {

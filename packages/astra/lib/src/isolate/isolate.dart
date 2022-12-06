@@ -52,29 +52,6 @@ class IsolateServer implements Server {
   @override
   Future<void> mount(Application application) async {
     await server.mount(application);
-
-    Future<ServiceExtensionResponse> reload(
-      String isolateId,
-      Map<String, String> data,
-    ) async {
-      try {
-        await application.reload();
-      } catch (error, stackTrace) {
-        var data = <String, String>{
-          'error': error.toString(),
-          'stackTrace': stackTrace.toString(),
-        };
-
-        return ServiceExtensionResponse.error(
-          ServiceExtensionResponse.extensionError,
-          json.encode(data),
-        );
-      }
-
-      return ServiceExtensionResponse.result('{}');
-    }
-
-    registerExtension('ext.astra.reload', reload);
     messagePort.send(IsolateMessage.ready);
   }
 

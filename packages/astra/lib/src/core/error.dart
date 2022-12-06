@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show FutureOr;
 
 import 'package:astra/src/core/request.dart';
 import 'package:astra/src/core/response.dart';

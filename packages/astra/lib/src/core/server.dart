@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:io';
+import 'dart:async' show Future;
+import 'dart:io' show InternetAddress;
 
 import 'package:astra/core.dart';
 

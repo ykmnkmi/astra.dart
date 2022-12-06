@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show HttpStatus;
 
 import 'package:astra/core.dart';
 import 'package:astra/test.dart';

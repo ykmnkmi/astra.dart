@@ -1,3 +1,3 @@
 library astra.test;
 
-export 'package:astra/src/test/client.dart' show TestClient;
+export 'package:astra/src/test/client.dart';

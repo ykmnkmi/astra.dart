@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:isolate';
+import 'dart:async' show Completer, Future;
+import 'dart:isolate' show Isolate, RawReceivePort, SendPort;
 
 import 'package:astra/src/isolate/message.dart';
 

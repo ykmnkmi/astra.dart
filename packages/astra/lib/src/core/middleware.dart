@@ -1,4 +1,4 @@
-import 'package:shelf/shelf.dart';
+import 'package:shelf/shelf.dart' show Handler, Middleware, Pipeline;
 
 export 'package:shelf/shelf.dart' show Middleware;
 

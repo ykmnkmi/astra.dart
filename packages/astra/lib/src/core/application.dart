@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show Future;
 
 import 'package:astra/src/core/handler.dart';
 
