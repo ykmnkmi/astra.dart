@@ -1,6 +1,8 @@
+  SecurityContext? securityContext = __CONTEXT__;
+
   await application.serve(address, port, //
       type: __SERVERTYPE__,
-      securityContext: __CONTEXT__,
+      securityContext: securityContext,
       backlog: backlog,
       v6Only: v6Only,
       shared: shared,

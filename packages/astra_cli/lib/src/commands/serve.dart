@@ -1,149 +1,157 @@
-import 'dart:async';
-import 'dart:io';
-import 'dart:isolate';
-import 'dart:math';
+import 'dart:io'
+    show
+        File,
+        Platform,
+        Process,
+        ProcessSignal,
+        StdinException,
+        exit,
+        stderr,
+        stdin,
+        stdout;
+import 'dart:isolate' show Isolate;
 
-import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:astra/serve.dart';
+import 'package:analyzer/dart/analysis/analysis_context_collection.dart'
+    show AnalysisContextCollection;
+import 'package:analyzer/dart/analysis/results.dart' show ResolvedUnitResult;
+import 'package:astra/serve.dart' show ServerType;
 import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
-import 'package:path/path.dart';
+import 'package:async/async.dart' show StreamGroup;
+import 'package:path/path.dart' show absolute, join, normalize;
 
 class ServeCommand extends CliCommand {
-  ServeCommand() {
+  ServeCommand()
+      : name = 'serve',
+        description = 'Serve Astra/Shelf application.',
+        takesArguments = false {
     argParser
       // application
       ..addSeparator('Application options:')
-      ..addOption('target', abbr: 't', help: 'Serve target.')
+      ..addOption('target', abbr: 't')
 
       // server
       ..addSeparator('Server options:')
-      ..addOption('server-type',
-          abbr: 's',
-          help: 'Server type.',
-          allowed: <String>['h11'],
-          allowedHelp: <String, String>{'h11': 'Default HTTP/1.1 adapter.'})
-      ..addOption('concurrency', abbr: 'j', help: 'Number of isolates to run.')
-      ..addOption('address', abbr: 'a', help: 'The address to listen.')
-      ..addOption('port', abbr: 'p', help: 'The port to listen.')
-      ..addOption('backlog',
-          help: 'Maximum number of connections to hold in backlog.')
-      ..addFlag('shared',
-          negatable: false, help: 'Socket connections distributing.')
-      ..addFlag('v6Only',
-          negatable: false, help: 'Restrict connections to version 6.')
-      ..addOption('ssl-cert', help: 'The path to a SSL certificate.')
-      ..addOption('ssl-key', help: 'The path to a private key.')
-      ..addOption('ssl-key-password', help: 'The password of private key file.')
+      ..addOption('server', allowed: <String>['h11'], defaultsTo: 'h11')
+      ..addOption('concurrency', abbr: 'j', defaultsTo: '1')
+      ..addOption('address', abbr: 'a', defaultsTo: 'localhost')
+      ..addOption('port', abbr: 'p', defaultsTo: '8080')
+      ..addOption('backlog', defaultsTo: '0')
+      ..addFlag('shared', negatable: false)
+      ..addFlag('v6Only', negatable: false)
+      ..addOption('ssl-cert')
+      ..addOption('ssl-key')
+      ..addOption('ssl-key-password')
 
       // debug
       ..addSeparator('Debugging options:')
-      ..addFlag('reload', negatable: false, help: 'Enable hot-reload.')
-      ..addFlag('watch', negatable: false, help: "Enable 'lib' folder watcher.")
-      ..addOption('debug', help: 'Enable VM observer.')
-      ..addFlag('asserts', help: 'Enable asserts.');
+      ..addFlag('debug', negatable: false)
+      ..addOption('debug-port', defaultsTo: '8181')
+      ..addMultiOption('watch', abbr: 'w')
+      ..addFlag('hot', negatable: false)
+      ..addFlag('enable-asserts', negatable: false);
   }
 
   @override
-  String get name {
-    return 'serve';
-  }
+  final String name;
 
   @override
-  String get description {
-    return 'Serve Astra/Shelf application.';
-  }
+  final String description;
 
-  String get target {
-    return getString('target') ?? 'application';
-  }
+  @override
+  final bool takesArguments;
 
-  String get targetPath {
-    return getString('target-path') ?? library.path;
-  }
+  late final target = getString('target') ?? 'application';
 
-  ServerType get serverType {
-    var type = getString('server-type') ?? 'h11';
-    return ServerType.values.byName(type);
-  }
+  late final targetPath = getString('target-path') ?? library.path;
 
-  int get concurrency {
-    var positive = getInteger('concurrency') ?? 1;
+  late final server = ServerType.values.byName(getString('server') ?? 'h11');
 
-    if (positive == 0) {
-      return max(1, Platform.numberOfProcessors - 1);
+  late final concurrency = getInteger('concurrency') ?? 1;
+
+  late final address = getString('address') ?? 'localhost';
+
+  late final port = getInteger('port') ?? 8080;
+
+  late final backlog = getInteger('backlog') ?? 0;
+
+  late final shared = getBoolean('shared');
+
+  late final v6Only = getBoolean('v6Only');
+
+  late final sslCert = getString('ssl-cert');
+
+  late final sslkey = getString('ssl-key');
+
+  late final sslkeyPassword = getString('ssl-key-password');
+
+  late final debug = getBoolean('debug');
+
+  late final debugPort = getInteger('debug-port');
+
+  late final hot = getBoolean('hot');
+
+  late final watch = watchList.isNotEmpty;
+
+  late final watchList = getStringList('watch').map<String>(normalize).toList();
+
+  late final enableAsserts = getBoolean('enable-asserts');
+
+  void checkConfiguration() {
+    if ((sslCert == null) ^ (sslkey == null)) {
+      throw CliException("Only 'ssl-cert' or 'ssl-key' is set");
     }
 
-    return positive;
-  }
-
-  String get address {
-    return getString('address') ?? 'localhost';
-  }
-
-  int get port {
-    return getInteger('port') ?? 8080;
-  }
-
-  int get backlog {
-    return getInteger('backlog') ?? 0;
-  }
-
-  bool get shared {
-    return getBoolean('shared');
-  }
-
-  bool get v6Only {
-    return getBoolean('v6Only');
-  }
-
-  String? get context {
-    var certFilePath = argResults['ssl-cert'] as String?;
-
-    if (certFilePath == null) {
-      return null;
+    if (!pubspecFile.existsSync()) {
+      throw CliException('${directory.path} is not package');
     }
 
-    var keyFilePath = argResults['ssl-key'] as String?;
+    if (!library.existsSync()) {
+      throw CliException('${library.path} not exists');
+    }
+  }
 
-    if (keyFilePath == null) {
-      return null;
+  Future<String> createSource(TargetType targetType) async {
+    var sslCert = this.sslCert;
+    var sslkey = this.sslkey;
+    String? context;
+
+    if (sslCert != null && sslkey != null) {
+      var certFilePath = absolute(normalize(sslCert));
+      var keyFilePath = absolute(normalize(sslkey));
+      context = 'SecurityContext()'
+          "..useCertificateChain('$certFilePath')"
+          "..usePrivateKey('$keyFilePath', password: '$sslkeyPassword')";
     }
 
-    var password = argResults['ssl-key-password'] as String?;
-    certFilePath = absolute(normalize(certFilePath));
-    keyFilePath = absolute(normalize(keyFilePath));
-    return 'SecurityContext()'
-        "..useCertificateChain('$certFilePath')"
-        "..usePrivateKey('$keyFilePath', password: '$password')";
-  }
+    var data = <String, String>{
+      'VERSION': packageVersion,
+      'PACKAGE': 'package:$package/$package.dart',
+      'TARGET': target,
+      'SERVER': '$server',
+      'CONCURRENCY': '$concurrency',
+      'DEBUG': '$debug',
+      'HOT': '$hot',
+      'VERBOSE': '$verbose',
+      'SCHEME': context == null ? 'http' : 'https',
+      'ADDRESS': address,
+      'PORT': '$port',
+      'CONTEXT': '$context',
+      'BACKLOG': '$backlog',
+      'SHARED': '${shared || concurrency > 1}',
+      'V6ONLY': '$v6Only',
+    };
 
-  bool get observe {
-    return observePort != null;
-  }
-
-  int? get observePort {
-    return getInteger('observe');
-  }
-
-  bool get reload {
-    return getBoolean('reload');
-  }
-
-  bool get watch {
-    return getBoolean('watch');
-  }
-
-  bool get asserts {
-    return getBoolean('asserts');
+    data['SERVE'] = await renderTemplate('serve/_.serve', data);
+    data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
+    return renderTemplate('serve', data);
   }
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
     var templateUri = Uri(
       scheme: 'package',
-      path: 'astra/src/cli/templates/$name.template',
+      path: 'astra_cli/src/templates/$name.template',
     );
 
     var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
@@ -167,37 +175,10 @@ class ServeCommand extends CliCommand {
     return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), replace);
   }
 
-  Future<String> createSource(TargetType targetType) async {
-    var context = this.context;
-    var concurrency = this.concurrency;
-
-    var data = <String, String>{
-      'VERSION': packageVersion,
-      'PACKAGE': 'package:$package/$package.dart',
-      'TARGET': target,
-      'SERVERTYPE': '$serverType',
-      'CONCURRENCY': '$concurrency',
-      'OBSERVE': '$observe',
-      'RELOAD': '$reload',
-      'WATCH': '$watch',
-      'ASSERTS': '$asserts',
-      'VERBOSE': '$reload',
-      'SCHEME': context == null ? 'http' : 'https',
-      'ADDRESS': address,
-      'PORT': '$port',
-      'CONTEXT': '$context',
-      'BACKLOG': '$backlog',
-      'SHARED': '${shared || concurrency > 1}',
-      'V6ONLY': '$v6Only',
-    };
-
-    data['APPLICATIONSERVE'] = await renderTemplate('serve/_.serve', data);
-    data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
-    return renderTemplate('serve', data);
-  }
-
   @override
   Future<int> handle() async {
+    checkConfiguration();
+
     var includedPaths = <String>[directory.absolute.path];
     var collection = AnalysisContextCollection(includedPaths: includedPaths);
     var context = collection.contextFor(directory.absolute.path);
@@ -218,40 +199,81 @@ class ServeCommand extends CliCommand {
     var script = File(join(directory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    var arguments = <String>['-DASTRA_CLI=true'];
+    List<String> arguments;
 
-    if (reload) {
-      arguments
-        ..add('-DSILENT_OBSERVATORY=true')
-        ..add('--enable-vm-service=$observePort')
-        ..add('--disable-service-auth-codes')
-        ..add('--no-pause-isolates-on-exit')
-        ..add('--no-serve-devtools')
-        ..add('--no-dds');
-    } else if (observe) {
-      arguments
-        ..add('-DSILENT_OBSERVATORY=true')
-        ..add('--observe=$observePort')
-        ..add('--disable-service-auth-codes')
-        ..add('--no-pause-isolates-on-exit')
-        ..add('--no-serve-devtools');
+    if (hot) {
+      arguments = <String>[
+        '-DSILENT_OBSERVATORY=true',
+        '--enable-vm-service=$debugPort',
+        '--disable-service-auth-codes',
+        '--no-pause-isolates-on-exit',
+        '--no-serve-devtools',
+        '--no-dds',
+      ];
+    } else if (debug) {
+      arguments = <String>[
+        '-DSILENT_OBSERVATORY=true',
+        '--observe=$debugPort',
+        '--disable-service-auth-codes',
+        '--no-pause-isolates-on-exit',
+        '--no-serve-devtools',
+      ];
+    } else {
+      arguments = <String>[];
     }
 
-    if (asserts) {
+    if (enableAsserts) {
       arguments.add('--enable-asserts');
     }
 
     arguments.add(scriptPath);
 
-    var echoMode = stdin.echoMode;
-    var lineMode = stdin.lineMode;
+    var previousEchoMode = stdin.echoMode;
+    var previousLineMode = stdin.lineMode;
 
-    stdin
-      ..echoMode = false
-      ..lineMode = false;
+    try {
+      stdin.echoMode = false;
+      stdin.lineMode = false;
+    } on StdinException {
+      // TODO(*): log error
+    }
 
-    StreamSubscription<List<int>>? stdinSubscription;
-    StreamSubscription<ProcessSignal>? sigintSubscription;
+    void restoreStdinMode() {
+      try {
+        stdin.lineMode = previousLineMode;
+
+        if (previousLineMode) {
+          stdin.echoMode = previousEchoMode;
+        }
+      } on StdinException {
+        // TODO(*): log error
+      }
+    }
+
+    Future<void> Function() reload;
+    Future<void> Function() restart;
+
+    var group = StreamGroup<Object?>()
+      ..add(stdin.map<String>(String.fromCharCodes))
+      ..add(ProcessSignal.sigint.watch());
+
+    if (watch) {
+      throw UnimplementedError();
+    } else {
+      reload = () async {
+        stdout
+          ..writeln('* Hot-Reload not enabled.')
+          ..writeln("  Run with '--hot' option.");
+      };
+
+      restart = () async {
+        stdout
+          ..writeln('* Hot-Restart not enabled.')
+          ..writeln("  Run with '--hot' option.");
+      };
+    }
+
+    int code;
 
     try {
       var process = await Process.start(
@@ -260,20 +282,81 @@ class ServeCommand extends CliCommand {
         workingDirectory: directory.path,
       );
 
-      sigintSubscription = ProcessSignal.sigint //
-          .watch()
-          .listen(process.stdin.writeln);
-      stdinSubscription = stdin.listen(process.stdin.add);
-      process.stdout.pipe(stdout);
-      process.stderr.pipe(stderr);
-      return await process.exitCode;
-    } finally {
-      stdin
-        ..lineMode = lineMode
-        ..echoMode = echoMode;
+      process
+        ..stdout.pipe(stdout)
+        ..stderr.pipe(stderr);
 
-      stdinSubscription?.cancel();
-      sigintSubscription?.cancel();
+      printServeModeUsage();
+
+      // TODO(*): add connection info
+      await for (var event in group.stream) {
+        if (event == 'r') {
+          await reload();
+        } else if (event == 'R') {
+          await restart();
+        } else if (event == 'q') {
+          stdout.writeln('> Closing ...');
+          break;
+        } else if (event == 'Q' || event is ProcessSignal) {
+          stdout.writeln('> Force closing ...');
+          restoreStdinMode();
+          exit(0);
+        } else if (event == 's') {
+          clearScreen();
+        } else if (event == 'S') {
+          clearScreen();
+          await restart();
+        } else if (event == 'h') {
+          stdout.writeln('');
+          printServeModeUsage();
+        } else if (event == 'H') {
+          stdout.writeln('');
+          printServeModeUsage(detailed: true);
+        } else if (event is String) {
+          stdout.writeln("* Unknown key: '$event'");
+        } else {
+          stdout.writeln('* Unknown event: $event');
+        }
+      }
+
+      code = 0;
+    } catch (error) {
+      stderr.writeln(error);
+      code = 1;
+    } finally {
+      restoreStdinMode();
+      await group.close();
     }
+
+    return code;
   }
+}
+
+void clearScreen() {
+  if (stdout.supportsAnsiEscapes) {
+    stdout.write('\x1b[2J\x1b[H');
+  } else if (Platform.isWindows) {
+    // TODO(*): windows: reset buffer
+    stdout.writeln('* Not supported yet.');
+  } else {
+    stdout.writeln('* Not supported.');
+  }
+}
+
+void printServeModeUsage({bool detailed = false}) {
+  stdout
+    ..writeln("* Press 'r' to reload and 'R' to restart.")
+    ..writeln("  Press 'q' to quit and 'Q' to force quit.");
+
+  if (detailed) {
+    stdout
+      ..writeln("  Press 's' to clear and 'S' to clear and restart after.")
+      ..writeln("  To show this detailed help message, press 'H'.");
+  } else {
+    stdout
+      ..writeln("  To show this help message, press 'h'.")
+      ..writeln("  For a more detailed help message, press 'H'.");
+  }
+
+  stdout.writeln();
 }

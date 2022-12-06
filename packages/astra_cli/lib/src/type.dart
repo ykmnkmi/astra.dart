@@ -1,6 +1,8 @@
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/dart/analysis/results.dart' show ResolvedUnitResult;
+import 'package:analyzer/dart/element/element.dart'
+    show ClassElement, FunctionElement, PropertyAccessorElement;
+import 'package:analyzer/dart/element/type.dart'
+    show DartType, FunctionType, InterfaceType;
 import 'package:astra_cli/src/command.dart';
 
 enum TargetType {

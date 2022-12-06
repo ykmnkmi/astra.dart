@@ -1,9 +1,9 @@
-import 'dart:io';
+import 'dart:io' show Directory, File;
 
-import 'package:args/args.dart';
-import 'package:args/command_runner.dart';
-import 'package:path/path.dart';
-import 'package:yaml/yaml.dart';
+import 'package:args/args.dart' show ArgResults;
+import 'package:args/command_runner.dart' show Command;
+import 'package:path/path.dart' show join, normalize;
+import 'package:yaml/yaml.dart' show loadYaml;
 
 /// A exception thrown by command line interfaces.
 class CliException implements Exception {
@@ -21,12 +21,10 @@ class CliException implements Exception {
 abstract class CliCommand extends Command<int> {
   CliCommand() {
     argParser
-      ..addOption('directory', //
-          help: 'Run this in the directory.',
-          valueHelp: 'path')
-      ..addFlag('verbose', //
-          negatable: false,
-          help: 'Output more informational messages.');
+      ..addSeparator('Common options:')
+      ..addFlag('verbose', negatable: false)
+      ..addOption('directory', abbr: 'C')
+      ..addMultiOption('define', abbr: 'D', splitCommas: false);
   }
 
   @override
@@ -34,7 +32,7 @@ abstract class CliCommand extends Command<int> {
     var argResults = super.argResults;
 
     if (argResults == null) {
-      throw CliException('Run is not called.');
+      throw CliException('Run is not called');
     }
 
     return argResults;
@@ -110,7 +108,7 @@ abstract class CliCommand extends Command<int> {
       return library;
     }
 
-    throw CliException('Failed to locate ${library.path}.');
+    throw CliException('Failed to locate ${library.path}');
   }
 
   bool get verbose {
@@ -135,7 +133,7 @@ abstract class CliCommand extends Command<int> {
     var parsed = int.parse(value);
 
     if (parsed < 0) {
-      usageException('$name must be zero or positive integer.');
+      usageException('$name must be zero or positive integer');
     }
 
     return parsed;
@@ -143,6 +141,10 @@ abstract class CliCommand extends Command<int> {
 
   String? getString(String name) {
     return argResults[name] as String?;
+  }
+
+  List<String> getStringList(String name) {
+    return argResults[name] as List<String>;
   }
 
   Future<void> cleanup() async {}

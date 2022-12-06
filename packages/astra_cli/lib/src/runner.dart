@@ -1,6 +1,6 @@
-import 'dart:io';
+import 'dart:io' show stderr;
 
-import 'package:args/command_runner.dart';
+import 'package:args/command_runner.dart' show CommandRunner, UsageException;
 import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/commands/serve.dart';
 
