@@ -14,14 +14,28 @@ export 'package:astra/src/serve/h11.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {
-  h11,
+  h1x('HTTP/1.x Shelf server.');
+
+  const ServerType(this.description);
+
+  final String description;
+
+  static const ServerType defaultType = h1x;
+
+  static List<String> get names {
+    return <String>[h1x.name];
+  }
+
+  static Map<String, String> get descriptions {
+    return <String, String>{h1x.name: h1x.description};
+  }
 }
 
 extension ServeHandlerExtension on Handler {
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.h11,
+    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
@@ -47,7 +61,7 @@ extension ServeApplicationExtension on Application {
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.h11,
+    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
@@ -60,7 +74,7 @@ extension ServeApplicationExtension on Application {
     Server server;
 
     switch (type) {
-      case ServerType.h11:
+      case ServerType.h1x:
         server = await ShelfServer.bind(
           address,
           port,
@@ -72,6 +86,10 @@ extension ServeApplicationExtension on Application {
         );
 
         break;
+
+      // for ServerType.defaultType case fail
+      default:
+        throw AssertionError('Unreachable');
     }
 
     if (messagePort == null) {
