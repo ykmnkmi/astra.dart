@@ -9,45 +9,19 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:astra/cli.dart';
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/serve.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
-const ServerType server = __SERVER__;
-
-const int concurrency = __CONCURRENCY__;
-
-const bool debug = __DEBUG__;
-
-const bool hot = __HOT__;
-
-const bool verbose = __VERBOSE__;
-
-const String scheme = '__SCHEME__';
-
-const String address = '__ADDRESS__';
-
-const int port = __PORT__;
-
-const int backlog = __BACKLOG__;
-
-const bool shared = __SHARED__;
-
-const bool v6Only = __V6ONLY__;
-
 __CREATE__
 
 Future<void> main(List<String> arguments) async {
-  var shutdown = <FutureOr<void> Function()>[];
   var supervisors = <IsolateSupervisor>[];
 
-  var controller = StreamController<Object>(sync: true);
-
   Future<void> startAll() async {
-    for (var i = 0; i < concurrency; i += 1) {
+    for (var i = 0; i < __CONCURRENCY__; i += 1) {
       var receivePort = RawReceivePort();
       var isolate = await Isolate.spawn(create, receivePort.sendPort, //
           paused: true,
@@ -56,12 +30,6 @@ Future<void> main(List<String> arguments) async {
       var supervisor = IsolateSupervisor(isolate, receivePort);
       supervisors.add(supervisor);
       await supervisor.resume();
-    }
-
-    if (concurrency == 1) {
-      stdout.writeln('* isolate started');
-    } else {
-      stdout.writeln('* all isolates started');
     }
   }
 
@@ -73,163 +41,9 @@ Future<void> main(List<String> arguments) async {
     return Future.wait<void>(supervisors.map<Future<void>>(stop));
   }
 
-  Future<void> shutDownAll() async {
-    for (var callback in shutdown.reversed) {
-      await callback();
-    }
-  }
+  await startAll();
 
-  Future<void> Function() reload;
-  Future<void> Function() restart;
-
-  if (hot) {
-    var info = await Service.getInfo();
-    var uri = info.serverWebSocketUri;
-
-    if (uri == null) {
-      throw CliException('reload: no vm service ws uri');
-    }
-
-    var service = await vmServiceConnectUri('$uri');
-    shutdown.add(service.dispose);
-
-    var isolateIds = <String>[];
-
-    for (var supervisor in supervisors) {
-      var id = Service.getIsolateID(supervisor.isolate);
-
-      if (id == null) {
-        throw CliException('${supervisor.isolate.debugName} id == null');
-      }
-
-      isolateIds.add(id);
-    }
-
-    var directory = Directory('lib');
-
-    reload = () async {
-      stdout.writeln('* hot reloading ...');
-
-      Future<void> reload(String isolateId) async {
-        var result = await service.reloadSources(isolateId);
-
-        if (result.success == true) {
-          await service.callServiceExtension(
-            'ext.astra.reload',
-            isolateId: isolateId,
-          );
-        }
-      }
-
-      await Future.wait<void>(isolateIds.map<Future<void>>(reload));
-
-      if (concurrency == 1) {
-        stdout.writeln('* isolate reloaded');
-      } else {
-        stdout.writeln('* $concurrency isolate(s) reloaded');
-      }
-    };
-
-    if (watchLib) {
-      var watch = directory
-          .watch(events: FileSystemEvent.modify, recursive: true)
-          .throttle(Duration(seconds: 1))
-          .listen(controller.add);
-      shutdown.add(watch.cancel);
-      stdout.writeln('* watching ${directory.uri}');
-    }
-
-    restart = () async {
-      stdout.writeln('* hot restarting ...');
-      await stopAll();
-      supervisors = <IsolateSupervisor>[];
-      await startAll();
-    };
-  } else {
-    reload = () async {
-      stdout.writeln('* hot reload not enabled');
-    };
-
-    restart = () async {
-      stdout.writeln('* hot restart not enabled');
-    };
-  }
-
-  shutdown.add(stopAll);
-
-  var cliRun = const bool.fromEnvironment('ASTRA_CLI');
-
-  late bool echoMode, lineMode;
-
-  if (!cliRun) {
-    echoMode = stdin.echoMode;
-    lineMode = stdin.lineMode;
-
-    stdin
-      ..echoMode = false
-      ..lineMode = false;
-  }
-
-  try {
-    var stdinSubscription = stdin //
-        .map<String>(String.fromCharCodes)
-        .listen(controller.add);
-    shutdown.add(stdinSubscription.cancel);
-
-    var sigintSubscription = ProcessSignal.sigint //
-        .watch()
-        .listen(controller.add);
-    shutdown.add(sigintSubscription.cancel);
-
-    await startAll();
-    stdout.writeln('* serving at $scheme://$address:$port');
-
-    await for (var event in controller.stream) {
-      if (event is String) {
-        event = event.trim();
-      }
-
-      // from keyboard or file system
-      if (event == 'r' || event is FileSystemEvent) {
-        await reload();
-        continue;
-      }
-
-      // from keyboard
-      if (event == 'R') {
-        await restart();
-        continue;
-      }
-
-      // from keyboard, parent or process signal
-      if (event == 'q' ||
-          event == 'SIGINT' ||
-          event == 'SIGTERM' ||
-          event is ProcessSignal) {
-        stdout.writeln('* closing ...');
-        await shutDownAll();
-        break;
-      }
-
-      // from keyboard
-      if (event == 'Q') {
-        stdout.writeln('* exiting imediate');
-        exit(0);
-      }
-
-      if (event is String) {
-        stdout.writeln('* unknown key: \'$event\', ${event.runes}');
-      } else {
-        stdout.writeln('* unknown event: $event');
-      }
-    }
-  } finally {
-    if (!cliRun) {
-      stdin.lineMode = lineMode;
-
-      if (lineMode) {
-        stdin.echoMode = echoMode;
-      }
-    }
-  }
+  var signals = ProcessSignal.sigint.watch();
+  await signals.first;
+  await startAll();
 }

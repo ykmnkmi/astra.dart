@@ -1,14 +1,11 @@
 name: astra_cli
 description: >
-  The Astra/Shelf CLI with multi-threaded and hot reload/restart support.
-version: 1.0.0-dev.3
+  The Astra/Shelf CLI tool.
+version: 1.0.0-dev.4
 # homepage: https://www.example.com
 
 environment:
   sdk: ">=2.18.0 <3.0.0"
-
-executables:
-  astra: astra
 
 dependencies:
   args: ^2.3.1

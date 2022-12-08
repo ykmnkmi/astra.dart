@@ -1,3 +1,7 @@
+  var securityContext = SecurityContext()
+    ..useCertificateChain(__SSLCERT__)
+    ..usePrivateKey(__SSLKEY__, password: __SSLKEYPASSWORD__);
+
   await application.serve(__ADDRESS__, __PORT__, //
       type: __SERVERTYPE__,
       securityContext: securityContext,

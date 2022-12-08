@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io'
     show
         File,
@@ -9,47 +10,78 @@ import 'dart:io'
         stderr,
         stdin,
         stdout;
-import 'dart:isolate' show Isolate;
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart'
     show AnalysisContextCollection;
 import 'package:analyzer/dart/analysis/results.dart' show ResolvedUnitResult;
 import 'package:astra/serve.dart' show ServerType;
 import 'package:astra_cli/src/command.dart';
+import 'package:astra_cli/src/extension.dart';
 import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
-import 'package:path/path.dart' show absolute, join, normalize;
+import 'package:path/path.dart' show join, normalize;
 
 class ServeCommand extends CliCommand {
   ServeCommand()
       : name = 'serve',
         description = 'Serve Astra/Shelf application.',
+        invocation = 'astra serve [options]',
+        usageFooter = '',
         takesArguments = false {
     argParser
-      // application
-      ..addSeparator('Application options:')
-      ..addOption('target', abbr: 't')
-
       // server
       ..addSeparator('Server options:')
-      ..addOption('server', allowed: <String>['h11'], defaultsTo: 'h11')
-      ..addOption('concurrency', abbr: 'j', defaultsTo: '1')
-      ..addOption('address', abbr: 'a', defaultsTo: 'localhost')
-      ..addOption('port', abbr: 'p', defaultsTo: '8080')
-      ..addOption('backlog', defaultsTo: '0')
-      ..addFlag('shared', negatable: false)
-      ..addFlag('v6Only', negatable: false)
-      ..addOption('ssl-cert')
-      ..addOption('ssl-key')
-      ..addOption('ssl-key-password')
+      ..addOption('server-type',
+          help: 'Server type.',
+          valueHelp: ServerType.defaultType.name,
+          allowed: ServerType.names,
+          allowedHelp: ServerType.descriptions)
+      ..addOption('concurrency',
+          abbr: 'j', help: 'Number of isolates.', valueHelp: '1')
+      ..addOption('address',
+          abbr: 'a',
+          help: 'Bind server to this address.\n'
+              'Bind will perform a InternetAddress.lookup and use the '
+              'first value in the list.',
+          valueHelp: 'localhost')
+      ..addOption('port',
+          abbr: 'p',
+          help: 'Bind server to this port.\n'
+              'If port has the value 0 an ephemeral port will be'
+              ' chosen by the system.\nThe actual port used can be'
+              ' retrieved using the port getter.',
+          valueHelp: '8080')
+      ..addOption('backlog',
+          help: 'Number of connections to hold in backlog.\n'
+              'If it has the value of 0 a reasonable value will'
+              ' be chosen by the system.',
+          valueHelp: '0')
+      ..addFlag('shared',
+          help: 'Specifies whether additional servers can bind'
+              ' to the same combination of address, port and v6Only.\n'
+              "If it's true and more servers are bound to the port,"
+              ' then the incoming connections will be distributed among'
+              ' all the bound servers.',
+          negatable: false)
+      ..addFlag('v6Only',
+          help: 'Restrict IP addresses to version 6 (IPv6) only.\n'
+              'If an IP version 6 (IPv6) address is used, both IP'
+              ' version 6 (IPv6) and version 4 (IPv4) connections will'
+              ' be accepted.\nUse v6Only to set version 6 only.',
+          negatable: false)
+      ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'file.key')
+      ..addOption('ssl-cert',
+          help: 'SSL certificate file.', valueHelp: 'file.crt')
+      ..addOption('ssl-key-password',
+          help: 'SSL keyfile password.', valueHelp: 'password')
 
       // debug
       ..addSeparator('Debugging options:')
       ..addFlag('debug', negatable: false)
-      ..addOption('debug-port', defaultsTo: '8181')
-      ..addMultiOption('watch', abbr: 'w')
       ..addFlag('hot', negatable: false)
+      ..addMultiOption('watch', abbr: 'w')
+      ..addOption('service-port', valueHelp: '8181')
       ..addFlag('enable-asserts', negatable: false);
   }
 
@@ -60,130 +92,88 @@ class ServeCommand extends CliCommand {
   final String description;
 
   @override
+  final String invocation;
+
+  @override
+  final String? usageFooter;
+
+  @override
   final bool takesArguments;
 
-  late final target = getString('target') ?? 'application';
+  late final ServerType serverType =
+      ServerType.values.byName(getString('server-type') ?? 'h11');
 
-  late final targetPath = getString('target-path') ?? library.path;
+  late final int concurrency = getInteger('concurrency') ?? 0;
 
-  late final server = ServerType.values.byName(getString('server') ?? 'h11');
+  late final String address = getString('address') ?? 'localhost';
 
-  late final concurrency = getInteger('concurrency') ?? 1;
+  late final int port = getInteger('port') ?? 8080;
 
-  late final address = getString('address') ?? 'localhost';
+  late final int backlog = getInteger('backlog') ?? 0;
 
-  late final port = getInteger('port') ?? 8080;
+  late final bool shared = getBoolean('shared') ?? false;
 
-  late final backlog = getInteger('backlog') ?? 0;
+  late final bool v6Only = getBoolean('v6Only') ?? false;
 
-  late final shared = getBoolean('shared');
+  late final String? sslCert = getString('ssl-cert');
 
-  late final v6Only = getBoolean('v6Only');
+  late final String? sslKey = getString('ssl-key');
 
-  late final sslCert = getString('ssl-cert');
+  late final String? sslKeyPass = getString('ssl-key-password');
 
-  late final sslkey = getString('ssl-key');
+  late final bool debug = getBoolean('debug') ?? false;
 
-  late final sslkeyPassword = getString('ssl-key-password');
+  late final bool hot = getBoolean('hot') ?? false;
 
-  late final debug = getBoolean('debug');
+  late final bool watch = watchList.isNotEmpty;
 
-  late final debugPort = getInteger('debug-port');
+  late final List<String> watchList =
+      getStringList('watch').map<String>(normalize).toList();
 
-  late final hot = getBoolean('hot');
+  late final int servicePort = getInteger('service-port') ?? 8181;
 
-  late final watch = watchList.isNotEmpty;
-
-  late final watchList = getStringList('watch').map<String>(normalize).toList();
-
-  late final enableAsserts = getBoolean('enable-asserts');
-
-  void checkConfiguration() {
-    if ((sslCert == null) ^ (sslkey == null)) {
-      throw CliException("Only 'ssl-cert' or 'ssl-key' is set");
-    }
-
-    if (!pubspecFile.existsSync()) {
-      throw CliException('${directory.path} is not package');
-    }
-
-    if (!library.existsSync()) {
-      throw CliException('${library.path} not exists');
-    }
-  }
+  late final bool? enableAsserts = getBoolean('enable-asserts');
 
   Future<String> createSource(TargetType targetType) async {
-    var sslCert = this.sslCert;
-    var sslkey = this.sslkey;
-    String? context;
-
-    if (sslCert != null && sslkey != null) {
-      var certFilePath = absolute(normalize(sslCert));
-      var keyFilePath = absolute(normalize(sslkey));
-      context = 'SecurityContext()'
-          "..useCertificateChain('$certFilePath')"
-          "..usePrivateKey('$keyFilePath', password: '$sslkeyPassword')";
-    }
-
     var data = <String, String>{
-      'VERSION': packageVersion,
+      'VERSION': cliVersion,
       'PACKAGE': 'package:$package/$package.dart',
       'TARGET': target,
-      'SERVER': '$server',
+      'SERVERTYPE': '$serverType',
       'CONCURRENCY': '$concurrency',
-      'DEBUG': '$debug',
-      'HOT': '$hot',
       'VERBOSE': '$verbose',
-      'SCHEME': context == null ? 'http' : 'https',
-      'ADDRESS': address,
+      'ADDRESS': "'$address'",
       'PORT': '$port',
-      'CONTEXT': '$context',
       'BACKLOG': '$backlog',
       'SHARED': '${shared || concurrency > 1}',
       'V6ONLY': '$v6Only',
     };
 
-    data['SERVE'] = await renderTemplate('serve/_.serve', data);
+    var sslKey = this.sslKey;
+    var sslCert = this.sslCert;
+    String serveTemplate;
+
+    if (sslKey != null && sslCert != null) {
+      serveTemplate = 'serve';
+      data['SSLKEY'] = "'$sslKey'";
+      data['SSLCERT'] = "'$sslCert'";
+      data['SSLKEYPASSWORD'] = sslKeyPass == null ? 'null' : "'$sslKeyPass'";
+    } else {
+      serveTemplate = 'serveSecure';
+    }
+
+    data['SERVE'] = await renderTemplate('serve/_.$serveTemplate', data);
     data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
-    return renderTemplate('serve', data);
-  }
-
-  Future<String> renderTemplate(String name, Map<String, String> data) async {
-    var templateUri = Uri(
-      scheme: 'package',
-      path: 'astra_cli/src/templates/$name.template',
-    );
-
-    var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
-
-    if (templateResolvedUri == null) {
-      throw CliException('Serve template uri not resolved');
-    }
-
-    var template = await File.fromUri(templateResolvedUri).readAsString();
-
-    String replace(Match match) {
-      var variable = match.group(1);
-
-      if (variable == null) {
-        throw StateError("Template variable '$variable' not found");
-      }
-
-      return data[variable]!;
-    }
-
-    return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), replace);
+    return await renderTemplate('serve', data);
   }
 
   @override
   Future<int> handle() async {
-    checkConfiguration();
-
-    var includedPaths = <String>[directory.absolute.path];
+    var includedPaths = <String>[workingDirectory.absolute.path];
     var collection = AnalysisContextCollection(includedPaths: includedPaths);
-    var context = collection.contextFor(directory.absolute.path);
+    var context = collection.contextFor(workingDirectory.absolute.path);
     var session = context.currentSession;
-    var resolvedUnit = await session.getResolvedUnit(library.absolute.path);
+    var resolvedUnit = await session.getResolvedUnit(targetFile.absolute.path);
 
     if (resolvedUnit is! ResolvedUnitResult) {
       throw CliException('Library not resolved');
@@ -195,34 +185,31 @@ class ServeCommand extends CliCommand {
 
     var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
-    var scriptPath = join('.dart_tool', 'astra.serve-$packageVersion.dart');
-    var script = File(join(directory.path, scriptPath));
+    var scriptPath = join('.dart_tool', 'astra.serve-$cliVersion.dart');
+    var script = File(join(workingDirectory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    List<String> arguments;
+    var arguments = <String>[for (var define in defineList) '-D$define'];
 
-    if (hot) {
-      arguments = <String>[
+    if (debug) {
+      arguments += <String>[
         '-DSILENT_OBSERVATORY=true',
-        '--enable-vm-service=$debugPort',
+        '--observe=$servicePort',
+        '--disable-service-auth-codes',
+        '--no-serve-devtools',
+      ];
+    } else if (hot) {
+      arguments += <String>[
+        '-DSILENT_OBSERVATORY=true',
+        '--enable-vm-service=$servicePort',
         '--disable-service-auth-codes',
         '--no-pause-isolates-on-exit',
         '--no-serve-devtools',
         '--no-dds',
       ];
-    } else if (debug) {
-      arguments = <String>[
-        '-DSILENT_OBSERVATORY=true',
-        '--observe=$debugPort',
-        '--disable-service-auth-codes',
-        '--no-pause-isolates-on-exit',
-        '--no-serve-devtools',
-      ];
-    } else {
-      arguments = <String>[];
     }
 
-    if (enableAsserts) {
+    if (enableAsserts ?? debug) {
       arguments.add('--enable-asserts');
     }
 
@@ -232,8 +219,9 @@ class ServeCommand extends CliCommand {
     var previousLineMode = stdin.lineMode;
 
     try {
-      stdin.echoMode = false;
-      stdin.lineMode = false;
+      stdin
+        ..echoMode = false
+        ..lineMode = false;
     } on StdinException {
       // TODO(*): log error
     }
@@ -251,13 +239,10 @@ class ServeCommand extends CliCommand {
     }
 
     Future<void> Function() reload;
+
     Future<void> Function() restart;
 
-    var group = StreamGroup<Object?>()
-      ..add(stdin.map<String>(String.fromCharCodes))
-      ..add(ProcessSignal.sigint.watch());
-
-    if (watch) {
+    if (hot) {
       throw UnimplementedError();
     } else {
       reload = () async {
@@ -273,13 +258,17 @@ class ServeCommand extends CliCommand {
       };
     }
 
+    var group = StreamGroup<Object?>()
+      ..add(stdin.map<String>(String.fromCharCodes))
+      ..add(ProcessSignal.sigint.watch());
+
     int code;
 
     try {
       var process = await Process.start(
         Platform.executable,
         arguments,
-        workingDirectory: directory.path,
+        workingDirectory: workingDirectory.path,
       );
 
       process

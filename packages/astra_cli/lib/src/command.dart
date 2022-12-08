@@ -1,7 +1,9 @@
 import 'dart:io' show Directory, File;
+import 'dart:isolate' show Isolate;
 
 import 'package:args/args.dart' show ArgResults;
 import 'package:args/command_runner.dart' show Command;
+import 'package:astra_cli/src/extension.dart';
 import 'package:path/path.dart' show join, normalize;
 import 'package:yaml/yaml.dart' show loadYaml;
 
@@ -21,11 +23,35 @@ class CliException implements Exception {
 abstract class CliCommand extends Command<int> {
   CliCommand() {
     argParser
-      ..addSeparator('Common options:')
-      ..addFlag('verbose', negatable: false)
-      ..addOption('directory', abbr: 'C')
-      ..addMultiOption('define', abbr: 'D', splitCommas: false);
+      // application
+      ..addSeparator('Application options:')
+      ..addOption('target',
+          abbr: 't', help: 'Application target.', valueHelp: 'application')
+      ..addOption('target-path',
+          help: 'Application target location.\n'
+              'Must be within application root folder.',
+          valueHelp: 'lib/[package].dart')
+      ..addOption('directory',
+          abbr: 'C', help: 'Application root folder.', valueHelp: '.')
+      ..addMultiOption('define',
+          abbr: 'D',
+          help: 'Define an environment declaration.',
+          valueHelp: 'key=value')
+      ..addFlag('verbose',
+          abbr: 'v', help: 'Print detailed logging.', negatable: false);
   }
+
+  late final String target = getString('target') ?? 'application';
+
+  late final String targetPath =
+      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart');
+
+  late final String directoryPath = getString('directory') ?? '.';
+
+  late final bool verbose = getBoolean('verbose') ?? false;
+
+  late final List<String> defineList =
+      getStringList('define').map<String>(normalize).toList();
 
   @override
   ArgResults get argResults {
@@ -38,113 +64,116 @@ abstract class CliCommand extends Command<int> {
     return argResults;
   }
 
-  Directory? cachedDirectory;
+  Directory? _cachedWorkingDirectory;
 
-  Directory get directory {
-    var directory = cachedDirectory;
+  Directory get workingDirectory {
+    var directory = _cachedWorkingDirectory;
 
     if (directory != null) {
       return directory;
     }
 
-    var path = argResults['directory'] as String?;
-    directory = path == null ? Directory.current : Directory(normalize(path));
+    directory = Directory(normalize(directoryPath));
 
-    if (directory.existsSync()) {
-      cachedDirectory = directory;
-      return directory;
+    if (!directory.existsSync()) {
+      throw CliException('Directory not found: $directoryPath');
     }
 
-    throw CliException('Directory not found: $path');
+    _cachedWorkingDirectory = directory;
+    return directory;
   }
 
-  File? cachedPubspecFile;
+  File? _cachedPubspecFile;
 
   File get pubspecFile {
-    return cachedPubspecFile ??= File(join(directory.path, 'pubspec.yaml'));
+    var file = _cachedPubspecFile;
+
+    if (file != null) {
+      return file;
+    }
+
+    file = File(join(workingDirectory.path, 'pubspec.yaml'));
+
+    if (!file.existsSync()) {
+      throw CliException('${workingDirectory.path} is not package');
+    }
+
+    _cachedPubspecFile = file;
+    return file;
   }
 
-  Map<String, Object?>? cachedPubspec;
+  Map<String, Object?>? _cachedPubspec;
 
   Map<String, Object?> get pubspec {
-    var pubspec = cachedPubspec;
+    var spec = _cachedPubspec;
 
-    if (pubspec != null) {
-      return pubspec;
+    if (spec != null) {
+      return spec;
     }
 
     var file = pubspecFile;
 
-    if (file.existsSync()) {
-      var content = file.readAsStringSync();
-      var yaml = loadYaml(content) as Map<Object?, Object?>;
-      pubspec = yaml.cast<String, Object?>();
-      cachedPubspec = pubspec;
-      return pubspec;
+    if (!file.existsSync()) {
+      throw CliException('Failed to locate ${file.path}');
     }
 
-    throw CliException('Failed to locate ${file.path}');
+    var content = file.readAsStringSync();
+    var yaml = loadYaml(content) as Map<Object?, Object?>;
+    spec = yaml.cast<String, Object?>();
+    _cachedPubspec = spec;
+    return spec;
   }
 
-  String? cachedPackage;
+  String? _cachedPackage;
 
   String get package {
-    return cachedPackage ??= pubspec['name'] as String;
+    return _cachedPackage ??= pubspec['name'] as String;
   }
 
-  File? cachedLibrary;
+  File? _cachedTargetFile;
 
-  File get library {
-    var library = cachedLibrary;
+  File get targetFile {
+    var target = _cachedTargetFile;
 
-    if (library != null) {
-      return library;
+    if (target != null) {
+      return target;
     }
 
-    library = File(join(directory.path, 'lib', '$package.dart'));
+    target = File(targetPath);
 
-    if (library.existsSync()) {
-      cachedLibrary = library;
-      return library;
+    if (!target.existsSync()) {
+      throw CliException('Failed to locate $targetPath');
     }
 
-    throw CliException('Failed to locate ${library.path}');
+    _cachedTargetFile = target;
+    return target;
   }
 
-  bool get verbose {
-    return getBoolean('verbose');
-  }
+  Future<String> renderTemplate(String name, Map<String, String> data) async {
+    var templateUri = Uri(
+      scheme: 'package',
+      path: 'astra_cli/src/templates/$name.template',
+    );
 
-  bool get version {
-    return getBoolean('version');
-  }
+    var templateResolvedUri = await Isolate.resolvePackageUri(templateUri);
 
-  bool getBoolean(String name) {
-    return argResults[name] as bool? ?? false;
-  }
-
-  int? getInteger(String name) {
-    var value = argResults[name] as String?;
-
-    if (value == null) {
-      return null;
+    if (templateResolvedUri == null) {
+      throw CliException('Serve template uri not resolved');
     }
 
-    var parsed = int.parse(value);
+    var template = await File.fromUri(templateResolvedUri).readAsString();
 
-    if (parsed < 0) {
-      usageException('$name must be zero or positive integer');
+    String replace(Match match) {
+      var variable = match.group(1);
+
+      if (variable == null) {
+        throw StateError("Template variable '$variable' not found");
+      }
+
+      return data[variable]!;
     }
 
-    return parsed;
-  }
-
-  String? getString(String name) {
-    return argResults[name] as String?;
-  }
-
-  List<String> getStringList(String name) {
-    return argResults[name] as List<String>;
+    return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), replace);
   }
 
   Future<void> cleanup() async {}
