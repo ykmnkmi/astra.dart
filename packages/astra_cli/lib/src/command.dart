@@ -4,8 +4,8 @@ import 'dart:isolate' show Isolate;
 import 'package:args/args.dart' show ArgResults;
 import 'package:args/command_runner.dart' show Command;
 import 'package:astra_cli/src/extension.dart';
-import 'package:path/path.dart' show join, normalize;
-import 'package:yaml/yaml.dart' show loadYaml;
+import 'package:path/path.dart' show absolute, isWithin, join, normalize;
+import 'package:pubspec/pubspec.dart';
 
 /// A exception thrown by command line interfaces.
 class CliException implements Exception {
@@ -43,10 +43,11 @@ abstract class CliCommand extends Command<int> {
 
   late final String target = getString('target') ?? 'application';
 
-  late final String targetPath =
-      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart');
+  late final String targetPath = normalize(
+      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart'));
 
-  late final String directoryPath = getString('directory') ?? '.';
+  late final String directoryPath =
+      absolute(normalize(getString('directory') ?? '.'));
 
   late final bool verbose = getBoolean('verbose') ?? false;
 
@@ -64,90 +65,17 @@ abstract class CliCommand extends Command<int> {
     return argResults;
   }
 
-  Directory? _cachedWorkingDirectory;
+  late final Directory packageDirectory = Directory(directoryPath);
 
-  Directory get workingDirectory {
-    var directory = _cachedWorkingDirectory;
+  late final File pubspecFile =
+      File(join(packageDirectory.path, 'pubspec.yaml'));
 
-    if (directory != null) {
-      return directory;
-    }
+  late final PubSpec pubspec =
+      PubSpec.fromYamlString(pubspecFile.readAsStringSync());
 
-    directory = Directory(normalize(directoryPath));
+  late final String package = pubspec.name!;
 
-    if (!directory.existsSync()) {
-      throw CliException('Directory not found: $directoryPath');
-    }
-
-    _cachedWorkingDirectory = directory;
-    return directory;
-  }
-
-  File? _cachedPubspecFile;
-
-  File get pubspecFile {
-    var file = _cachedPubspecFile;
-
-    if (file != null) {
-      return file;
-    }
-
-    file = File(join(workingDirectory.path, 'pubspec.yaml'));
-
-    if (!file.existsSync()) {
-      throw CliException('${workingDirectory.path} is not package');
-    }
-
-    _cachedPubspecFile = file;
-    return file;
-  }
-
-  Map<String, Object?>? _cachedPubspec;
-
-  Map<String, Object?> get pubspec {
-    var spec = _cachedPubspec;
-
-    if (spec != null) {
-      return spec;
-    }
-
-    var file = pubspecFile;
-
-    if (!file.existsSync()) {
-      throw CliException('Failed to locate ${file.path}');
-    }
-
-    var content = file.readAsStringSync();
-    var yaml = loadYaml(content) as Map<Object?, Object?>;
-    spec = yaml.cast<String, Object?>();
-    _cachedPubspec = spec;
-    return spec;
-  }
-
-  String? _cachedPackage;
-
-  String get package {
-    return _cachedPackage ??= pubspec['name'] as String;
-  }
-
-  File? _cachedTargetFile;
-
-  File get targetFile {
-    var target = _cachedTargetFile;
-
-    if (target != null) {
-      return target;
-    }
-
-    target = File(targetPath);
-
-    if (!target.existsSync()) {
-      throw CliException('Failed to locate $targetPath');
-    }
-
-    _cachedTargetFile = target;
-    return target;
-  }
+  late final File targetFile = File(targetPath);
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
     var templateUri = Uri(
@@ -170,18 +98,38 @@ abstract class CliCommand extends Command<int> {
         throw StateError("Template variable '$variable' not found");
       }
 
-      return data[variable]!;
+      return data[variable] as String;
     }
 
     return template.replaceAllMapped(RegExp('__([A-Z][0-9A-Z]*)__'), replace);
   }
 
-  Future<void> cleanup() async {}
+  Future<void> check() async {
+    if (!packageDirectory.existsSync()) {
+      throw CliException('Directory not exists: $directoryPath');
+    }
+
+    if (!pubspecFile.existsSync()) {
+      throw CliException("'pubspec.yaml' not found in $directoryPath");
+    }
+
+    if (!isWithin(directoryPath, targetPath)) {
+      throw CliException('Target path must be within package directory');
+    }
+
+    if (!targetFile.existsSync()) {
+      throw CliException('Target file not found: $targetPath');
+    }
+  }
 
   Future<int> handle();
 
+  Future<void> cleanup() async {}
+
   @override
   Future<int> run() async {
+    await check();
+
     try {
       return await handle();
     } finally {

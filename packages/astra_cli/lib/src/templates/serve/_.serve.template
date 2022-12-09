@@ -1,6 +1,5 @@
   await application.serve(__ADDRESS__, __PORT__, //
       type: __SERVERTYPE__,
-      securityContext: securityContext,
       backlog: __BACKLOG__,
       v6Only: __V6ONLY__,
       shared: __SHARED__,

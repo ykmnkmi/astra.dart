@@ -18,6 +18,12 @@ import '__PACKAGE__' as _ show __TARGET__;
 __CREATE__
 
 Future<void> main(List<String> arguments) async {
+  registerExtension('ext.astra.start', (isolateId, params) async {
+    print(isolateId);
+    print(params);
+    return ServiceExtensionResponse.result('{}');
+  });
+
   var supervisors = <IsolateSupervisor>[];
 
   Future<void> startAll() async {
@@ -45,5 +51,5 @@ Future<void> main(List<String> arguments) async {
 
   var signals = ProcessSignal.sigint.watch();
   await signals.first;
-  await startAll();
+  await stopAll();
 }

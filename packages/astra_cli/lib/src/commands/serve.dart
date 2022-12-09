@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io'
     show
         File,
@@ -21,6 +22,8 @@ import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
 import 'package:path/path.dart' show join, normalize;
+import 'package:vm_service/vm_service.dart';
+import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends CliCommand {
   ServeCommand()
@@ -68,7 +71,7 @@ class ServeCommand extends CliCommand {
           help: 'Restrict IP addresses to version 6 (IPv6) only.\n'
               'If an IP version 6 (IPv6) address is used, both IP'
               ' version 6 (IPv6) and version 4 (IPv4) connections will'
-              ' be accepted.\nUse v6Only to set version 6 only.',
+              ' be accepted.',
           negatable: false)
       ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'file.key')
       ..addOption('ssl-cert',
@@ -100,10 +103,10 @@ class ServeCommand extends CliCommand {
   @override
   final bool takesArguments;
 
-  late final ServerType serverType =
-      ServerType.values.byName(getString('server-type') ?? 'h11');
+  late final ServerType serverType = ServerType.values
+      .byName(getString('server-type') ?? ServerType.defaultType.name);
 
-  late final int concurrency = getInteger('concurrency') ?? 0;
+  late final int concurrency = getInteger('concurrency') ?? 1;
 
   late final String address = getString('address') ?? 'localhost';
 
@@ -154,12 +157,12 @@ class ServeCommand extends CliCommand {
     String serveTemplate;
 
     if (sslKey != null && sslCert != null) {
-      serveTemplate = 'serve';
+      serveTemplate = 'serveSecure';
       data['SSLKEY'] = "'$sslKey'";
       data['SSLCERT'] = "'$sslCert'";
       data['SSLKEYPASSWORD'] = sslKeyPass == null ? 'null' : "'$sslKeyPass'";
     } else {
-      serveTemplate = 'serveSecure';
+      serveTemplate = 'serve';
     }
 
     data['SERVE'] = await renderTemplate('serve/_.$serveTemplate', data);
@@ -168,10 +171,20 @@ class ServeCommand extends CliCommand {
   }
 
   @override
+  Future<void> check() async {
+    await super.check();
+
+    if (concurrency < 1) {
+      throw CliException(
+          "'concurrency' must be greater than 0, got: $concurrency");
+    }
+  }
+
+  @override
   Future<int> handle() async {
-    var includedPaths = <String>[workingDirectory.absolute.path];
+    var includedPaths = <String>[packageDirectory.absolute.path];
     var collection = AnalysisContextCollection(includedPaths: includedPaths);
-    var context = collection.contextFor(workingDirectory.absolute.path);
+    var context = collection.contextFor(packageDirectory.absolute.path);
     var session = context.currentSession;
     var resolvedUnit = await session.getResolvedUnit(targetFile.absolute.path);
 
@@ -186,7 +199,7 @@ class ServeCommand extends CliCommand {
     var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
     var scriptPath = join('.dart_tool', 'astra.serve-$cliVersion.dart');
-    var script = File(join(workingDirectory.path, scriptPath));
+    var script = File(join(packageDirectory.path, scriptPath));
     script.writeAsStringSync(source);
 
     var arguments = <String>[for (var define in defineList) '-D$define'];
@@ -222,40 +235,20 @@ class ServeCommand extends CliCommand {
       stdin
         ..echoMode = false
         ..lineMode = false;
-    } on StdinException {
+    } on StdinException catch (error) {
       // TODO(*): log error
+      stderr.writeln(error);
     }
 
     void restoreStdinMode() {
       try {
-        stdin.lineMode = previousLineMode;
-
-        if (previousLineMode) {
-          stdin.echoMode = previousEchoMode;
-        }
-      } on StdinException {
+        stdin
+          ..lineMode = previousLineMode
+          ..echoMode = previousEchoMode;
+      } on StdinException catch (error) {
         // TODO(*): log error
+        stderr.writeln(error);
       }
-    }
-
-    Future<void> Function() reload;
-
-    Future<void> Function() restart;
-
-    if (hot) {
-      throw UnimplementedError();
-    } else {
-      reload = () async {
-        stdout
-          ..writeln('* Hot-Reload not enabled.')
-          ..writeln("  Run with '--hot' option.");
-      };
-
-      restart = () async {
-        stdout
-          ..writeln('* Hot-Restart not enabled.')
-          ..writeln("  Run with '--hot' option.");
-      };
     }
 
     var group = StreamGroup<Object?>()
@@ -268,14 +261,53 @@ class ServeCommand extends CliCommand {
       var process = await Process.start(
         Platform.executable,
         arguments,
-        workingDirectory: workingDirectory.path,
+        workingDirectory: packageDirectory.path,
       );
 
       process
-        ..stdout.pipe(stdout)
-        ..stderr.pipe(stderr);
+        ..stdout.listen(stdout.add)
+        ..stderr.listen(stderr.add);
 
-      printServeModeUsage();
+      Future<void> Function() reload;
+
+      Future<void> Function() restart;
+
+      if (hot) {
+        var wsUri = 'ws://localhost:$servicePort/ws';
+        var service = await vmServiceConnectUri(wsUri);
+
+        var vm = await service.getVM();
+        var isolateRefs = vm.isolates as List<IsolateRef>;
+        var mainRef = isolateRefs.first;
+
+        reload = () async {
+          await service.callServiceExtension(
+            'ext.astra.reload',
+            isolateId: mainRef.id,
+          );
+        };
+
+        restart = () async {
+          await service.callServiceExtension(
+            'ext.astra.start',
+            isolateId: mainRef.id,
+          );
+        };
+      } else {
+        reload = () async {
+          stdout
+            ..writeln('* Hot-Reload not enabled.')
+            ..writeln("  Run with '--hot' option.");
+        };
+
+        restart = () async {
+          stdout
+            ..writeln('* Hot-Restart not enabled.')
+            ..writeln("  Run with '--hot' option.");
+        };
+      }
+
+      printServeModeUsage(hot: hot);
 
       // TODO(*): add connection info
       await for (var event in group.stream) {
@@ -283,11 +315,14 @@ class ServeCommand extends CliCommand {
           await reload();
         } else if (event == 'R') {
           await restart();
-        } else if (event == 'q') {
+        } else if (event == 'q' || event is ProcessSignal) {
           stdout.writeln('> Closing ...');
+          process.kill();
+          restoreStdinMode();
           break;
-        } else if (event == 'Q' || event is ProcessSignal) {
+        } else if (event == 'Q') {
           stdout.writeln('> Force closing ...');
+          process.kill();
           restoreStdinMode();
           exit(0);
         } else if (event == 's') {
@@ -296,11 +331,9 @@ class ServeCommand extends CliCommand {
           clearScreen();
           await restart();
         } else if (event == 'h') {
-          stdout.writeln('');
           printServeModeUsage();
         } else if (event == 'H') {
-          stdout.writeln('');
-          printServeModeUsage(detailed: true);
+          printServeModeUsage(detailed: true, hot: hot);
         } else if (event is String) {
           stdout.writeln("* Unknown key: '$event'");
         } else {
@@ -313,7 +346,6 @@ class ServeCommand extends CliCommand {
       stderr.writeln(error);
       code = 1;
     } finally {
-      restoreStdinMode();
       await group.close();
     }
 
@@ -332,10 +364,14 @@ void clearScreen() {
   }
 }
 
-void printServeModeUsage({bool detailed = false}) {
-  stdout
-    ..writeln("* Press 'r' to reload and 'R' to restart.")
-    ..writeln("  Press 'q' to quit and 'Q' to force quit.");
+void printServeModeUsage({bool detailed = false, bool hot = false}) {
+  if (hot) {
+    stdout
+      ..writeln("> Press 'r' to reload and 'R' to restart.")
+      ..writeln("  Press 'q' to quit and 'Q' to force quit.");
+  } else {
+    stdout.writeln("> Press 'q' to quit and 'Q' to force quit.");
+  }
 
   if (detailed) {
     stdout
@@ -343,9 +379,7 @@ void printServeModeUsage({bool detailed = false}) {
       ..writeln("  To show this detailed help message, press 'H'.");
   } else {
     stdout
-      ..writeln("  To show this help message, press 'h'.")
-      ..writeln("  For a more detailed help message, press 'H'.");
+      ..writeln("  For a more detailed help message, press 'H'.")
+      ..writeln("  To show this help message, press 'h'.");
   }
-
-  stdout.writeln();
 }
