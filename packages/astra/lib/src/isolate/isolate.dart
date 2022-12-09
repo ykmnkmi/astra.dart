@@ -5,15 +5,15 @@ import 'package:astra/core.dart';
 import 'package:astra/src/isolate/message.dart';
 
 class IsolateServer implements Server {
-  IsolateServer(this.server, this.messagePort)
+  IsolateServer(this.server, this.controlPort)
       : receivePort = RawReceivePort() {
     receivePort.handler = onMessage;
-    messagePort.send(receivePort.sendPort);
+    controlPort.send(receivePort.sendPort);
   }
 
   final Server server;
 
-  final SendPort messagePort;
+  final SendPort controlPort;
 
   final RawReceivePort receivePort;
 
@@ -50,12 +50,12 @@ class IsolateServer implements Server {
   @override
   Future<void> mount(Application application) async {
     await server.mount(application);
-    messagePort.send(IsolateMessage.ready);
+    controlPort.send(IsolateMessage.ready);
   }
 
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-    messagePort.send(IsolateMessage.closed);
+    controlPort.send(IsolateMessage.closed);
   }
 }

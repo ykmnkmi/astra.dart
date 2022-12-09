@@ -8,7 +8,6 @@ import 'dart:isolate' show SendPort;
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/src/serve/h11.dart';
-import 'package:astra/src/serve/utils.dart';
 
 export 'package:astra/src/serve/h11.dart';
 export 'package:astra/src/serve/utils.dart';
@@ -41,7 +40,6 @@ extension ServeHandlerExtension on Handler {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    SendPort? messagePort,
   }) async {
     return asApplication().serve(
       address,
@@ -52,7 +50,6 @@ extension ServeHandlerExtension on Handler {
       v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
       shared: shared,
-      messagePort: messagePort,
     );
   }
 }
@@ -67,10 +64,8 @@ extension ServeApplicationExtension on Application {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    SendPort? messagePort,
+    SendPort? controlPort,
   }) async {
-    registerApplication(this);
-
     Server server;
 
     switch (type) {
@@ -92,12 +87,12 @@ extension ServeApplicationExtension on Application {
         throw AssertionError('Unreachable');
     }
 
-    if (messagePort == null) {
+    if (controlPort == null) {
       await server.mount(this);
       return server;
     }
 
-    server = IsolateServer(server, messagePort);
+    server = IsolateServer(server, controlPort);
     await server.mount(this);
     return server;
   }

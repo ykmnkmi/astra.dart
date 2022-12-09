@@ -1,4 +1,6 @@
 import 'dart:async' show Future;
+import 'dart:convert' show json;
+import 'dart:developer' show ServiceExtensionResponse, registerExtension;
 
 import 'package:astra/src/core/handler.dart';
 
@@ -19,4 +21,46 @@ abstract class Application {
 
   /// Override this method to release any resources created in prepare.
   Future<void> close() async {}
+}
+
+class ApplicationReloader {
+  static final Set<Application> _applications = <Application>{};
+
+  static void add(Application application) {
+    _applications.add(application);
+  }
+
+  static void remove(Application application) {
+    _applications.remove(application);
+  }
+
+  static Future<void> reloadAll() async {
+    await Future.any<void>(<Future<void>>[
+      for (var application in _applications) application.reload()
+    ]);
+  }
+
+  static void register() {
+    Future<ServiceExtensionResponse> reload(
+      String isolateId,
+      Map<String, String> data,
+    ) async {
+      try {
+        await reloadAll();
+        return ServiceExtensionResponse.result('{}');
+      } catch (error, stackTrace) {
+        var data = <String, String>{
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        };
+
+        return ServiceExtensionResponse.error(
+          ServiceExtensionResponse.extensionError,
+          json.encode(data),
+        );
+      }
+    }
+
+    registerExtension('ext.astra.reload', reload);
+  }
 }
