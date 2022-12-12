@@ -12,15 +12,13 @@ extension CliCommandExtension on CliCommand {
       return null;
     }
 
-    var parsed = num.tryParse(value);
+    var parsed = int.tryParse(value);
 
-    if (parent == null) {
-      usageException("'$name' must be integer value");
-    } else if (parsed is double) {
-      usageException("'$name' must be positive integer");
+    if (parsed == null) {
+      usageException("'$name' must be integer");
     }
 
-    return parsed as int;
+    return parsed;
   }
 
   String? getString(String name) {

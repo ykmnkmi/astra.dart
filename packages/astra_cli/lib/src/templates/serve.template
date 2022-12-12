@@ -5,6 +5,7 @@
 // ignore_for_file: library_prefixes
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
@@ -18,38 +19,130 @@ import '__PACKAGE__' as _ show __TARGET__;
 __CREATE__
 
 Future<void> main(List<String> arguments) async {
-  registerExtension('ext.astra.start', (isolateId, params) async {
-    print(isolateId);
-    print(params);
-    return ServiceExtensionResponse.result('{}');
-  });
-
   var supervisors = <IsolateSupervisor>[];
 
   Future<void> startAll() async {
-    for (var i = 0; i < __CONCURRENCY__; i += 1) {
+    Future<void> start(int index) async {
       var receivePort = RawReceivePort();
-      var isolate = await Isolate.spawn(create, receivePort.sendPort, //
-          paused: true,
-          errorsAreFatal: false,
-          debugName: 'isolate/${i + 1}');
+      var isolate = await Isolate.spawn(create, receivePort.sendPort,
+          paused: true, errorsAreFatal: false, debugName: 'isolate/$index');
       var supervisor = IsolateSupervisor(isolate, receivePort);
       supervisors.add(supervisor);
       await supervisor.resume();
     }
+
+    var futures = <Future<void>>[for (var i = 1; i <= __CONCURRENCY__; i += 1) start(i)];
+    await Future.wait<void>(futures);
   }
 
-  Future<void> stopAll() {
-    Future<void> stop(IsolateSupervisor supervisor) {
-      return supervisor.stop();
+  Future<void> stopAll() async {
+    Future<void> stop(IsolateSupervisor supervisor) async {
+      await supervisor.stop();
     }
 
-    return Future.wait<void>(supervisors.map<Future<void>>(stop));
+    var futures = supervisors.map<Future<void>>(stop);
+    await Future.wait<void>(futures);
   }
 
-  await startAll();
+  // var started = Completer<void>();
 
-  var signals = ProcessSignal.sigint.watch();
-  await signals.first;
-  await stopAll();
+  // registerExtension('ext.astra.start', (isolateId, params) async {
+  //   try {
+  //     await startAll();
+  //     started.complete();
+  //     return ServiceExtensionResponse.result('{}');
+  //   } catch (error, stackTrace) {
+  //     started.completeError(error, stackTrace);
+
+  //     var data = <String, String>{
+  //       'error': error.toString(),
+  //       'stackTrace': stackTrace.toString(),
+  //     };
+
+  //     return ServiceExtensionResponse.error(
+  //       ServiceExtensionResponse.extensionError,
+  //       json.encode(data),
+  //     );
+  //   }
+  // });
+
+  // var stopped = Completer<void>();
+
+  // registerExtension('ext.astra.stop', (isolateId, params) async {
+  //   try {
+  //     await started.future;
+  //     await stopAll();
+  //     stopped.complete();
+  //     return ServiceExtensionResponse.result('{}');
+  //   } catch (error, stackTrace) {
+  //     stopped.completeError(error, stackTrace);
+
+  //     var data = <String, String>{
+  //       'error': error.toString(),
+  //       'stackTrace': stackTrace.toString(),
+  //     };
+
+  //     return ServiceExtensionResponse.error(
+  //       ServiceExtensionResponse.extensionError,
+  //       json.encode(data),
+  //     );
+  //   }
+  // });
+
+  registerExtension('ext.astra.restart', (isolateId, params) async {
+    try {
+      await stopAll();
+      await Future<void>.delayed(Duration.zero);
+      supervisors = <IsolateSupervisor>[];
+      await startAll();
+      return ServiceExtensionResponse.result('{}');
+    } catch (error, stackTrace) {
+      var data = <String, String>{
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      };
+
+      return ServiceExtensionResponse.error(
+        ServiceExtensionResponse.extensionError,
+        json.encode(data),
+      );
+    }
+  });
+
+  try {
+    // ...
+    exitCode = 0;
+  } catch (error, stackTrace) {
+    stderr
+      ..writeln(error)
+      ..writeln(stackTrace);
+
+    exitCode = 1;
+  }
+}
+
+extension on Application {
+  void register() {
+    Future<ServiceExtensionResponse> reload(
+      String isolateId,
+      Map<String, String> data,
+    ) async {
+      try {
+        await this.reload();
+        return ServiceExtensionResponse.result('{}');
+      } catch (error, stackTrace) {
+        var data = <String, String>{
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        };
+
+        return ServiceExtensionResponse.error(
+          ServiceExtensionResponse.extensionError,
+          json.encode(data),
+        );
+      }
+    }
+
+    registerExtension('ext.astra.reload', reload);
+  }
 }

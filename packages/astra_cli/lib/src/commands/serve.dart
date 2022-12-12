@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:developer';
+import 'dart:async' show EventSink, Future, StreamTransformer;
+import 'dart:convert' show LineSplitter, utf8;
 import 'dart:io'
     show
         File,
@@ -22,7 +22,7 @@ import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
 import 'package:path/path.dart' show join, normalize;
-import 'package:vm_service/vm_service.dart';
+import 'package:vm_service/vm_service.dart' show IsolateRef;
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends CliCommand {
@@ -135,7 +135,7 @@ class ServeCommand extends CliCommand {
 
   late final int servicePort = getInteger('service-port') ?? 8181;
 
-  late final bool? enableAsserts = getBoolean('enable-asserts');
+  late final bool enableAsserts = getBoolean('enable-asserts') ?? false;
 
   Future<String> createSource(TargetType targetType) async {
     var data = <String, String>{
@@ -207,8 +207,10 @@ class ServeCommand extends CliCommand {
     if (debug) {
       arguments += <String>[
         '-DSILENT_OBSERVATORY=true',
-        '--observe=$servicePort',
+        '--enable-vm-service=$servicePort',
         '--disable-service-auth-codes',
+        '--pause-isolates-on-exit',
+        '--pause-isolates-on-unhandled-exceptions',
         '--no-serve-devtools',
       ];
     } else if (hot) {
@@ -217,12 +219,13 @@ class ServeCommand extends CliCommand {
         '--enable-vm-service=$servicePort',
         '--disable-service-auth-codes',
         '--no-pause-isolates-on-exit',
+        '--no-pause-isolates-on-unhandled-exceptions',
         '--no-serve-devtools',
         '--no-dds',
       ];
     }
 
-    if (enableAsserts ?? debug) {
+    if (enableAsserts) {
       arguments.add('--enable-asserts');
     }
 
@@ -264,9 +267,33 @@ class ServeCommand extends CliCommand {
         workingDirectory: packageDirectory.path,
       );
 
-      process
-        ..stdout.listen(stdout.add)
-        ..stderr.listen(stderr.add);
+      void messageMapper(String message, EventSink<String> sink) {
+        var lines = const LineSplitter().convert(message);
+        var first = lines.first;
+        var buffer = StringBuffer('- $first');
+
+        for (var line in lines.skip(1)) {
+          buffer
+            ..writeln()
+            ..write('  $line');
+        }
+
+        sink.add(buffer.toString());
+      }
+
+      var messageTransformer = StreamTransformer<String, String>.fromHandlers(
+        handleData: messageMapper,
+      );
+
+      process.stdout
+          .transform<String>(utf8.decoder)
+          .transform<String>(messageTransformer)
+          .listen(stdout.writeln);
+
+      process.stderr
+          .transform<String>(utf8.decoder)
+          .transform<String>(messageTransformer)
+          .listen(stderr.writeln);
 
       Future<void> Function() reload;
 
@@ -275,34 +302,47 @@ class ServeCommand extends CliCommand {
       if (hot) {
         var wsUri = 'ws://localhost:$servicePort/ws';
         var service = await vmServiceConnectUri(wsUri);
+        IsolateRef mainRef;
 
-        var vm = await service.getVM();
-        var isolateRefs = vm.isolates as List<IsolateRef>;
-        var mainRef = isolateRefs.first;
+        {
+          var vm = await service.getVM();
+          var isolateRefs = vm.isolates as List<IsolateRef>;
+          mainRef = isolateRefs.first;
+        }
 
-        reload = () async {
+        Future<void> reloadIsolate(IsolateRef isolateRef) async {
+          var isolateId = isolateRef.id as String;
+          await service.reloadSources(isolateId);
+
           await service.callServiceExtension(
             'ext.astra.reload',
-            isolateId: mainRef.id,
+            isolateId: isolateId,
           );
+        }
+
+        reload = () async {
+          var vm = await service.getVM();
+          var isolateRefs = vm.isolates as List<IsolateRef>;
+          var futures = isolateRefs.skip(1).map<Future<void>>(reloadIsolate);
+          await Future.wait<void>(futures);
         };
 
         restart = () async {
           await service.callServiceExtension(
-            'ext.astra.start',
+            'ext.astra.restart',
             isolateId: mainRef.id,
           );
         };
       } else {
         reload = () async {
           stdout
-            ..writeln('* Hot-Reload not enabled.')
+            ..writeln('> Hot-Reload not enabled.')
             ..writeln("  Run with '--hot' option.");
         };
 
         restart = () async {
           stdout
-            ..writeln('* Hot-Restart not enabled.')
+            ..writeln('> Hot-Restart not enabled.')
             ..writeln("  Run with '--hot' option.");
         };
       }
@@ -317,12 +357,12 @@ class ServeCommand extends CliCommand {
           await restart();
         } else if (event == 'q' || event is ProcessSignal) {
           stdout.writeln('> Closing ...');
-          process.kill();
+          // TODO: send 'q'
           restoreStdinMode();
           break;
         } else if (event == 'Q') {
           stdout.writeln('> Force closing ...');
-          process.kill();
+          // TODO: send 'Q'
           restoreStdinMode();
           exit(0);
         } else if (event == 's') {
@@ -341,7 +381,7 @@ class ServeCommand extends CliCommand {
         }
       }
 
-      code = 0;
+      code = await process.exitCode;
     } catch (error) {
       stderr.writeln(error);
       code = 1;
