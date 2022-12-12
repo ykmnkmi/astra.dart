@@ -36,7 +36,7 @@ class IsolateSupervisor {
     }
   }
 
-  Future<void> resume() {
+  Future<void> resume() async {
     if (launchCompleter != null) {
       // TODO: add error message
       throw StateError('');
@@ -45,7 +45,7 @@ class IsolateSupervisor {
     launchCompleter = Completer<void>();
     receive.handler = onMessage;
     isolate.resume(isolate.pauseCapability!);
-    return launchCompleter!.future;
+    await launchCompleter!.future;
   }
 
   Future<void> stop() async {
@@ -57,5 +57,6 @@ class IsolateSupervisor {
     stopCompleter = Completer();
     server!.send(IsolateMessage.close);
     await stopCompleter!.future;
+    isolate.kill();
   }
 }

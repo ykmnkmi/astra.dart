@@ -3,17 +3,47 @@ import 'dart:io';
 
 import 'package:astra/core.dart';
 
-Future<Response> application(Request request) async {
-  print("'${request.url}'");
+Application get application => Example();
 
-  switch (request.url.path) {
-    case '':
-      return Response.ok('hello world!');
-    case 'readme':
-      return Response.ok(File('README.md').openRead());
-    case 'error':
-      throw Exception('some message');
-    default:
-      return Response.notFound('Request for "${request.url}"');
+class Example extends Application {
+  int count = 0;
+
+  @override
+  Handler get entryPoint {
+    return (Request request) async {
+      count += 1;
+
+      switch (request.url.path) {
+        case '':
+          return Response.ok('hello world!');
+        case 'count':
+          return Response.ok('count: $count');
+        case 'readme':
+          return Response.ok(File('README.md').openRead());
+        case 'error':
+          throw Exception('some message');
+        default:
+          return Response.notFound('Request for "${request.url}"');
+      }
+    };
+  }
+
+  @override
+  Future<void> prepare() async {
+    print('preparing ...');
+    // ...
+  }
+
+  @override
+  Future<void> reload() async {
+    print('reloading ...');
+    count = 0;
+    // ...
+  }
+
+  @override
+  Future<void> close() async {
+    print('closing ...');
+    // ...
   }
 }
