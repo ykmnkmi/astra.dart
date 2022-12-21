@@ -1,7 +1,7 @@
 name: astra_cli
 description: >
   The Astra/Shelf CLI tool.
-version: 1.0.0-dev.6
+version: 1.0.0-dev.7
 # homepage: https://www.example.com
 
 environment:
@@ -11,8 +11,8 @@ dependencies:
   args: ^2.3.1
   astra: ^1.0.0-dev.130
   async: ^2.10.0
-  analyzer: ^5.2.0
-  path: ^1.8.2
+  analyzer: ^5.3.1
+  path: ^1.8.3
   pubspec: ^2.3.0
   stream_transform: ^2.1.0
   vm_service: ^9.4.0

@@ -21,7 +21,7 @@ import 'package:astra_cli/src/extension.dart';
 import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
-import 'package:path/path.dart' show join, normalize;
+import 'package:path/path.dart' show absolute, join, normalize;
 import 'package:vm_service/vm_service.dart' show IsolateRef;
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
@@ -158,8 +158,8 @@ class ServeCommand extends CliCommand {
 
     if (sslKey != null && sslCert != null) {
       serveTemplate = 'serveSecure';
-      data['SSLKEY'] = "'$sslKey'";
-      data['SSLCERT'] = "'$sslCert'";
+      data['SSLKEY'] = "'${absolute(sslKey)}'";
+      data['SSLCERT'] = "'${absolute(sslCert)}'";
       data['SSLKEYPASSWORD'] = sslKeyPass == null ? 'null' : "'$sslKeyPass'";
     } else {
       serveTemplate = 'serve';
@@ -176,7 +176,12 @@ class ServeCommand extends CliCommand {
 
     if (concurrency < 1) {
       throw CliException(
-          "'concurrency' must be greater than 0, got: $concurrency");
+          "'concurrency' must be greater than 0, got $concurrency");
+    }
+
+    if ((sslKey == null) ^ (sslCert == null)) {
+      // TODO(cli): update error message
+      throw CliException("'ssl-key' ^ 'ssl-cert'");
     }
   }
 
@@ -239,7 +244,7 @@ class ServeCommand extends CliCommand {
         ..echoMode = false
         ..lineMode = false;
     } on StdinException catch (error) {
-      // TODO(*): log error
+      // TODO(cli): log error
       stderr.writeln(error);
     }
 
@@ -249,7 +254,7 @@ class ServeCommand extends CliCommand {
           ..lineMode = previousLineMode
           ..echoMode = previousEchoMode;
       } on StdinException catch (error) {
-        // TODO(*): log error
+        // TODO(cli): log error
         stderr.writeln(error);
       }
     }
@@ -295,21 +300,28 @@ class ServeCommand extends CliCommand {
           .transform<String>(messageTransformer)
           .listen(stderr.writeln);
 
+      var wsUri = 'ws://localhost:$servicePort/ws';
+      var service = await vmServiceConnectUri(wsUri);
+      IsolateRef mainRef;
+
+      {
+        var vm = await service.getVM();
+        var isolateRefs = vm.isolates as List<IsolateRef>;
+        mainRef = isolateRefs.first;
+      }
+
       Future<void> Function() reload;
 
       Future<void> Function() restart;
 
+      Future<void> stop() async {
+        await service.callServiceExtension(
+          'ext.astra.restart',
+          isolateId: mainRef.id,
+        );
+      }
+
       if (hot) {
-        var wsUri = 'ws://localhost:$servicePort/ws';
-        var service = await vmServiceConnectUri(wsUri);
-        IsolateRef mainRef;
-
-        {
-          var vm = await service.getVM();
-          var isolateRefs = vm.isolates as List<IsolateRef>;
-          mainRef = isolateRefs.first;
-        }
-
         Future<void> reloadIsolate(IsolateRef isolateRef) async {
           var isolateId = isolateRef.id as String;
           await service.reloadSources(isolateId);
@@ -347,22 +359,29 @@ class ServeCommand extends CliCommand {
         };
       }
 
+      await service.callServiceExtension(
+        'ext.astra.start',
+        isolateId: mainRef.id,
+      );
+
       printServeModeUsage(hot: hot);
 
-      // TODO(*): add connection info
+      // TODO(cli): add connection info
       await for (var event in group.stream) {
         if (event == 'r') {
           await reload();
         } else if (event == 'R') {
           await restart();
-        } else if (event == 'q' || event is ProcessSignal) {
+        } else if (event == 'q' ||
+            event == ProcessSignal.sigint ||
+            event == ProcessSignal.sigterm) {
           stdout.writeln('> Closing ...');
-          // TODO: send 'q'
+          await stop();
           restoreStdinMode();
           break;
         } else if (event == 'Q') {
+          // TODO(cli): check force quit
           stdout.writeln('> Force closing ...');
-          // TODO: send 'Q'
           restoreStdinMode();
           exit(0);
         } else if (event == 's') {
@@ -397,7 +416,7 @@ void clearScreen() {
   if (stdout.supportsAnsiEscapes) {
     stdout.write('\x1b[2J\x1b[H');
   } else if (Platform.isWindows) {
-    // TODO(*): windows: reset buffer
+    // TODO(cli): windows: reset buffer
     stdout.writeln('* Not supported yet.');
   } else {
     stdout.writeln('* Not supported.');
