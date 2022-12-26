@@ -1,4 +1,10 @@
 name: astra
 
 packages:
-  - packages/**
+  - packages/astra
+  - packages/astra/example
+  - packages/astra_cli
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
