@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:mirrors';
 
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
@@ -19,10 +20,10 @@ import '__PACKAGE__' as _ show __TARGET__;
 __CREATE__
 
 ServiceExtensionResponse okResponse({
-  Map<String, Object?> data,
+  Map<String, Object?>? data,
   bool ok = false,
 }) {
-  data = <String, Object?>{'ok': ok, ...data};
+  data = <String, Object?>{'ok': ok, ...?data};
   return ServiceExtensionResponse.result(json.encode(data));
 }
 
@@ -58,6 +59,8 @@ extension on Application {
     }
 
     registerExtension('ext.astra.reload', reload);
+    print('ext.astra.reload');
+
   }
 }
 
@@ -67,15 +70,17 @@ Future<void> main(List<String> arguments) async {
   Future<List<String>> startAll() async {
     Future<String> start(int index) async {
       var receivePort = RawReceivePort();
+      var id = 'isolate/$index';
       var isolate = await Isolate.spawn(create, receivePort.sendPort,
-          paused: true, errorsAreFatal: false, debugName: 'isolate/$index');
+          paused: true, errorsAreFatal: false, debugName: id);
       var supervisor = IsolateSupervisor(isolate, receivePort);
       supervisors.add(supervisor);
       await supervisor.resume();
+      return id;
     }
 
-    var futures = <Future<List<String>>>[
-      for (var i = 1; i <= 2; i += 1) start(i),
+    var futures = <Future<String>>[
+      for (var i = 1; i <= __CONCURRENCY__; i += 1) start(i),
     ];
 
     return await Future.wait<String>(futures);
@@ -131,7 +136,7 @@ Future<void> main(List<String> arguments) async {
 
   registerExtension('ext.astra.restart', (isolateId, params) async {
     if (restarting) {
-      return;
+      return okResponse(ok: false);
     }
 
     restarting = true;
@@ -150,7 +155,12 @@ Future<void> main(List<String> arguments) async {
   });
 
   try {
-    await stopped.future;
+    print(#sending);
+    postEvent('ext.astra.started', {'ok': true});
+    print(#waiting);
+    await stopped.future.then((value) {
+      print(#stoped.future);
+    });
     exitCode = 0;
   } catch (error, stackTrace) {
     stderr

@@ -22,7 +22,7 @@ import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
 import 'package:path/path.dart' show absolute, join, normalize;
-import 'package:vm_service/vm_service.dart' show IsolateRef;
+import 'package:vm_service/vm_service.dart' show Event, EventKind, IsolateRef;
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends CliCommand {
@@ -175,8 +175,7 @@ class ServeCommand extends CliCommand {
     await super.check();
 
     if (concurrency < 1) {
-      throw CliException(
-          "'concurrency' must be greater than 0, got $concurrency");
+      throw CliException("'concurrency' must be greater than 0");
     }
 
     if ((sslKey == null) ^ (sslCert == null)) {
@@ -207,25 +206,23 @@ class ServeCommand extends CliCommand {
     var script = File(join(packageDirectory.path, scriptPath));
     script.writeAsStringSync(source);
 
-    var arguments = <String>[for (var define in defineList) '-D$define'];
+    var arguments = <String>[
+      for (var define in defineList) '-D$define',
+      '-DSILENT_OBSERVATORY=true',
+      '--enable-vm-service=$servicePort',
+      '--disable-service-auth-codes',
+      '--no-serve-devtools',
+    ];
 
     if (debug) {
       arguments += <String>[
-        '-DSILENT_OBSERVATORY=true',
-        '--enable-vm-service=$servicePort',
-        '--disable-service-auth-codes',
         '--pause-isolates-on-exit',
         '--pause-isolates-on-unhandled-exceptions',
-        '--no-serve-devtools',
       ];
     } else if (hot) {
       arguments += <String>[
-        '-DSILENT_OBSERVATORY=true',
-        '--enable-vm-service=$servicePort',
-        '--disable-service-auth-codes',
         '--no-pause-isolates-on-exit',
         '--no-pause-isolates-on-unhandled-exceptions',
-        '--no-serve-devtools',
         '--no-dds',
       ];
     }
@@ -302,6 +299,9 @@ class ServeCommand extends CliCommand {
 
       var wsUri = 'ws://localhost:$servicePort/ws';
       var service = await vmServiceConnectUri(wsUri);
+      var startedFuture = service.onExtensionEvent.firstWhere(isStarted);
+      await service.streamListen(EventKind.kExtension);
+
       IsolateRef mainRef;
 
       {
@@ -314,9 +314,26 @@ class ServeCommand extends CliCommand {
 
       Future<void> Function() restart;
 
-      Future<void> stop() async {
+      Future<void> startServer() async {
+        print('- starting');
+
+        try {
+          var response = await service.callServiceExtension(
+            'ext.astra.start',
+            isolateId: mainRef.id,
+          );
+
+          print(response.toJson());
+          print('- started');
+        } catch (error, stackTrace) {
+          print(error);
+          print(stackTrace);
+        }
+      }
+
+      Future<void> stopServer() async {
         await service.callServiceExtension(
-          'ext.astra.restart',
+          'ext.astra.stop',
           isolateId: mainRef.id,
         );
       }
@@ -359,15 +376,29 @@ class ServeCommand extends CliCommand {
         };
       }
 
-      await service.callServiceExtension(
-        'ext.astra.start',
-        isolateId: mainRef.id,
-      );
+      await startedFuture;
+      print(#starting);
+      // await startServer();
+      print(#started);
+
+      if (debug) {
+        stdout.writeln('> Debug service listening on $wsUri');
+      }
 
       printServeModeUsage(hot: hot);
 
+      var subscription = group.stream.listen(null);
+      var working = false;
+
       // TODO(cli): add connection info
-      await for (var event in group.stream) {
+      Future<void> onEvent(Object? event) async {
+        if (working) {
+          return;
+        }
+
+        print('event: $event');
+        working = true;
+
         if (event == 'r') {
           await reload();
         } else if (event == 'R') {
@@ -376,9 +407,9 @@ class ServeCommand extends CliCommand {
             event == ProcessSignal.sigint ||
             event == ProcessSignal.sigterm) {
           stdout.writeln('> Closing ...');
-          await stop();
+          await stopServer();
           restoreStdinMode();
-          break;
+          await subscription.cancel();
         } else if (event == 'Q') {
           // TODO(cli): check force quit
           stdout.writeln('> Force closing ...');
@@ -398,11 +429,18 @@ class ServeCommand extends CliCommand {
         } else {
           stdout.writeln('* Unknown event: $event');
         }
+
+        working = false;
       }
 
+      subscription.onData(onEvent);
+      await subscription.asFuture<void>();
       code = await process.exitCode;
-    } catch (error) {
-      stderr.writeln(error);
+    } catch (error, stackTrace) {
+      stderr
+        ..writeln(error)
+        ..writeln(stackTrace);
+
       code = 1;
     } finally {
       await group.close();
@@ -412,15 +450,9 @@ class ServeCommand extends CliCommand {
   }
 }
 
-void clearScreen() {
-  if (stdout.supportsAnsiEscapes) {
-    stdout.write('\x1b[2J\x1b[H');
-  } else if (Platform.isWindows) {
-    // TODO(cli): windows: reset buffer
-    stdout.writeln('* Not supported yet.');
-  } else {
-    stdout.writeln('* Not supported.');
-  }
+bool isStarted(Event event) {
+  print(event.toJson());
+  return event.extensionKind == 'ext.astra.started';
 }
 
 void printServeModeUsage({bool detailed = false, bool hot = false}) {
@@ -440,5 +472,16 @@ void printServeModeUsage({bool detailed = false, bool hot = false}) {
     stdout
       ..writeln("  For a more detailed help message, press 'H'.")
       ..writeln("  To show this help message, press 'h'.");
+  }
+}
+
+void clearScreen() {
+  if (stdout.supportsAnsiEscapes) {
+    stdout.write('\x1b[2J\x1b[H');
+  } else if (Platform.isWindows) {
+    // TODO(cli): windows: reset buffer
+    stdout.writeln('* Not supported yet.');
+  } else {
+    stdout.writeln('* Not supported.');
   }
 }

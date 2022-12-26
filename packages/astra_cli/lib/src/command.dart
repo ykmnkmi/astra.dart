@@ -11,6 +11,7 @@ import 'package:pubspec/pubspec.dart';
 class CliException implements Exception {
   CliException(this.message);
 
+  /// A message describing the CLI error.
   final String message;
 
   @override
