@@ -310,25 +310,18 @@ class ServeCommand extends CliCommand {
         mainRef = isolateRefs.first;
       }
 
-      Future<void> Function() reload;
+      Future<void> Function(List<String> isolateIds) reload;
 
       Future<void> Function() restart;
 
-      Future<void> startServer() async {
-        print('- starting');
+      // TODO(cli): get isolate IDs
+      Future<List<String>> startServer() async {
+        await service.callServiceExtension(
+          'ext.astra.start',
+          isolateId: mainRef.id,
+        );
 
-        try {
-          var response = await service.callServiceExtension(
-            'ext.astra.start',
-            isolateId: mainRef.id,
-          );
-
-          print(response.toJson());
-          print('- started');
-        } catch (error, stackTrace) {
-          print(error);
-          print(stackTrace);
-        }
+        return <String>[];
       }
 
       Future<void> stopServer() async {
@@ -339,8 +332,7 @@ class ServeCommand extends CliCommand {
       }
 
       if (hot) {
-        Future<void> reloadIsolate(IsolateRef isolateRef) async {
-          var isolateId = isolateRef.id as String;
+        Future<void> reloadIsolate(String isolateId) async {
           await service.reloadSources(isolateId);
 
           await service.callServiceExtension(
@@ -349,10 +341,8 @@ class ServeCommand extends CliCommand {
           );
         }
 
-        reload = () async {
-          var vm = await service.getVM();
-          var isolateRefs = vm.isolates as List<IsolateRef>;
-          var futures = isolateRefs.skip(1).map<Future<void>>(reloadIsolate);
+        reload = (List<String> isolateIds) async {
+          var futures = isolateIds.map<Future<void>>(reloadIsolate);
           await Future.wait<void>(futures);
         };
 
@@ -363,7 +353,7 @@ class ServeCommand extends CliCommand {
           );
         };
       } else {
-        reload = () async {
+        reload = (List<String> isolateIds) async {
           stdout
             ..writeln('> Hot-Reload not enabled.')
             ..writeln("  Run with '--hot' option.");
@@ -377,9 +367,8 @@ class ServeCommand extends CliCommand {
       }
 
       await startedFuture;
-      print(#starting);
-      // await startServer();
-      print(#started);
+
+      var isolateIds = await startServer();
 
       if (debug) {
         stdout.writeln('> Debug service listening on $wsUri');
@@ -400,7 +389,7 @@ class ServeCommand extends CliCommand {
         working = true;
 
         if (event == 'r') {
-          await reload();
+          await reload(isolateIds);
         } else if (event == 'R') {
           await restart();
         } else if (event == 'q' ||
@@ -451,7 +440,6 @@ class ServeCommand extends CliCommand {
 }
 
 bool isStarted(Event event) {
-  print(event.toJson());
   return event.extensionKind == 'ext.astra.started';
 }
 
