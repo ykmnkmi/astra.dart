@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io' show InternetAddress;
-import 'dart:isolate' show RawReceivePort, ReceivePort, SendPort;
+import 'dart:isolate' show ReceivePort, SendPort;
 
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/message.dart';
