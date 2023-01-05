@@ -1,4 +1,0 @@
-# melos_managed_dependency_overrides: astra_cli
-dependency_overrides:
-  astra_cli:
-    path: ..\\astra_cli

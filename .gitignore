@@ -1,10 +1,10 @@
 .dart_tool/
-.vscode/
+.vs_code/
 .DS_store
 .packages
-certificates/
 pubspec.lock
 pubspec_overrides.yaml
+**/**.iml
 **/**.dill
 **/**.jit
 **/**.aot

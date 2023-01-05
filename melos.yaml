@@ -1,10 +1,16 @@
 name: astra
 
 packages:
+  - .
   - packages/astra
   - packages/astra_cli
   - packages/astra/example
 
+ide:
+  intellij:
+    enabled: false
+
 command:
   bootstrap:
+    runPubGetInParallel: false
     usePubspecOverrides: true
