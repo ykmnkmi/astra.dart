@@ -2,7 +2,8 @@ name: astra_cli
 description: >
   The Astra/Shelf CLI tool.
 version: 1.0.0-dev.12
-# homepage: https://www.example.com
+homepage: https://github.com/ykmnkmi/astra.dart/tree/master/packages/astra_cli
+repository: https://github.com/ykmnkmi/astra.dart/tree/master/packages/astra_cli
 
 environment:
   sdk: ">=2.18.0 <3.0.0"
