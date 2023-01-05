@@ -1,4 +1,4 @@
-import 'dart:async' show FutureOr;
+import 'dart:async' show Completer, FutureOr;
 import 'dart:io'
     show
         HttpHeaders,
@@ -14,14 +14,20 @@ import 'package:astra/core.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
-  ShelfServer(this.server);
+  ShelfServer(this.httpServer) : completer = Completer<void>();
 
   /// The underlying [HttpServer].
-  final HttpServer server;
+  @internal
+  final HttpServer httpServer;
+
+  /// The underlying `done` [Completer].
+  @internal
+  final Completer<void> completer;
 
   /// Mounted [Application].
   @override
@@ -29,12 +35,12 @@ class ShelfServer implements Server {
 
   @override
   InternetAddress get address {
-    return server.address;
+    return httpServer.address;
   }
 
   @override
   int get port {
-    return server.port;
+    return httpServer.port;
   }
 
   @override
@@ -48,6 +54,11 @@ class ShelfServer implements Server {
     }
 
     return Uri(scheme: 'http', host: address.address, port: port);
+  }
+
+  @override
+  Future<void> get done {
+    return completer.future;
   }
 
   @override
@@ -66,7 +77,7 @@ class ShelfServer implements Server {
     }
 
     void body() {
-      server.listen(onRequest);
+      httpServer.listen(onRequest);
     }
 
     void onError(Object error, StackTrace stackTrace) {
@@ -78,12 +89,24 @@ class ShelfServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    await server.close(force: force);
+    if (completer.isCompleted) {
+      // TODO(h11): add error message
+      throw StateError('');
+    }
 
-    var application = this.application;
+    try {
+      await httpServer.close(force: force);
 
-    if (application != null) {
-      await application.close();
+      var application = this.application;
+
+      if (application != null) {
+        await application.close();
+      }
+
+      completer.complete();
+    } catch (error, stackTrace) {
+      completer.completeError(error, stackTrace);
+      rethrow;
     }
   }
 

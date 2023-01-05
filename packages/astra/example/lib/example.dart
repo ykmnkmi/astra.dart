@@ -23,6 +23,7 @@ class Example extends Application {
         case 'error':
           throw Exception('some message');
         default:
+          print(request.url.path);
           return Response.notFound('Request for "${request.url}"');
       }
     };
