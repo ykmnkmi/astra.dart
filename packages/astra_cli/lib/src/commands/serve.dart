@@ -22,7 +22,8 @@ import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
 import 'package:async/async.dart' show StreamGroup;
 import 'package:path/path.dart' show absolute, join, normalize;
-import 'package:vm_service/vm_service.dart' show Event, EventKind, IsolateRef;
+import 'package:vm_service/vm_service.dart'
+    show Event, EventKind, ExtensionData;
 import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends CliCommand {
@@ -165,8 +166,8 @@ class ServeCommand extends CliCommand {
       serveTemplate = 'serve';
     }
 
-    data['SERVE'] = await renderTemplate('serve/_.$serveTemplate', data);
     data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
+    data['SERVE'] = await renderTemplate('serve/_.$serveTemplate', data);
     return await renderTemplate('serve', data);
   }
 
@@ -260,6 +261,7 @@ class ServeCommand extends CliCommand {
       ..add(stdin.map<String>(String.fromCharCodes))
       ..add(ProcessSignal.sigint.watch());
 
+    var buffer = StringBuffer();
     int code;
 
     try {
@@ -287,49 +289,43 @@ class ServeCommand extends CliCommand {
         handleData: messageMapper,
       );
 
-      process.stdout
+      var scrout = process.stdout
           .transform<String>(utf8.decoder)
           .transform<String>(messageTransformer)
-          .listen(stdout.writeln);
+          .listen(buffer.writeln);
 
-      process.stderr
+      var screrr = process.stderr
           .transform<String>(utf8.decoder)
           .transform<String>(messageTransformer)
-          .listen(stderr.writeln);
+          .listen(buffer.writeln);
 
       var wsUri = 'ws://localhost:$servicePort/ws';
       var service = await vmServiceConnectUri(wsUri);
-      var startedFuture = service.onExtensionEvent.firstWhere(isStarted);
       await service.streamListen(EventKind.kExtension);
 
-      IsolateRef mainRef;
+      List<String> isolateIDs;
 
       {
-        var vm = await service.getVM();
-        var isolateRefs = vm.isolates as List<IsolateRef>;
-        mainRef = isolateRefs.first;
+        var event = await service.onExtensionEvent.firstWhere(isStarted);
+        var extensionData = event.extensionData;
+
+        if (extensionData is! ExtensionData) {
+          // TODO(cli): update error message
+          throw CliException('no data');
+        }
+
+        var data = extensionData.data;
+
+        if (!data.containsKey('isolateIDs')) {
+          // TODO(cli): update error message
+          throw CliException('no ids');
+        }
+
+        isolateIDs = List<String>.from(data['isolateIDs'] as List<Object?>);
       }
 
-      Future<void> Function(List<String> isolateIds) reload;
-
-      Future<void> Function() restart;
-
-      // TODO(cli): get isolate IDs
-      Future<List<String>> startServer() async {
-        await service.callServiceExtension(
-          'ext.astra.start',
-          isolateId: mainRef.id,
-        );
-
-        return <String>[];
-      }
-
-      Future<void> stopServer() async {
-        await service.callServiceExtension(
-          'ext.astra.stop',
-          isolateId: mainRef.id,
-        );
-      }
+      Future<void> Function() reloadServer;
+      Future<void> Function() restartServer;
 
       if (hot) {
         Future<void> reloadIsolate(String isolateId) async {
@@ -341,74 +337,72 @@ class ServeCommand extends CliCommand {
           );
         }
 
-        reload = (List<String> isolateIds) async {
-          var futures = isolateIds.map<Future<void>>(reloadIsolate);
+        reloadServer = () async {
+          var futures = isolateIDs.map<Future<void>>(reloadIsolate);
           await Future.wait<void>(futures);
         };
 
-        restart = () async {
-          await service.callServiceExtension(
-            'ext.astra.restart',
-            isolateId: mainRef.id,
-          );
+        restartServer = () async {
+          process.stdin.writeln('restart');
         };
       } else {
-        reload = (List<String> isolateIds) async {
+        reloadServer = () async {
           stdout
             ..writeln('> Hot-Reload not enabled.')
             ..writeln("  Run with '--hot' option.");
         };
 
-        restart = () async {
+        restartServer = () async {
           stdout
             ..writeln('> Hot-Restart not enabled.')
             ..writeln("  Run with '--hot' option.");
         };
       }
 
-      await startedFuture;
+      Future<void> stopServer() async {
+        var stopped = service.onExtensionEvent.firstWhere(isStopped);
+        process.stdin.writeln('stop');
+        await stopped;
+      }
 
-      var isolateIds = await startServer();
+      void killServer() {
+        process.kill();
+      }
 
       if (debug) {
         stdout.writeln('> Debug service listening on $wsUri');
       }
 
       printServeModeUsage(hot: hot);
-
-      var subscription = group.stream.listen(null);
-      var working = false;
+      scrout.onData(stdout.writeln);
+      screrr.onData(stdout.writeln);
+      stdout.write(buffer);
+      buffer.clear();
 
       // TODO(cli): add connection info
-      Future<void> onEvent(Object? event) async {
-        if (working) {
-          return;
-        }
-
-        print('event: $event');
-        working = true;
-
+      await for (var event in group.stream) {
         if (event == 'r') {
-          await reload(isolateIds);
+          await reloadServer();
         } else if (event == 'R') {
-          await restart();
+          await restartServer();
         } else if (event == 'q' ||
             event == ProcessSignal.sigint ||
             event == ProcessSignal.sigterm) {
           stdout.writeln('> Closing ...');
           await stopServer();
           restoreStdinMode();
-          await subscription.cancel();
+          break;
         } else if (event == 'Q') {
           // TODO(cli): check force quit
           stdout.writeln('> Force closing ...');
+          killServer();
           restoreStdinMode();
           exit(0);
         } else if (event == 's') {
           clearScreen();
         } else if (event == 'S') {
           clearScreen();
-          await restart();
+          await restartServer();
         } else if (event == 'h') {
           printServeModeUsage();
         } else if (event == 'H') {
@@ -418,14 +412,14 @@ class ServeCommand extends CliCommand {
         } else {
           stdout.writeln('* Unknown event: $event');
         }
-
-        working = false;
       }
 
-      subscription.onData(onEvent);
-      await subscription.asFuture<void>();
       code = await process.exitCode;
     } catch (error, stackTrace) {
+      if (buffer.isNotEmpty) {
+        stdout.write(buffer);
+      }
+
       stderr
         ..writeln(error)
         ..writeln(stackTrace);
@@ -441,6 +435,14 @@ class ServeCommand extends CliCommand {
 
 bool isStarted(Event event) {
   return event.extensionKind == 'ext.astra.started';
+}
+
+bool isRestarted(Event event) {
+  return event.extensionKind == 'ext.astra.restarted';
+}
+
+bool isStopped(Event event) {
+  return event.extensionKind == 'ext.astra.stopped';
 }
 
 void printServeModeUsage({bool detailed = false, bool hot = false}) {

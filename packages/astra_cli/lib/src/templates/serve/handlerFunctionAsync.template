@@ -1,5 +1,2 @@
-Future<void> create(SendPort sendPort) async {
-  var handler = await _.__TARGET__;
-  var application = handler.asApplication();
-__SERVE__
-}
+    var handler = await _.__TARGET__;
+    var application = handler.asApplication();

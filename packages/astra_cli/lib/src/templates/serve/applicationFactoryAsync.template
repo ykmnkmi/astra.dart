@@ -1,4 +1,1 @@
-Future<void> create(SendPort sendPort) async {
-  var application = await _.__TARGET__();
-__SERVE__
-}
+    var application = await _.__TARGET__();

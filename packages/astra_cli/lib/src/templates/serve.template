@@ -9,7 +9,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:mirrors';
 
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
@@ -17,7 +16,59 @@ import 'package:astra/serve.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
+void create(SendPort sendPort) {
+  var debugName = Isolate.current.debugName ?? 'server/x';
+
+  Future<void> body() async {
 __CREATE__
+__SERVE__
+  }
+
+  runZoned<void>(
+    body,
+    zoneSpecification: ZoneSpecification(
+      print: (self, parent, zone, message) {
+        parent.createTimer(zone, Duration.zero, () {
+          parent.print(zone, '$debugName: $message');
+        });
+      },
+    ),
+  );
+}
+
+Future<IsolateSupervisor> start(int index) async {
+  var receivePort = RawReceivePort();
+
+  var isolate = await Isolate.spawn<SendPort>(
+    create,
+    receivePort.sendPort,
+    paused: true,
+    errorsAreFatal: false,
+    debugName: 'server/$index',
+  );
+
+  var supervisor = IsolateSupervisor(isolate, receivePort);
+  await supervisor.resume();
+  return supervisor;
+}
+
+Future<List<IsolateSupervisor>> startAll() async {
+  var futures = List<Future<IsolateSupervisor>>.generate(__CONCURRENCY__, start);
+  return await Future.wait<IsolateSupervisor>(futures);
+}
+
+Future<void> stop(IsolateSupervisor supervisor) async {
+  await supervisor.stop();
+}
+
+Future<void> stopAll(List<IsolateSupervisor> supervisors) async {
+  var futures = supervisors.map<Future<void>>(stop);
+  await Future.wait<void>(futures);
+}
+
+String? getIsolateID(IsolateSupervisor supervisor) {
+  return Service.getIsolateID(supervisor.isolate);
+}
 
 ServiceExtensionResponse okResponse({
   Map<String, Object?>? data,
@@ -44,6 +95,10 @@ ServiceExtensionResponse errorResponse(
   );
 }
 
+String trimRight(String message) {
+  return message.trimRight();
+}
+
 extension on Application {
   void register() {
     Future<ServiceExtensionResponse> reload(
@@ -59,109 +114,34 @@ extension on Application {
     }
 
     registerExtension('ext.astra.reload', reload);
-    print('ext.astra.reload');
-
   }
 }
 
 Future<void> main(List<String> arguments) async {
-  var supervisors = <IsolateSupervisor>[];
-
-  Future<List<String>> startAll() async {
-    Future<String> start(int index) async {
-      var receivePort = RawReceivePort();
-      var id = 'isolate/$index';
-      var isolate = await Isolate.spawn(create, receivePort.sendPort,
-          paused: true, errorsAreFatal: false, debugName: id);
-      var supervisor = IsolateSupervisor(isolate, receivePort);
-      supervisors.add(supervisor);
-      await supervisor.resume();
-      return id;
-    }
-
-    var futures = <Future<String>>[
-      for (var i = 1; i <= __CONCURRENCY__; i += 1) start(i),
-    ];
-
-    return await Future.wait<String>(futures);
-  }
-
-  Future<void> stopAll() async {
-    Future<void> stop(IsolateSupervisor supervisor) async {
-      await supervisor.stop();
-    }
-
-    var futures = supervisors.map<Future<void>>(stop);
-    await Future.wait<void>(futures);
-  }
-
-  var started = Completer<void>();
-
-  registerExtension('ext.astra.start', (isolateId, params) async {
-    if (started.isCompleted) {
-      return okResponse(ok: false);
-    }
-
-    try {
-      var isolateIds = await startAll();
-      started.complete();
-
-      var data = <String, Object?>{'isolateIds': isolateIds};
-      return okResponse(data: data);
-    } catch (error, stackTrace) {
-      started.completeError(error, stackTrace);
-      return errorResponse(error, stackTrace);
-    }
-  });
-
-  var stopped = Completer<void>();
-
-  registerExtension('ext.astra.stop', (isolateId, params) async {
-    if (stopped.isCompleted) {
-      return okResponse(ok: false);
-    }
-
-    try {
-      await started.future;
-      await stopAll();
-      stopped.complete();
-      return okResponse();
-    } catch (error, stackTrace) {
-      stopped.completeError(error, stackTrace);
-      return errorResponse(error, stackTrace);
-    }
-  });
-
-  var restarting = false;
-
-  registerExtension('ext.astra.restart', (isolateId, params) async {
-    if (restarting) {
-      return okResponse(ok: false);
-    }
-
-    restarting = true;
-
-    try {
-      await stopAll();
-      await Future<void>.delayed(Duration.zero);
-      supervisors = <IsolateSupervisor>[];
-      await startAll();
-      return okResponse();
-    } catch (error, stackTrace) {
-      return errorResponse(error, stackTrace);
-    } finally {
-      restarting = false;
-    }
-  });
-
   try {
-    print(#sending);
-    postEvent('ext.astra.started', {'ok': true});
-    print(#waiting);
-    await stopped.future.then((value) {
-      print(#stoped.future);
-    });
-    exitCode = 0;
+    var supervisors = await startAll();
+
+    var isolateIDs = List<String?>.of(supervisors.map<String?>(getIsolateID));
+    var data = <String, Object?>{'isolateIDs': isolateIDs};
+    postEvent('ext.astra.started', data);
+
+    var eventStream = stdin
+        .transform<String>(utf8.decoder)
+        .asyncMap<String>(trimRight);
+
+    await for (var event in eventStream) {
+      if (event == 'restart') {
+        await stopAll(supervisors);
+        supervisors = await startAll();
+        postEvent('ext.astra.restarted', <String, Object?>{});
+      } else if (event == 'stop') {
+        await stopAll(supervisors);
+        postEvent('ext.astra.stopped', <String, Object?>{});
+        break;
+      } else {
+        throw UnsupportedError('event: $event');
+      }
+    }
   } catch (error, stackTrace) {
     stderr
       ..writeln(error)
