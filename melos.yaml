@@ -2,8 +2,8 @@ name: astra
 
 packages:
   - packages/astra
-  - packages/astra/example
   - packages/astra_cli
+  - packages/astra/example
 
 command:
   bootstrap:
