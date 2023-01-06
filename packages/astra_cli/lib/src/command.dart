@@ -48,12 +48,11 @@ abstract class CliCommand extends Command<int> {
       getString('target-path') ?? join(directoryPath, 'lib', '$package.dart'));
 
   late final String directoryPath =
-      absolute(normalize(getString('directory') ?? '.'));
+      normalize(absolute(getString('directory') ?? '.'));
 
   late final bool verbose = getBoolean('verbose') ?? false;
 
-  late final List<String> defineList =
-      getStringList('define').map<String>(normalize).toList();
+  late final List<String> defineList = getStringList('define').toList();
 
   @override
   ArgResults get argResults {
@@ -66,10 +65,9 @@ abstract class CliCommand extends Command<int> {
     return argResults;
   }
 
-  late final Directory packageDirectory = Directory(directoryPath);
+  late final Directory directory = Directory(directoryPath);
 
-  late final File pubspecFile =
-      File(join(packageDirectory.path, 'pubspec.yaml'));
+  late final File pubspecFile = File(join(directory.path, 'pubspec.yaml'));
 
   late final PubSpec pubspec =
       PubSpec.fromYamlString(pubspecFile.readAsStringSync());
@@ -106,7 +104,7 @@ abstract class CliCommand extends Command<int> {
   }
 
   Future<void> check() async {
-    if (!packageDirectory.existsSync()) {
+    if (!directory.existsSync()) {
       throw CliException('Directory not exists: $directoryPath');
     }
 

@@ -187,9 +187,9 @@ class ServeCommand extends CliCommand {
 
   @override
   Future<int> handle() async {
-    var includedPaths = <String>[packageDirectory.absolute.path];
+    var includedPaths = <String>[directory.path];
     var collection = AnalysisContextCollection(includedPaths: includedPaths);
-    var context = collection.contextFor(packageDirectory.absolute.path);
+    var context = collection.contextFor(directory.absolute.path);
     var session = context.currentSession;
     var resolvedUnit = await session.getResolvedUnit(targetFile.absolute.path);
 
@@ -204,7 +204,7 @@ class ServeCommand extends CliCommand {
     var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
     var scriptPath = join('.dart_tool', 'astra', 'serve-$cliVersion.dart');
-    File(join(packageDirectory.path, scriptPath))
+    File(join(directory.path, scriptPath))
       ..createSync(recursive: true)
       ..writeAsStringSync(source);
 
@@ -269,7 +269,7 @@ class ServeCommand extends CliCommand {
       var process = await Process.start(
         Platform.executable,
         arguments,
-        workingDirectory: packageDirectory.path,
+        workingDirectory: directory.path,
       );
 
       void messageMapper(String message, EventSink<String> sink) {
