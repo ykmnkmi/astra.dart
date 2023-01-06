@@ -8,7 +8,7 @@ import 'package:astra/src/isolate/message.dart';
 class IsolateServer implements Server {
   IsolateServer(this.server, this.controlPort)
       : receivePort = ReceivePort(),
-        completer = Completer<void>() {
+        doneCompleter = Completer<void>() {
     receivePort.listen(onMessage);
     controlPort.send(receivePort.sendPort);
   }
@@ -20,7 +20,7 @@ class IsolateServer implements Server {
   final ReceivePort receivePort;
 
   /// The underlying `done` [Completer].
-  final Completer<void> completer;
+  final Completer<void> doneCompleter;
 
   @override
   Application? get application {
@@ -44,17 +44,21 @@ class IsolateServer implements Server {
 
   @override
   Future<void> get done {
-    return completer.future;
+    return doneCompleter.future;
   }
 
   void onMessage(Object? message) {
-    if (message == IsolateMessage.close) {
-      close();
-      return;
+    switch (message) {
+      case IsolateMessage.close:
+        close();
+        break;
+      case IsolateMessage.closeForce:
+        close(force: true);
+        break;
+      default:
+        // TODO(isolate): update error message
+        throw UnsupportedError('');
     }
-
-    // TODO: add error message
-    throw UnimplementedError();
   }
 
   @override
@@ -65,17 +69,17 @@ class IsolateServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    if (completer.isCompleted) {
-      // TODO(isolate): add error message
+    if (doneCompleter.isCompleted) {
+      // TODO(isolate): update error message
       throw StateError('');
     }
 
     try {
       await server.close(force: force);
-      controlPort.send(IsolateMessage.closed);
-      completer.complete();
+      doneCompleter.complete();
+      receivePort.close();
     } catch (error, stackTrace) {
-      completer.completeError(error, stackTrace);
+      doneCompleter.completeError(error, stackTrace);
       rethrow;
     }
   }

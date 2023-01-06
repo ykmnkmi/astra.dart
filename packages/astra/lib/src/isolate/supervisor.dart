@@ -1,62 +1,103 @@
-import 'dart:async' show Completer, Future;
-import 'dart:isolate' show Isolate, RawReceivePort, SendPort;
+import 'dart:async' show Completer, Future, FutureOr;
+import 'dart:isolate' show Isolate, ReceivePort, SendPort;
 
 import 'package:astra/src/isolate/message.dart';
 
 class IsolateSupervisor {
-  IsolateSupervisor(this.isolate, this.receive);
+  IsolateSupervisor(this.isolate, this.receivePort)
+      : launchCompleter = Completer<void>(),
+        stopCompleter = Completer<void>();
 
   final Isolate isolate;
 
-  final RawReceivePort receive;
+  final ReceivePort receivePort;
 
-  SendPort? server;
+  SendPort? serverPort;
 
-  Completer<void>? launchCompleter;
+  Completer<void> launchCompleter;
 
-  Completer<void>? stopCompleter;
+  Completer<void> stopCompleter;
 
   void onMessage(Object? message) {
     if (message is SendPort) {
-      server = message;
+      serverPort = message;
       return;
     }
 
     if (message == IsolateMessage.ready) {
-      launchCompleter!.complete();
-      launchCompleter = null;
+      launchCompleter.complete();
       return;
     }
 
-    if (message == IsolateMessage.closed) {
-      receive.close();
-      stopCompleter!.complete();
-      stopCompleter = null;
+    if (message == null) {
+      receivePort.close();
+      stopCompleter.complete();
       return;
     }
+
+    if (message is List && message.length == 2) {
+      var error = message[0];
+      var stackTrace = message[1];
+
+      if (error is Object && stackTrace is StackTrace) {
+        stopCompleter.completeError(error, stackTrace);
+        return;
+      }
+    }
+
+    // TODO(isolate): update error message
+    throw UnsupportedError('');
   }
 
   Future<void> resume() async {
-    if (launchCompleter != null) {
-      // TODO: add error message
+    if (launchCompleter.isCompleted) {
+      // TODO(isolate): update error message
       throw StateError('');
     }
 
-    launchCompleter = Completer<void>();
-    receive.handler = onMessage;
+    receivePort.listen(onMessage);
     isolate.resume(isolate.pauseCapability!);
-    await launchCompleter!.future;
+    await launchCompleter.future;
   }
 
-  Future<void> stop() async {
-    if (server == null) {
-      // TODO: add error message
+  Future<void> stop({bool force = false}) async {
+    var serverPort = this.serverPort;
+
+    if (serverPort == null) {
+      // TODO(isolate): update error message
       throw StateError('');
     }
 
-    stopCompleter = Completer();
-    server!.send(IsolateMessage.close);
-    await stopCompleter!.future;
-    isolate.kill();
+    if (stopCompleter.isCompleted) {
+      // TODO(isolate): update error message
+      throw StateError('');
+    }
+
+    if (force) {
+      serverPort.send(IsolateMessage.closeForce);
+    } else {
+      serverPort.send(IsolateMessage.close);
+    }
+
+    await stopCompleter.future;
+  }
+
+  static Future<IsolateSupervisor> spawn(
+    FutureOr<void> Function(SendPort) create, [
+    String? debugName,
+  ]) async {
+    var receivePort = ReceivePort();
+    var sendPort = receivePort.sendPort;
+
+    var isolate = await Isolate.spawn<SendPort>(
+      create,
+      receivePort.sendPort,
+      paused: true,
+      onExit: sendPort,
+      onError: sendPort,
+      debugName: debugName,
+    );
+
+    return IsolateSupervisor(isolate, receivePort);
   }
 }
