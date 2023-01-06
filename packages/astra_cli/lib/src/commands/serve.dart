@@ -203,9 +203,10 @@ class ServeCommand extends CliCommand {
 
     var memberType = TargetType.getFor(resolvedUnit, target: target);
     var source = await createSource(memberType);
-    var scriptPath = join('.dart_tool', 'astra.serve-$cliVersion.dart');
-    var script = File(join(packageDirectory.path, scriptPath));
-    script.writeAsStringSync(source);
+    var scriptPath = join('.dart_tool', 'astra', 'serve-$cliVersion.dart');
+    File(join(packageDirectory.path, scriptPath))
+      ..createSync(recursive: true)
+      ..writeAsStringSync(source);
 
     var arguments = <String>[
       for (var define in defineList) '-D$define',
