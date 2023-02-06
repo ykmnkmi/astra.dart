@@ -13,4 +13,3 @@ ide:
 command:
   bootstrap:
     runPubGetInParallel: false
-    usePubspecOverrides: true
