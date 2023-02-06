@@ -1,7 +1,7 @@
-[![Pub Package](https://img.shields.io/pub/v/astra.svg)][astra_cli]
+[![Pub Package](https://img.shields.io/pub/v/astra_cli.svg)][astra_cli]
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-The [astra][astra] and [shelf][shelf] command line tool. Inspired by [uvicorn][uvicorn].
+The [astra][] and [shelf][] command line tool. Inspired by [uvicorn][].
 
 **WIP, Unstable**
 
