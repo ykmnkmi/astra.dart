@@ -14,22 +14,9 @@ import 'package:astra/serve.dart';
 
 import '__PACKAGE__' as _ show __TARGET__;
 
-void create(SendPort sendPort) {
-  var debugName = Isolate.current.debugName ?? 'server/x';
-
-  Future<void> body() async {
+Future<void> create(SendPort sendPort) async {
 __CREATE__
 __SERVE__
-  }
-
-  runZoned<void>(
-    body,
-    zoneSpecification: ZoneSpecification(
-      print: (self, parent, zone, message) {
-        parent.print(zone, '$debugName: $message');
-      },
-    ),
-  );
 }
 
 Future<IsolateSupervisor> start(int index) async {
@@ -56,83 +43,65 @@ String? getIsolateID(IsolateSupervisor supervisor) {
   return Service.getIsolateID(supervisor.isolate);
 }
 
-ServiceExtensionResponse okResponse({
-  Map<String, Object?>? data,
-  bool ok = false,
-}) {
-  data = <String, Object?>{'ok': ok, ...?data};
-  return ServiceExtensionResponse.result(json.encode(data));
+ServiceExtensionResponse okResponse({Map<String, Object?>? data}) {
+  var result = <String, Object?>{...?data};
+  return ServiceExtensionResponse.result(json.encode(result));
 }
 
-ServiceExtensionResponse errorResponse(
-  Object error,
-  StackTrace stackTrace, {
-  bool ok = false,
-}) {
-  var data = <String, Object?>{
-    'ok': ok,
-    'error': error.toString(),
-    'stackTrace': stackTrace.toString(),
-  };
-
+ServiceExtensionResponse errorResponse(Object error, StackTrace stackTrace) {
+  var result = <String, Object?>{'error': '$error', 'stackTrace': '$stackTrace'};
   return ServiceExtensionResponse.error(
     ServiceExtensionResponse.extensionError,
-    json.encode(data),
+    json.encode(result),
   );
-}
-
-String trimRight(String message) {
-  return message.trimRight();
 }
 
 extension on Application {
   void register() {
-    Future<ServiceExtensionResponse> reload(
-      String isolateId,
-      Map<String, String> data,
-    ) async {
+    registerExtension('ext.astra.reload', (isolate, data) async {
       try {
-        await this.reload();
+        await reload();
         return okResponse();
       } catch (error, stackTrace) {
         return errorResponse(error, stackTrace);
       }
-    }
-
-    registerExtension('ext.astra.reload', reload);
+    });
   }
 }
 
 Future<void> main(List<String> arguments) async {
-  try {
-    var supervisors = await startAll();
+  var subscription = stdin.listen(null);
 
-    var isolateIDs = List<String?>.of(supervisors.map<String?>(getIsolateID));
-    var data = <String, Object?>{'isolateIDs': isolateIDs};
-    postEvent('ext.astra.started', data);
+  var info = await Service.getInfo();
+  var socketUri = info.serverWebSocketUri;
+  var isolateID = Service.getIsolateID(Isolate.current);
+  stdout.writeln('$socketUri,$isolateID');
 
-    var eventStream = stdin
-        .transform<String>(utf8.decoder)
-        .asyncMap<String>(trimRight);
+  late List<IsolateSupervisor> supervisors;
 
-    await for (var event in eventStream) {
-      if (event == 'restart') {
-        await stopAll(supervisors);
-        supervisors = await startAll();
-        postEvent('ext.astra.restarted', <String, Object?>{});
-      } else if (event == 'stop') {
-        await stopAll(supervisors);
-        postEvent('ext.astra.stopped', <String, Object?>{});
-        break;
-      } else {
-        throw UnsupportedError('event: $event');
-      }
-    }
-  } catch (error, stackTrace) {
-    stderr
-      ..writeln(error)
-      ..writeln(stackTrace);
+  registerExtension('ext.astra.start', (isolateId, params) async {
+    await subscription.cancel();
+    supervisors = await startAll();
 
-    exitCode = 1;
-  }
+    var isolates = supervisors.map(getIsolateID).toList();
+    var data = <String, Object?>{'isolates': isolates};
+    return okResponse(data: data);
+  });
+
+  registerExtension('ext.astra.pause', (isolateId, params) async {
+    await stopAll(supervisors);
+    subscription = stdin.listen(null);
+    return okResponse();
+  });
+
+  registerExtension('ext.astra.resume', (isolateId, params) async {
+    await subscription.cancel();
+    supervisors = await startAll();
+    return okResponse();
+  });
+
+  registerExtension('ext.astra.close', (isolateId, params) async {
+    await stopAll(supervisors);
+    return okResponse();
+  });
 }

@@ -1,1 +1,1 @@
-const String cliVersion = '1.0.0-dev.18';
+const String cliVersion = '1.0.0-dev.19';
