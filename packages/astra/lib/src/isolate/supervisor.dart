@@ -82,6 +82,11 @@ class IsolateSupervisor {
     await stopCompleter.future;
   }
 
+  Future<void> kill() async {
+    isolate.kill();
+    await stopCompleter.future;
+  }
+
   static Future<IsolateSupervisor> spawn(
     FutureOr<void> Function(SendPort) create, [
     String? debugName,

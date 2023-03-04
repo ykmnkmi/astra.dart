@@ -39,6 +39,15 @@ Future<void> stopAll(List<IsolateSupervisor> supervisors) async {
   await Future.wait<void>(futures);
 }
 
+Future<void> kill(IsolateSupervisor supervisor) async {
+  await supervisor.stop();
+}
+
+Future<void> killAll(List<IsolateSupervisor> supervisors) async {
+  var futures = supervisors.map<Future<void>>(kill);
+  await Future.wait<void>(futures);
+}
+
 String? getIsolateID(IsolateSupervisor supervisor) {
   return Service.getIsolateID(supervisor.isolate);
 }
@@ -102,6 +111,11 @@ Future<void> main(List<String> arguments) async {
 
   registerExtension('ext.astra.close', (isolateId, params) async {
     await stopAll(supervisors);
+    return okResponse();
+  });
+
+  registerExtension('ext.astra.kill', (isolateId, params) async {
+    await killAll(supervisors);
     return okResponse();
   });
 }

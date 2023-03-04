@@ -251,10 +251,6 @@ class ServeCommand extends CliCommand {
       }
     }
 
-    var group = StreamGroup<Object?>()
-      ..add(utf8.decoder.bind(stdin))
-      ..add(ProcessSignal.sigint.watch());
-
     int code;
 
     try {
@@ -371,6 +367,17 @@ class ServeCommand extends CliCommand {
         }
       }
 
+      Future<void> killServer() async {
+        try {
+          await service.callServiceExtension(
+            'ext.astra.kill',
+            isolateId: main,
+          );
+        } catch (error) {
+          stderr.writeln(error);
+        }
+      }
+
       if (debug) {
         stdout.writeln('Debug service listening on $webSocketUri');
       }
@@ -379,31 +386,33 @@ class ServeCommand extends CliCommand {
 
       await startServer();
 
-      await for (var event in group.stream) {
-        if (event == 'r') {
-          await reloadServer();
-        } else if (event == 'R') {
-          await restartServer();
-        } else if (event == 'c' ||
-            event == 'C' ||
-            event == ProcessSignal.sigint) {
-          stdout.writeln('> Closing ...');
-          await closeServer();
-          restoreStdinMode();
-          break;
-        } else if (event == 'q' || event == 'Q') {
-          stdout.writeln('> Force closing ...');
-          process.kill();
-          restoreStdinMode();
-          exit(0);
-        } else if (event == 's' || event == 'S') {
-          clearScreen();
-        } else if (event == 'h' || event == 'H') {
-          printServeModeUsage(hot: hot);
-        } else if (event is String) {
-          stdout.writeln('* Unknown key: ${json.encode(event)}');
-        } else {
-          stdout.writeln('* Unknown event: $event');
+      await for (var bytes in stdin) {
+        try {
+          var event = String.fromCharCodes(bytes);
+
+          if (event == 'r') {
+            await reloadServer();
+          } else if (event == 'R') {
+            await restartServer();
+          } else if (event == 'c' || event == 'C') {
+            stdout.writeln('> Closing ...');
+            await closeServer();
+            restoreStdinMode();
+            break;
+          } else if (event == 'q' || event == 'Q') {
+            stdout.writeln('> Force closing ...');
+            await killServer();
+            restoreStdinMode();
+            break;
+          } else if (event == 's' || event == 'S') {
+            clearScreen();
+          } else if (event == 'h' || event == 'H') {
+            printServeModeUsage(hot: hot);
+          } else {
+            stdout.writeln('* Unknown key: ${json.encode(event)}');
+          }
+        } catch (error) {
+          stderr.writeln(error);
         }
       }
 
@@ -415,8 +424,6 @@ class ServeCommand extends CliCommand {
         ..writeln(stackTrace);
 
       code = 1;
-    } finally {
-      await group.close();
     }
 
     return code;
