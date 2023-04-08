@@ -283,8 +283,7 @@ class ServeCommand extends CliCommand {
       }
 
       stdoutSubscription = process.stdout.listen(onMessage);
-      process.stderr.pipe(stderr);
-      process.stdin.writeln();
+      process.stderr.listen(stderr.add);
 
       var config = await completer.future;
       var parts = config.split(',');
@@ -292,7 +291,17 @@ class ServeCommand extends CliCommand {
       var webSocketUri = parts[0];
       var main = parts[1];
 
-      var service = await vmServiceConnectUri(webSocketUri);
+      VmService service;
+
+      try {
+        service = await vmServiceConnectUri(webSocketUri);
+      } catch (error, stackTrace) {
+        stderr
+          ..writeln(error)
+          ..writeln(stackTrace);
+        restoreStdinMode();
+        exit(1);
+      }
 
       late List<String> isolates;
 
@@ -305,8 +314,10 @@ class ServeCommand extends CliCommand {
 
           var list = response.json!['isolates'] as List<Object?>;
           isolates = list.cast<String>();
-        } catch (error) {
-          stderr.writeln(error);
+        } catch (error, stackTrace) {
+          stderr
+            ..writeln(error)
+            ..writeln(stackTrace);
         }
       }
 
@@ -326,15 +337,17 @@ class ServeCommand extends CliCommand {
           try {
             var futures = isolates.map<Future<void>>(reloadIsolate);
             await Future.wait<void>(futures);
-          } catch (error) {
-            stderr.writeln(error);
+          } catch (error, stackTrace) {
+            stderr
+              ..writeln(error)
+              ..writeln(stackTrace);
           }
         };
       } else {
         reloadServer = () async {
           stdout
-            ..writeln('> Hot-Reload not enabled.')
-            ..writeln("  Run with '--hot' option.");
+            ..writeln('Hot-Reload not enabled.')
+            ..writeln("Run with '--hot' option.");
         };
       }
 
@@ -347,12 +360,16 @@ class ServeCommand extends CliCommand {
 
           await service.reloadSources(main);
 
-          await service.callServiceExtension(
+          var response = await service.callServiceExtension(
             'ext.astra.resume',
             isolateId: main,
           );
-        } catch (error) {
-          stderr.writeln(error);
+
+          isolates = (response.json!['isolates'] as List).cast<String>();
+        } catch (error, stackTrace) {
+          stderr
+            ..writeln(error)
+            ..writeln(stackTrace);
         }
       }
 
@@ -362,8 +379,10 @@ class ServeCommand extends CliCommand {
             'ext.astra.close',
             isolateId: main,
           );
-        } catch (error) {
-          stderr.writeln(error);
+        } catch (error, stackTrace) {
+          stderr
+            ..writeln(error)
+            ..writeln(stackTrace);
         }
       }
 
@@ -373,8 +392,10 @@ class ServeCommand extends CliCommand {
             'ext.astra.kill',
             isolateId: main,
           );
-        } catch (error) {
-          stderr.writeln(error);
+        } catch (error, stackTrace) {
+          stderr
+            ..writeln(error)
+            ..writeln(stackTrace);
         }
       }
 
@@ -395,12 +416,12 @@ class ServeCommand extends CliCommand {
           } else if (event == 'R') {
             await restartServer();
           } else if (event == 'c' || event == 'C') {
-            stdout.writeln('> Closing ...');
+            stdout.writeln('Closing ...');
             await closeServer();
             restoreStdinMode();
             break;
           } else if (event == 'q' || event == 'Q') {
-            stdout.writeln('> Force closing ...');
+            stdout.writeln('Force closing ...');
             await killServer();
             restoreStdinMode();
             break;
@@ -409,10 +430,12 @@ class ServeCommand extends CliCommand {
           } else if (event == 'h' || event == 'H') {
             printServeModeUsage(hot: hot);
           } else {
-            stdout.writeln('* Unknown key: ${json.encode(event)}');
+            stdout.writeln('Unknown key: ${json.encode(event)}');
           }
-        } catch (error) {
-          stderr.writeln(error);
+        } catch (error, stackTrace) {
+          stderr
+            ..writeln(error)
+            ..writeln(stackTrace);
         }
       }
 
@@ -432,16 +455,16 @@ class ServeCommand extends CliCommand {
 
 void printServeModeUsage({bool detailed = false, bool hot = false}) {
   if (hot) {
-    stdout.writeln("> Press 'r' to hot-reload and 'R' to hot-restart.");
+    stdout.writeln("Press 'r' to hot-reload and 'R' to hot-restart.");
   } else {
-    stdout.writeln("> Press 'r' or 'R' to restart.");
+    stdout.writeln("Press 'r' or 'R' to restart.");
   }
 
   stdout
-    ..writeln("  Press 'c' or 'C' to graceful shutdown.")
-    ..writeln("  Press 'q' or 'Q' to force quit.")
-    ..writeln("  Press 's' or 'S' to clear terminal.")
-    ..writeln("  Press 'h' or 'H' to show this help message.");
+    ..writeln("Press 'c' or 'C' to graceful shutdown.")
+    ..writeln("Press 'q' or 'Q' to force quit.")
+    ..writeln("Press 's' or 'S' to clear terminal.")
+    ..writeln("Press 'h' or 'H' to show this help message.");
 }
 
 void clearScreen() {
@@ -449,8 +472,8 @@ void clearScreen() {
     stdout.write('\x1b[2J\x1b[H');
   } else if (Platform.isWindows) {
     // TODO(cli): windows: reset buffer
-    stdout.writeln('* Not supported yet.');
+    stdout.writeln('Not supported yet.');
   } else {
-    stdout.writeln('* Not supported.');
+    stdout.writeln('Not supported.');
   }
 }
