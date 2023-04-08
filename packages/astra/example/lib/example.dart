@@ -23,21 +23,13 @@ class Example extends Application {
         case 'error':
           throw Exception('some message');
         default:
-          print(request.url.path);
           return Response.notFound('Request for "${request.url}"');
       }
     };
   }
 
   @override
-  Future<void> prepare() async {
-    print('preparing ...');
-    // ...
-  }
-
-  @override
   Future<void> reload() async {
-    print('reloading ...');
     count = 0;
     // ...
   }
