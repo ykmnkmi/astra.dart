@@ -9,7 +9,6 @@ import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/extension.dart';
 import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
-import 'package:async/async.dart';
 import 'package:path/path.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
