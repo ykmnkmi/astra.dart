@@ -3,7 +3,7 @@
 
 The [astra][] and [shelf][] command line tool. Inspired by [uvicorn][].
 
-**WIP, Unstable**
+**WORK IN PROGRESS**
 
 ### ToDo
 - Verbose output 🔥

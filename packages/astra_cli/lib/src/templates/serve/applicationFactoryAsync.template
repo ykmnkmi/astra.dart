@@ -1,1 +1,0 @@
-    var application = await _.__TARGET__();

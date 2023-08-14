@@ -15,7 +15,25 @@ import 'package:astra/serve.dart';
 import '__PACKAGE__' as _ show __TARGET__;
 
 Future<void> create(SendPort sendPort) async {
-__CREATE__
+  Application application;
+
+  if (_.__TARGET__ case Application target) {
+    application = target;
+  } else if (_.__TARGET__ case Future<Application> future) {
+    application = await future;
+  } else if (_.__TARGET__ case Application Function() factory) {
+    application = factory();
+  } else if (_.__TARGET__ case Future<Application> Function() factory) {
+    application = await factory();
+  } else if (_.__TARGET__ case Handler handler) {
+    application = handler.asApplication();
+  } else if (_.__TARGET__ case Future<Handler> future) {
+    var handler = await future;
+    application = handler.asApplication();
+  } else {
+    throw UnsupportedError('${_.application.runtimeType}');
+  }
+
 __SERVE__
 }
 
@@ -48,7 +66,7 @@ Future<void> killAll(List<IsolateSupervisor> supervisors) async {
   await Future.wait<void>(futures);
 }
 
-String? getIsolateID(IsolateSupervisor supervisor) {
+String? getIsolateSupervisorID(IsolateSupervisor supervisor) {
   return Service.getIsolateID(supervisor.isolate);
 }
 
@@ -82,48 +100,26 @@ Future<void> main(List<String> arguments) async {
   var info = await Service.getInfo();
   var socketUri = info.serverWebSocketUri;
   var isolateID = Service.getIsolateID(Isolate.current);
-  stdout.writeln('$socketUri,$isolateID');
+  var supervisors = await startAll();
+  var isolates = supervisors.map(getIsolateSupervisorID).toList();
+  stdout.writeln('$socketUri,$isolateID,${isolates.join(',')}');
 
-  late List<IsolateSupervisor> supervisors;
-
-  registerExtension('ext.astra.start', (isolateId, params) async {
-    supervisors = await startAll();
-
-    var isolates = supervisors.map(getIsolateID).toList();
-    var data = <String, Object?>{'isolates': isolates};
-    return okResponse(data: data);
-  });
-
-  registerExtension('ext.astra.pause', (isolateId, params) async {
+  registerExtension('ext.astra.restart', (isolateId, params) async {
     await stopAll(supervisors);
-    return okResponse();
-  });
-
-  registerExtension('ext.astra.resume', (isolateId, params) async {
     supervisors = await startAll();
+    isolates = supervisors.map(getIsolateSupervisorID).toList();
 
-    var isolates = supervisors.map(getIsolateID).toList();
     var data = <String, Object?>{'isolates': isolates};
     return okResponse(data: data);
   });
 
   registerExtension('ext.astra.close', (isolateId, params) async {
-    if (!completer.isCompleted) {
-      completer.complete();
-    }
-
     await stopAll(supervisors);
     return okResponse();
   });
 
   registerExtension('ext.astra.kill', (isolateId, params) async {
-    if (!completer.isCompleted) {
-      completer.complete();
-    }
-
     await killAll(supervisors);
     return okResponse();
   });
-
-  await completer.future;
 }

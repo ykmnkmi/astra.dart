@@ -1,3 +1,0 @@
-    var object = await _.__TARGET__;
-    var handler = object.call;
-    var application = handler.asApplication();

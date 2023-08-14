@@ -1,17 +1,16 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+import 'dart:async' show Completer, Future, StreamSubscription;
+import 'dart:convert' show json;
+import 'dart:io'
+    show File, Platform, Process, StdinException, exit, stderr, stdin, stdout;
 
-import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:astra/serve.dart';
+import 'package:astra/serve.dart' show ServerType;
 import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/extension.dart';
-import 'package:astra_cli/src/type.dart';
 import 'package:astra_cli/src/version.dart';
-import 'package:path/path.dart';
-import 'package:vm_service/vm_service.dart';
-import 'package:vm_service/vm_service_io.dart';
+import 'package:path/path.dart' show absolute, join, normalize;
+import 'package:stack_trace/stack_trace.dart' show Trace;
+import 'package:vm_service/vm_service.dart' show VmService;
+import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 class ServeCommand extends CliCommand {
   ServeCommand()
@@ -125,7 +124,7 @@ class ServeCommand extends CliCommand {
 
   late final bool enableAsserts = getBoolean('enable-asserts') ?? false;
 
-  Future<String> createSource(TargetType targetType) async {
+  Future<String> createSource() async {
     var data = <String, String>{
       'VERSION': cliVersion,
       'PACKAGE': 'package:$package/$package.dart',
@@ -153,7 +152,6 @@ class ServeCommand extends CliCommand {
       serveTemplate = 'serve';
     }
 
-    data['CREATE'] = await renderTemplate('serve/${targetType.name}', data);
     data['SERVE'] = await renderTemplate('serve/_.$serveTemplate', data);
     return await renderTemplate('serve', data);
   }
@@ -178,22 +176,7 @@ class ServeCommand extends CliCommand {
 
   @override
   Future<int> handle() async {
-    var includedPaths = <String>[directory.path];
-    var collection = AnalysisContextCollection(includedPaths: includedPaths);
-    var context = collection.contextFor(directory.absolute.path);
-    var session = context.currentSession;
-    var resolvedUnit = await session.getResolvedUnit(targetFile.absolute.path);
-
-    if (resolvedUnit is! ResolvedUnitResult) {
-      throw CliException('Library not resolved');
-    }
-
-    if (resolvedUnit.errors.isNotEmpty) {
-      throw resolvedUnit.errors.first;
-    }
-
-    var memberType = TargetType.getFor(resolvedUnit, target: target);
-    var source = await createSource(memberType);
+    var source = await createSource();
     var scriptPath = join('.dart_tool', 'astra', 'serve-$cliVersion.dart');
 
     File(join(directory.path, scriptPath))
@@ -256,6 +239,7 @@ class ServeCommand extends CliCommand {
 
     try {
       var completer = Completer<String>();
+      var buffer = StringBuffer();
 
       void onExit(int code) {
         if (completer.isCompleted) {
@@ -263,7 +247,7 @@ class ServeCommand extends CliCommand {
         }
 
         // TODO(cli): update error
-        completer.completeError('not started');
+        completer.completeError(StateError('exit code: $code'));
       }
 
       var process = await Process.start(
@@ -279,18 +263,25 @@ class ServeCommand extends CliCommand {
 
       void onMessage(List<int> bytes) {
         var string = String.fromCharCodes(bytes);
-        completer.complete(string);
-        stdoutSubscription.onData(stdout.add);
+
+        if (RegExp('ws://127.0.0.1:\\d+/.*,isolates/\\d+').hasMatch(string)) {
+          completer.complete(string);
+
+          void onData(List<int> bytes) {
+            buffer.write(String.fromCharCodes(bytes));
+          }
+
+          stdoutSubscription.onData(onData);
+        } else {
+          buffer.write(string);
+        }
       }
 
       stdoutSubscription = process.stdout.listen(onMessage);
       process.stderr.listen(stderr.add);
 
       var config = await completer.future;
-      var parts = config.split(',');
-
-      var webSocketUri = parts[0];
-      var main = parts[1];
+      var [webSocketUri, main, ...isolates] = config.trimRight().split(',');
 
       VmService service;
 
@@ -299,27 +290,10 @@ class ServeCommand extends CliCommand {
       } catch (error, stackTrace) {
         stderr
           ..writeln(error)
-          ..writeln(stackTrace);
+          ..writeln(Trace.format(stackTrace));
+
         restoreStdinMode();
         exit(1);
-      }
-
-      late List<String> isolates;
-
-      Future<void> startServer() async {
-        try {
-          var response = await service.callServiceExtension(
-            'ext.astra.start',
-            isolateId: main,
-          );
-
-          var list = response.json!['isolates'] as List<Object?>;
-          isolates = list.cast<String>();
-        } catch (error, stackTrace) {
-          stderr
-            ..writeln(error)
-            ..writeln(stackTrace);
-        }
       }
 
       Future<void> Function() reloadServer;
@@ -341,7 +315,7 @@ class ServeCommand extends CliCommand {
           } catch (error, stackTrace) {
             stderr
               ..writeln(error)
-              ..writeln(stackTrace);
+              ..writeln(Trace.format(stackTrace));
           }
         };
       } else {
@@ -354,15 +328,10 @@ class ServeCommand extends CliCommand {
 
       Future<void> restartServer() async {
         try {
-          await service.callServiceExtension(
-            'ext.astra.pause',
-            isolateId: main,
-          );
-
           await service.reloadSources(main);
 
           var response = await service.callServiceExtension(
-            'ext.astra.resume',
+            'ext.astra.restart',
             isolateId: main,
           );
 
@@ -370,7 +339,7 @@ class ServeCommand extends CliCommand {
         } catch (error, stackTrace) {
           stderr
             ..writeln(error)
-            ..writeln(stackTrace);
+            ..writeln(Trace.format(stackTrace));
         }
       }
 
@@ -383,7 +352,7 @@ class ServeCommand extends CliCommand {
         } catch (error, stackTrace) {
           stderr
             ..writeln(error)
-            ..writeln(stackTrace);
+            ..writeln(Trace.format(stackTrace));
         }
       }
 
@@ -396,7 +365,7 @@ class ServeCommand extends CliCommand {
         } catch (error, stackTrace) {
           stderr
             ..writeln(error)
-            ..writeln(stackTrace);
+            ..writeln(Trace.format(stackTrace));
         }
       }
 
@@ -405,8 +374,8 @@ class ServeCommand extends CliCommand {
       }
 
       printServeModeUsage(hot: hot);
-
-      await startServer();
+      stdout.write(buffer);
+      stdoutSubscription.onData(stdout.add);
 
       await for (var bytes in stdin) {
         try {
@@ -436,7 +405,7 @@ class ServeCommand extends CliCommand {
         } catch (error, stackTrace) {
           stderr
             ..writeln(error)
-            ..writeln(stackTrace);
+            ..writeln(Trace.format(stackTrace));
         }
       }
 
@@ -445,7 +414,7 @@ class ServeCommand extends CliCommand {
     } catch (error, stackTrace) {
       stderr
         ..writeln(error)
-        ..writeln(stackTrace);
+        ..writeln(Trace.format(stackTrace));
 
       code = 1;
     }
@@ -458,14 +427,15 @@ void printServeModeUsage({bool detailed = false, bool hot = false}) {
   if (hot) {
     stdout.writeln("Press 'r' to hot-reload and 'R' to hot-restart.");
   } else {
-    stdout.writeln("Press 'r' or 'R' to restart.");
+    stdout.writeln("Press 'r' or 'R' to hot-restart.");
   }
 
   stdout
     ..writeln("Press 'c' or 'C' to graceful shutdown.")
     ..writeln("Press 'q' or 'Q' to force quit.")
     ..writeln("Press 's' or 'S' to clear terminal.")
-    ..writeln("Press 'h' or 'H' to show this help message.");
+    ..writeln("Press 'h' or 'H' to show this help message.")
+    ..writeln();
 }
 
 void clearScreen() {
