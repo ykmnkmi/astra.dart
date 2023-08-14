@@ -169,7 +169,9 @@ class ServeCommand extends CliCommand {
     if (sslCert != null && sslKey == null) {
       // TODO(cli): update error message
       throw CliException('');
-    } else if (sslKey != null) {
+    }
+
+    if (sslKey != null) {
       // TODO(cli): add warn message
     }
   }
