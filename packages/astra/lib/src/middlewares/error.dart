@@ -128,7 +128,7 @@ String render(Object error, Trace trace) {
 ''';
 }
 
-// TODO: move to framework
+// TODO(middlewares): move to framework
 Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
   return (Handler handler) {
     return (Request request) async {

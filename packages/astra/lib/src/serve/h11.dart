@@ -19,11 +19,16 @@ import 'package:stream_channel/stream_channel.dart';
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
-  ShelfServer(this.httpServer) : completer = Completer<void>();
+  ShelfServer(this.httpServer, {this.isSecure = false})
+      : completer = Completer<void>();
 
   /// The underlying [HttpServer].
   @internal
   final HttpServer httpServer;
+
+  /// The underlying [HttpServer].
+  @internal
+  final bool isSecure;
 
   /// The underlying `done` [Completer].
   @internal
@@ -45,15 +50,17 @@ class ShelfServer implements Server {
 
   @override
   Uri get url {
+    String host;
+
     if (address.isLoopback) {
-      return Uri(scheme: 'http', host: 'localhost', port: port);
+      host = 'localhost';
+    } else if (address.type == InternetAddressType.IPv6) {
+      host = '[${address.address}]';
+    } else {
+      host = address.address;
     }
 
-    if (address.type == InternetAddressType.IPv6) {
-      return Uri(scheme: 'http', host: '[${address.address}]', port: port);
-    }
-
-    return Uri(scheme: 'http', host: address.address, port: port);
+    return Uri(scheme: isSecure ? 'https' : 'http', host: host, port: port);
   }
 
   @override
@@ -90,8 +97,7 @@ class ShelfServer implements Server {
   @override
   Future<void> close({bool force = false}) async {
     if (completer.isCompleted) {
-      // TODO(h11): add error message
-      throw StateError('');
+      return;
     }
 
     try {
@@ -120,17 +126,10 @@ class ShelfServer implements Server {
     bool requestClientCertificate = false,
     bool shared = false,
   }) async {
+    var isSecure = securityContext != null;
     HttpServer server;
 
-    if (securityContext == null) {
-      server = await HttpServer.bind(
-        address,
-        port,
-        backlog: backlog,
-        v6Only: v6Only,
-        shared: shared,
-      );
-    } else {
+    if (isSecure) {
       server = await HttpServer.bindSecure(
         address,
         port,
@@ -140,16 +139,26 @@ class ShelfServer implements Server {
         requestClientCertificate: requestClientCertificate,
         shared: shared,
       );
+    } else {
+      server = await HttpServer.bind(
+        address,
+        port,
+        backlog: backlog,
+        v6Only: v6Only,
+        shared: shared,
+      );
     }
 
-    return ShelfServer(server);
+    return ShelfServer(server, isSecure: isSecure);
   }
 }
 
 /// Uses [Handler] to handle [HttpRequest].
-// TODO: error response with message
-Future<void> handleRequest(FutureOr<Response?> Function(Request) handler,
-    HttpRequest httpRequest) async {
+// TODO(h11): error response with message
+Future<void> handleRequest(
+  FutureOr<Response?> Function(Request) handler,
+  HttpRequest httpRequest,
+) async {
   Request request;
 
   try {
@@ -159,18 +168,18 @@ Future<void> handleRequest(FutureOr<Response?> Function(Request) handler,
       logError('Error parsing request\n$error', stackTrace);
 
       var headers = <String, String>{
-        HttpHeaders.contentTypeHeader: 'text/plain'
+        HttpHeaders.contentTypeHeader: 'text/plain',
       };
 
       var response = Response.badRequest(body: 'Bad Request', headers: headers);
       await writeResponse(response, httpRequest.response);
-      return;
+    } else {
+      logError('Error parsing request\n$error', stackTrace);
+
+      var response = Response.internalServerError();
+      await writeResponse(response, httpRequest.response);
     }
 
-    logError('Error parsing request\n$error', stackTrace);
-
-    var response = Response.internalServerError();
-    await writeResponse(response, httpRequest.response);
     return;
   } catch (error, stackTrace) {
     logError('Error parsing request\n$error', stackTrace);
@@ -189,10 +198,8 @@ Future<void> handleRequest(FutureOr<Response?> Function(Request) handler,
       return;
     }
 
-    logError(
-      "Caught HijackException, but the request wasn't hijacked.\n$error",
-      stackTrace,
-    );
+    logError("Caught HijackException, but the request wasn't hijacked.\n$error",
+        stackTrace);
 
     response = Response.internalServerError();
   } catch (error, stackTrace) {
@@ -283,10 +290,9 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) {
   if (coding != null && !equalsIgnoreAsciiCase(coding, 'identity')) {
     // If the response is already in a chunked encoding, de-chunk it because
     // otherwise `dart:io` will try to add another layer of chunking.
-    // TODO: Do this more cleanly when sdk#27886 is fixed.
-    response = response.change(
-      body: chunkedCoding.decoder.bind(response.read()),
-    );
+    // TODO(h11): Do this more cleanly when sdk#27886 is fixed.
+    response =
+        response.change(body: chunkedCoding.decoder.bind(response.read()));
 
     httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
   } else if (response.statusCode >= 200 &&
