@@ -11,11 +11,12 @@ import 'dart:io'
         Socket;
 
 import 'package:astra/core.dart';
+import 'package:astra/src/serve/server.dart';
 import 'package:astra/src/serve/utils.dart';
-import 'package:collection/collection.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:meta/meta.dart';
-import 'package:stream_channel/stream_channel.dart';
+import 'package:collection/collection.dart' show equalsIgnoreAsciiCase;
+import 'package:http_parser/http_parser.dart' show chunkedCoding;
+import 'package:meta/meta.dart' show internal;
+import 'package:stream_channel/stream_channel.dart' show StreamChannel;
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {

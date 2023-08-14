@@ -8,8 +8,10 @@ import 'dart:isolate' show SendPort;
 import 'package:astra/core.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/src/serve/h11.dart';
+import 'package:astra/src/serve/server.dart';
 
 export 'package:astra/src/serve/h11.dart';
+export 'package:astra/src/serve/server.dart';
 export 'package:astra/src/serve/utils.dart';
 
 enum ServerType {

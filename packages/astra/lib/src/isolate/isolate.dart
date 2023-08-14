@@ -1,9 +1,10 @@
-import 'dart:async';
+import 'dart:async' show Completer, Future;
 import 'dart:io' show InternetAddress;
 import 'dart:isolate' show ReceivePort, SendPort;
 
 import 'package:astra/core.dart';
 import 'package:astra/src/isolate/message.dart';
+import 'package:astra/src/serve/server.dart';
 
 class IsolateServer implements Server {
   IsolateServer(this.server, this.controlPort)
