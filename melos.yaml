@@ -1,7 +1,6 @@
 name: astra
 
 packages:
-  - .
   - packages/astra
   - packages/astra_cli
   - packages/astra/example
