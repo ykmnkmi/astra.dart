@@ -13,18 +13,13 @@ class Example extends Application {
     return (Request request) async {
       count += 1;
 
-      switch (request.url.path) {
-        case '':
-          return Response.ok('hello world!');
-        case 'count':
-          return Response.ok('count: $count');
-        case 'readme':
-          return Response.ok(File('README.md').openRead());
-        case 'error':
-          throw Exception('some message');
-        default:
-          return Response.notFound('Request for "${request.url}"');
-      }
+      return switch (request.url.path) {
+        '' => Response.ok('hello world!'),
+        'count' => Response.ok('count: $count'),
+        'readme' => Response.ok(File('README.md').openRead()),
+        'error' => throw Exception('some message'),
+        _ => Response.notFound('Request for "${request.url}"'),
+      };
     };
   }
 
@@ -36,6 +31,7 @@ class Example extends Application {
 
   @override
   Future<void> close() async {
+    // ignore: avoid_print
     print('closing ...');
     // ...
   }
