@@ -1,9 +1,9 @@
 name: astra
 
 packages:
-  - packages/astra
-  - packages/astra_cli
-  - packages/astra/example
+  - astra
+  - astra/example
+  - astra_cli
 
 ide:
   intellij:
