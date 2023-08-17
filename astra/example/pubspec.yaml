@@ -1,6 +1,6 @@
 name: example
 description: A Shelf based Astra application.
-version: 1.0.0+3
+version: 1.0.0+4
 publish_to: none
 
 environment:
