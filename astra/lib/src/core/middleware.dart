@@ -10,9 +10,11 @@ extension MiddlewareExtension on Middleware {
   }
 
   /// Similar to [Pipeline.addMiddleware].
-  Middleware next(Middleware middleware) {
-    return (Handler handler) {
-      return this(middleware(handler));
-    };
+  Middleware next(Middleware nextMiddleware) {
+    Handler middleware(Handler handler) {
+      return this(nextMiddleware(handler));
+    }
+
+    return middleware;
   }
 }

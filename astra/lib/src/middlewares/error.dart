@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert' show htmlEscape;
 import 'dart:io' show File;
 
@@ -5,58 +6,37 @@ import 'package:astra/core.dart';
 import 'package:meta/meta.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
-@internal
-String renderPageTitle(Object error, Trace trace) {
+String _renderPageTitle(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
   var message = parts.join(':').trim();
   return '$type: $message';
 }
 
-@internal
-String renderType(Object error, Trace trace) {
+String _renderType(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var type = parts.length > 1 ? parts[0].trim() : 'Error';
   return '<h1>$type</h1>';
 }
 
-@internal
-String renderMessage(Object error, Trace trace) {
+String _renderMessage(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var message = parts.skip(1).join(':').trim();
   return '<h2>$message</h2>';
 }
 
-@internal
-String renderTitle(Object error, Trace trace) {
+String _renderTitle(Object error, Trace trace) {
   return ''
       '<p class="title">'
       'Traceback <span style="color:grey">(most recent call last)</span>'
       '</p>';
 }
 
-@internal
-Iterable<String> renderFrames(Object error, Trace trace) sync* {
-  var frames = trace.frames.reversed.toList();
-  var frame = frames.removeLast();
-
-  for (var frame in frames) {
-    if (frame.isCore) {
-      continue;
-    }
-
-    yield renderFrame(frame);
-  }
-
-  yield renderFrame(frame, true);
-}
-
-@internal
-String renderFrame(Frame frame, [bool full = false]) {
+String _renderFrame(Frame frame, [bool full = false]) {
   var result = ''
       '<div class="frame">'
-      '<span class="library">${frame.library}</span>, '
-      'line <i>${frame.line}</i> column <i>${frame.column}<i>, '
+      '<span class="library">${frame.library.replaceAll('\\', '/')}</span>, '
+      'line <i>${frame.line}</i> column <i>${frame.column}</i>, '
       'in <span class="member">${htmlEscape.convert(frame.member!)}</span>';
 
   if (full && frame.uri.scheme == 'file' && frame.line != null) {
@@ -69,13 +49,28 @@ String renderFrame(Frame frame, [bool full = false]) {
   return '$result</div>';
 }
 
+Iterable<String> _renderFrames(Object error, Trace trace) sync* {
+  var frames = trace.frames.reversed.toList();
+  var frame = frames.removeLast();
+
+  for (var frame in frames) {
+    if (frame.isCore) {
+      continue;
+    }
+
+    yield _renderFrame(frame);
+  }
+
+  yield _renderFrame(frame, true);
+}
+
 @internal
 String render(Object error, Trace trace) {
   return '''
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>${renderPageTitle(error, trace)}</title>
+    <title>${_renderPageTitle(error, trace)}</title>
     <style>
       body {
         font-family: monospace;
@@ -117,23 +112,22 @@ String render(Object error, Trace trace) {
     </style>
   </head>
   <body>
-    ${renderType(error, trace)}
-    ${renderMessage(error, trace)}
+    ${_renderType(error, trace)}
+    ${_renderMessage(error, trace)}
     <div class="traceback">
-      ${renderTitle(error, trace)}
-      ${renderFrames(error, trace).join('\n      ')}
+      ${_renderTitle(error, trace)}
+      ${_renderFrames(error, trace).join('\n      ')}
     </div>
   </body>
 </html>
 ''';
 }
 
-// TODO(middlewares): move to framework
 Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
-  return (Handler handler) {
-    return (Request request) async {
+  Handler middleware(Handler innerHandler) {
+    Future<Response> handler(Request request) async {
       try {
-        return await handler(request);
+        return await innerHandler(request);
       } on HijackException {
         rethrow;
       } catch (error, stackTrace) {
@@ -142,6 +136,7 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
 
           if (accept != null && accept.contains('text/html')) {
             const headers = <String, String>{'content-type': 'text/html'};
+
             var trace = Trace.from(stackTrace);
             var body = render(error, trace);
             return Response.internalServerError(body: body, headers: headers);
@@ -157,6 +152,10 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
 
         return errorHandler(request, error, stackTrace);
       }
-    };
-  };
+    }
+
+    return handler;
+  }
+
+  return middleware;
 }

@@ -38,10 +38,9 @@ class TestClient extends BaseClient {
       var requestedUrl = request.url;
 
       var url = requestedUrl.replace(
-        scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
-        host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
-        port: port == 0 ? server.port : requestedUrl.port,
-      );
+          scheme: requestedUrl.scheme.isEmpty ? scheme : requestedUrl.scheme,
+          host: requestedUrl.host.isEmpty ? host : requestedUrl.host,
+          port: port == 0 ? server.port : requestedUrl.port);
 
       var clientRequest = await client.openUrl(request.method, url);
 
@@ -70,17 +69,14 @@ class TestClient extends BaseClient {
         contentLength = response.contentLength;
       }
 
-      streamedResponse = IOStreamedResponse(
-        response,
-        response.statusCode,
-        contentLength: contentLength,
-        request: request,
-        headers: headers,
-        isRedirect: response.isRedirect,
-        persistentConnection: response.persistentConnection,
-        reasonPhrase: response.reasonPhrase,
-        inner: response,
-      );
+      streamedResponse = IOStreamedResponse(response, response.statusCode,
+          contentLength: contentLength,
+          request: request,
+          headers: headers,
+          isRedirect: response.isRedirect,
+          persistentConnection: response.persistentConnection,
+          reasonPhrase: response.reasonPhrase,
+          inner: response);
     } on HttpException catch (error) {
       throw ClientException(error.message, error.uri);
     }

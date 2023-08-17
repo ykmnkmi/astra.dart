@@ -5,72 +5,59 @@ import 'package:astra/src/isolate/message.dart';
 
 class IsolateSupervisor {
   IsolateSupervisor(this.isolate, this.receivePort)
-      : launchCompleter = Completer<void>(),
-        stopCompleter = Completer<void>();
+      : _launchCompleter = Completer<void>(),
+        _stopCompleter = Completer<void>();
 
   final Isolate isolate;
 
   final ReceivePort receivePort;
 
-  SendPort? serverPort;
+  final Completer<void> _launchCompleter;
 
-  Completer<void> launchCompleter;
+  final Completer<void> _stopCompleter;
 
-  Completer<void> stopCompleter;
-
-  void onMessage(Object? message) {
-    if (message is SendPort) {
-      serverPort = message;
-      return;
-    }
-
-    if (message == IsolateMessage.ready) {
-      launchCompleter.complete();
-      return;
-    }
-
-    if (message == null) {
-      receivePort.close();
-      stopCompleter.complete();
-      return;
-    }
-
-    if (message is List && message.length == 2) {
-      var error = message[0];
-      var stackTrace = message[1];
-
-      if (error is Object && stackTrace is StackTrace) {
-        stopCompleter.completeError(error, stackTrace);
-        return;
-      }
-    }
-
-    // TODO(isolate): update error message
-    throw UnsupportedError('');
-  }
+  SendPort? _serverPort;
 
   Future<void> resume() async {
-    if (launchCompleter.isCompleted) {
-      // TODO(isolate): update error message
-      throw StateError('');
+    if (_launchCompleter.isCompleted) {
+      // TODO(isolate): update assert message
+      assert(false, '');
+      return;
+    }
+
+    void onMessage(Object? message) {
+      if (message is SendPort) {
+        _serverPort = message;
+      } else if (message == IsolateMessage.ready) {
+        _launchCompleter.complete();
+      } else if (message == null) {
+        receivePort.close();
+        _stopCompleter.complete();
+      } else if (message case [Object error, StackTrace stackTrace]) {
+        _stopCompleter.completeError(error, stackTrace);
+      } else {
+        // TODO(isolate): update assert message
+        assert(false, 'Unsupported message: $message');
+      }
     }
 
     receivePort.listen(onMessage);
     isolate.resume(isolate.pauseCapability!);
-    await launchCompleter.future;
+    await _launchCompleter.future;
   }
 
   Future<void> stop({bool force = false}) async {
-    var serverPort = this.serverPort;
+    var serverPort = _serverPort;
 
     if (serverPort == null) {
       // TODO(isolate): update error message
       throw StateError('');
     }
 
-    if (stopCompleter.isCompleted) {
-      // TODO(isolate): update error message
-      throw StateError('');
+    if (_stopCompleter.isCompleted) {
+      // TODO(isolate): update assert message
+      assert(false, '');
+      return;
     }
 
     if (force) {
@@ -79,12 +66,12 @@ class IsolateSupervisor {
       serverPort.send(IsolateMessage.close);
     }
 
-    await stopCompleter.future;
+    await _stopCompleter.future;
   }
 
   Future<void> kill() async {
     isolate.kill();
-    await stopCompleter.future;
+    await _stopCompleter.future;
   }
 
   static Future<IsolateSupervisor> spawn(
@@ -94,14 +81,11 @@ class IsolateSupervisor {
     var receivePort = ReceivePort();
     var sendPort = receivePort.sendPort;
 
-    var isolate = await Isolate.spawn<SendPort>(
-      create,
-      receivePort.sendPort,
-      paused: true,
-      onExit: sendPort,
-      onError: sendPort,
-      debugName: debugName,
-    );
+    var isolate = await Isolate.spawn<SendPort>(create, receivePort.sendPort,
+        paused: true,
+        onExit: sendPort,
+        onError: sendPort,
+        debugName: debugName);
 
     return IsolateSupervisor(isolate, receivePort);
   }

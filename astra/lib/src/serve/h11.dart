@@ -15,29 +15,28 @@ import 'package:astra/src/serve/server.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart' show equalsIgnoreAsciiCase;
 import 'package:http_parser/http_parser.dart' show chunkedCoding;
-import 'package:meta/meta.dart' show internal;
 import 'package:stream_channel/stream_channel.dart' show StreamChannel;
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
   ShelfServer(this.httpServer, {this.isSecure = false})
-      : completer = Completer<void>();
+      : _completer = Completer<void>();
 
   /// The underlying [HttpServer].
-  @internal
   final HttpServer httpServer;
 
-  /// The underlying [HttpServer].
-  @internal
+  /// {@nodoc}
   final bool isSecure;
 
   /// The underlying `done` [Completer].
-  @internal
-  final Completer<void> completer;
+  final Completer<void> _completer;
 
-  /// Mounted [Application].
+  Application? _application;
+
   @override
-  Application? application;
+  Application? get application {
+    return _application;
+  }
 
   @override
   InternetAddress get address {
@@ -66,16 +65,16 @@ class ShelfServer implements Server {
 
   @override
   Future<void> get done {
-    return completer.future;
+    return _completer.future;
   }
 
   @override
   Future<void> mount(Application application) async {
-    if (this.application != null) {
+    if (_application != null) {
       throw StateError("Can't mount two handlers for the same server");
     }
 
-    this.application = application;
+    _application = application;
     await application.prepare();
 
     var handler = application.entryPoint;
@@ -97,7 +96,7 @@ class ShelfServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    if (completer.isCompleted) {
+    if (_completer.isCompleted) {
       return;
     }
 
@@ -110,9 +109,9 @@ class ShelfServer implements Server {
         await application.close();
       }
 
-      completer.complete();
+      _completer.complete();
     } catch (error, stackTrace) {
-      completer.completeError(error, stackTrace);
+      _completer.completeError(error, stackTrace);
       rethrow;
     }
   }
@@ -131,23 +130,14 @@ class ShelfServer implements Server {
     HttpServer server;
 
     if (isSecure) {
-      server = await HttpServer.bindSecure(
-        address,
-        port,
-        securityContext,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-      );
+      server = await HttpServer.bindSecure(address, port, securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared);
     } else {
-      server = await HttpServer.bind(
-        address,
-        port,
-        backlog: backlog,
-        v6Only: v6Only,
-        shared: shared,
-      );
+      server = await HttpServer.bind(address, port,
+          backlog: backlog, v6Only: v6Only, shared: shared);
     }
 
     return ShelfServer(server, isSecure: isSecure);

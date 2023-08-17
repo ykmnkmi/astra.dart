@@ -43,16 +43,13 @@ extension ServeHandlerExtension on Handler {
     bool requestClientCertificate = false,
     bool shared = false,
   }) async {
-    return asApplication().serve(
-      address,
-      port,
-      type: type,
-      securityContext: securityContext,
-      backlog: backlog,
-      v6Only: v6Only,
-      requestClientCertificate: requestClientCertificate,
-      shared: shared,
-    );
+    return asApplication().serve(address, port,
+        type: type,
+        securityContext: securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared);
   }
 }
 
@@ -68,26 +65,14 @@ extension ServeApplicationExtension on Application {
     bool shared = false,
     SendPort? controlPort,
   }) async {
-    Server server;
-
-    switch (type) {
-      case ServerType.h1x:
-        server = await ShelfServer.bind(
-          address,
-          port,
+    Server server = switch (type) {
+      ServerType.h1x => await ShelfServer.bind(address, port,
           securityContext: securityContext,
           backlog: backlog,
           v6Only: v6Only,
           requestClientCertificate: requestClientCertificate,
-          shared: shared,
-        );
-
-        break;
-
-      // for ServerType.defaultType case fail
-      default:
-        throw AssertionError('Unreachable');
-    }
+          shared: shared),
+    };
 
     if (controlPort == null) {
       await server.mount(this);

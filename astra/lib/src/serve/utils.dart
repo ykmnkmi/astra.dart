@@ -5,7 +5,7 @@ import 'package:stack_trace/stack_trace.dart' show Trace;
 
 /// Run [callback] and capture any errors that would otherwise be top-leveled.
 ///
-/// If [this] is called in a non-root error zone, it will just run [callback]
+/// If this is called in a non-root error zone, it will just run [callback]
 /// and return the result. Otherwise, it will capture any errors using
 /// [runZoned] and pass them to [onError].
 void catchTopLevelErrors(
