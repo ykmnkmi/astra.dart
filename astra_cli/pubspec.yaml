@@ -1,9 +1,9 @@
 name: astra_cli
 description: >
-  The astra and shelf command line tool.
-version: 1.0.0-dev.24
-homepage: https://github.com/ykmnkmi/astra.dart/tree/master/packages/astra_cli
-repository: https://github.com/ykmnkmi/astra.dart/tree/master/packages/astra_cli
+  The Astra/Shelf CLI tool.
+version: 1.0.0-dev.25
+homepage: https://github.com/ykmnkmi/astra.dart/tree/master/astra_cli
+repository: https://github.com/ykmnkmi/astra.dart
 issue_tracker: https://github.com/ykmnkmi/astra.dart/issues
 
 environment:
@@ -14,7 +14,7 @@ executables:
 
 dependencies:
   args: ^2.4.2
-  astra: ^1.0.0-dev.147
+  astra: ^1.0.0-dev.148
   async: ^2.11.0
   path: ^1.8.3
   pubspec: ^2.3.0

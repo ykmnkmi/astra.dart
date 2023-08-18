@@ -184,7 +184,6 @@ class ServeCommand extends CliCommand {
       ..writeAsStringSync(source);
 
     var arguments = <String>[
-      '-DSILENT_OBSERVATORY=true',
       servicePort == null
           ? '--enable-vm-service'
           : '--enable-vm-service=$servicePort',
@@ -201,6 +200,7 @@ class ServeCommand extends CliCommand {
         '--no-serve-devtools',
         '--no-pause-isolates-on-exit',
         '--no-pause-isolates-on-unhandled-exceptions',
+        '--no-warn-on-pause-with-no-debugger',
       ]);
     }
 
