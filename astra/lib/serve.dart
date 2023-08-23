@@ -6,6 +6,7 @@ import 'dart:io' show SecurityContext;
 import 'dart:isolate' show SendPort;
 
 import 'package:astra/core.dart';
+import 'package:astra/devtools.dart';
 import 'package:astra/isolate.dart';
 import 'package:astra/src/serve/h11.dart';
 import 'package:astra/src/serve/server.dart';
@@ -73,6 +74,11 @@ extension ServeApplicationExtension on Application {
           requestClientCertificate: requestClientCertificate,
           shared: shared),
     };
+
+    assert(() {
+      registerHotReloader(server.done);
+      return true;
+    }());
 
     if (controlPort == null) {
       await server.mount(this);

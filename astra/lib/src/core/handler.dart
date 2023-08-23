@@ -10,18 +10,27 @@ extension HandlerExtension on Handler {
     return middleware(this);
   }
 
-  Application asApplication() {
-    return HandlerApplication(this);
+  Application asApplication([Future<void> Function()? onClose]) {
+    return _HandlerApplication(this, onClose);
   }
 }
 
-class HandlerApplication extends Application {
-  const HandlerApplication(this.handler);
+class _HandlerApplication extends Application {
+  const _HandlerApplication(this.handler, [this.onClose]);
 
   final Handler handler;
+
+  final Future<void> Function()? onClose;
 
   @override
   Handler get entryPoint {
     return handler;
+  }
+
+  @override
+  Future<void> close() async {
+    if (onClose case var onClose?) {
+      await onClose();
+    }
   }
 }

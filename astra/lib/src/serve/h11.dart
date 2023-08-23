@@ -20,7 +20,7 @@ import 'package:stream_channel/stream_channel.dart' show StreamChannel;
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
   ShelfServer(this.httpServer, {this.isSecure = false})
-      : _completer = Completer<void>();
+      : _doneCompleter = Completer<void>();
 
   /// The underlying [HttpServer].
   final HttpServer httpServer;
@@ -28,8 +28,7 @@ class ShelfServer implements Server {
   /// {@nodoc}
   final bool isSecure;
 
-  /// The underlying `done` [Completer].
-  final Completer<void> _completer;
+  final Completer<void> _doneCompleter;
 
   Application? _application;
 
@@ -65,7 +64,7 @@ class ShelfServer implements Server {
 
   @override
   Future<void> get done {
-    return _completer.future;
+    return _doneCompleter.future;
   }
 
   @override
@@ -96,23 +95,18 @@ class ShelfServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    if (_completer.isCompleted) {
+    if (_doneCompleter.isCompleted) {
       return;
     }
 
     try {
       await httpServer.close(force: force);
 
-      var application = this.application;
-
-      if (application != null) {
+      if (application case var application?) {
         await application.close();
       }
-
-      _completer.complete();
-    } catch (error, stackTrace) {
-      _completer.completeError(error, stackTrace);
-      rethrow;
+    } finally {
+      _doneCompleter.complete();
     }
   }
 
@@ -158,11 +152,7 @@ Future<void> handleRequest(
     if (error.name == 'method' || error.name == 'requestedUri') {
       logError('Error parsing request\n$error', stackTrace);
 
-      var headers = <String, String>{
-        HttpHeaders.contentTypeHeader: 'text/plain',
-      };
-
-      var response = Response.badRequest(body: 'Bad Request', headers: headers);
+      var response = Response.badRequest(body: 'Bad Request');
       await writeResponse(response, httpRequest.response);
     } else {
       logError('Error parsing request\n$error', stackTrace);
@@ -259,7 +249,7 @@ Request fromHttpRequest(HttpRequest request) {
 }
 
 /// Writes a given [Response] to the provided [HttpResponse].
-Future<void> writeResponse(Response response, HttpResponse httpResponse) {
+Future<void> writeResponse(Response response, HttpResponse httpResponse) async {
   var bufferOutput = response.context['shelf.io.buffer_output'] as bool?;
 
   if (bufferOutput != null) {
@@ -297,12 +287,12 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) {
   }
 
   if (!response.headers.containsKey('X-Powered-By')) {
-    httpResponse.headers.set('X-Powered-By', 'Dart with package:astra');
+    httpResponse.headers.set('X-Powered-By', 'Astra.dart');
   }
 
   if (!response.headers.containsKey(HttpHeaders.dateHeader)) {
     httpResponse.headers.date = DateTime.now().toUtc();
   }
 
-  return response.read().pipe(httpResponse);
+  await response.read().pipe(httpResponse);
 }

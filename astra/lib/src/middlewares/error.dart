@@ -1,9 +1,8 @@
-import 'dart:async';
+import 'dart:async' show Future;
 import 'dart:convert' show htmlEscape;
 import 'dart:io' show File;
 
 import 'package:astra/core.dart';
-import 'package:meta/meta.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
 String _renderPageTitle(Object error, Trace trace) {
@@ -64,8 +63,7 @@ Iterable<String> _renderFrames(Object error, Trace trace) sync* {
   yield _renderFrame(frame, true);
 }
 
-@internal
-String render(Object error, Trace trace) {
+String _render(Object error, Trace trace) {
   return '''
 <!DOCTYPE html>
 <html lang="en">
@@ -138,7 +136,7 @@ Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
             const headers = <String, String>{'content-type': 'text/html'};
 
             var trace = Trace.from(stackTrace);
-            var body = render(error, trace);
+            var body = _render(error, trace);
             return Response.internalServerError(body: body, headers: headers);
           }
 

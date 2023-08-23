@@ -28,8 +28,7 @@ abstract class Server {
   /// otherwise, the behavior is implementation-dependent.
   Uri get url;
 
-  /// A future which is completed when the server controller is done receiving
-  /// requests.
+  /// A future which is completed when the server is done receiving requests.
   Future<void> get done;
 
   /// Mounts [application] as the base handler for this server.

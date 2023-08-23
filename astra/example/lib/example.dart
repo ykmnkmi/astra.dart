@@ -12,17 +12,25 @@ class Counter extends Application {
 
   @override
   Handler get entryPoint {
-    Future<Response> handler(Request request) async {
-      return Response.ok('You have requested this application ${++count} time(s).');
+    return handler.use(logRequests()).use(error(debug: true));
+  }
+
+  Future<Response> handler(Request request) async {
+    if (request.url.path == '') {
+      return Response.ok('You have requested this route ${++count} time(s).');
     }
 
-    return handler.use(logRequests());
+    if (request.url.path == 'throw') {
+      throw Exception('Oh no!');
+    }
+
+    return Response.notFound('Not Found: ${request.url.path}');
   }
 
   @override
   Future<void> reload() async {
-    print('Application reloaded.');
     count = 0;
+    print('Application reloaded.');
   }
 
   @override

@@ -2,8 +2,11 @@ import 'dart:async' show Future;
 
 import 'package:astra/src/core/handler.dart';
 
+/// {@template application}
 /// An object that defines the behavior specific to your application.
+/// {@endtemplate}
 abstract class Application {
+  /// {@macro application}
   const Application();
 
   /// Implement this accessor to define how HTTP requests are handled by
