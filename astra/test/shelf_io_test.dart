@@ -11,9 +11,9 @@ void main() {
     }
 
     var client = TestClient(handler);
-    var response = await client.get(Uri(path: ''));
-    expect(response.statusCode, equals(HttpStatus.ok));
-    expect(response.body, equals('Hello from /'));
+    var response = await client.get(Uri(path: '/'));
+    expect(response.statusCode, HttpStatus.ok);
+    expect(response.readAsString(), completion('Hello from /'));
   });
 
   test('async handler returns a value to the client', () async {
@@ -26,9 +26,9 @@ void main() {
     }
 
     var client = TestClient(handler);
-    var response = await client.get(Uri(path: ''));
-    expect(response.statusCode, equals(HttpStatus.ok));
-    expect(response.body, equals('Hello from /'));
+    var response = await client.get(Uri(path: '/'));
+    expect(response.statusCode, HttpStatus.ok);
+    expect(response.readAsString(), completion('Hello from /'));
   });
 
   test('thrown error leads to a 500', () async {
@@ -37,9 +37,9 @@ void main() {
     }
 
     var client = TestClient(handler);
-    var response = await client.get(Uri(path: ''));
-    expect(response.statusCode, equals(HttpStatus.internalServerError));
-    expect(response.body, equals('Internal Server Error'));
+    var response = await client.get(Uri(path: '/'));
+    expect(response.statusCode, HttpStatus.internalServerError);
+    expect(response.readAsString(), completion('Internal Server Error'));
   });
 
   test('async error leads to a 500', () async {
@@ -48,8 +48,8 @@ void main() {
     }
 
     var client = TestClient(handler);
-    var response = await client.get(Uri(path: ''));
-    expect(response.statusCode, equals(HttpStatus.internalServerError));
-    expect(response.body, equals('Internal Server Error'));
+    var response = await client.get(Uri(path: '/'));
+    expect(response.statusCode, HttpStatus.internalServerError);
+    expect(response.readAsString(), completion('Internal Server Error'));
   });
 }
