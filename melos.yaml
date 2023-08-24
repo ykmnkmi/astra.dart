@@ -4,6 +4,7 @@ packages:
   - astra
   - astra/example
   - astra_cli
+  - shelf_client
 
 ide:
   intellij:
