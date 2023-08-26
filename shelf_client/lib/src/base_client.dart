@@ -2,9 +2,16 @@ import 'dart:convert' show Encoding;
 import 'dart:typed_data';
 
 import 'package:shelf/shelf.dart';
-import 'package:shelf_client/shelf_client.dart';
+import 'package:shelf_client/src/client.dart';
 
+/// A base implementation of the [Client] interface, providing
+/// default behaviors for various HTTP methods.
+///
+/// This class can be mixed into other classes to reuse common HTTP behaviors.
 abstract mixin class BaseClient implements Client {
+  /// Checks if the given [response] from the specified [url] is successful.
+  ///
+  /// Throws an exception if the response contains a status code of 400 or above.
   void _checkResponseSuccess(Uri url, Response response) {
     if (response.statusCode < 400) {
       return;
@@ -30,8 +37,13 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(
-        Request('POST', url, headers: headers, body: body, encoding: encoding));
+    return send(Request(
+      'POST',
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    ));
   }
 
   @override
@@ -41,8 +53,13 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(
-        Request('PUT', url, headers: headers, body: body, encoding: encoding));
+    return send(Request(
+      'PUT',
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    ));
   }
 
   @override
@@ -52,8 +69,13 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request('PATCH', url,
-        headers: headers, body: body, encoding: encoding));
+    return send(Request(
+      'PATCH',
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    ));
   }
 
   @override
@@ -63,8 +85,13 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request('DELETE', url,
-        headers: headers, body: body, encoding: encoding));
+    return send(Request(
+      'DELETE',
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    ));
   }
 
   @override
@@ -80,7 +107,8 @@ abstract mixin class BaseClient implements Client {
     _checkResponseSuccess(url, response);
 
     Uint8List fold(Uint8List bytes, List<int> chunk) {
-      return bytes..addAll(chunk);
+      bytes.addAll(chunk);
+      return bytes;
     }
 
     return response.read().fold(Uint8List(0), fold);
