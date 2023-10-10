@@ -15,27 +15,33 @@ extension ServeHandlerExtension on FutureOr<Handler> {
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
+    int isolates = 1,
     bool hotReload = false,
     bool debug = false,
   }) async {
+    if (isolates != 1) {
+      // TODO(serve): add error message
+      throw ArgumentError.value(isolates, 'isolates');
+    }
+
     Future<Application> applicationFactory() async {
       var handler = await this;
       return handler.asApplication();
     }
 
     return applicationFactory.serve(address, port,
-        type: type,
         securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
+        type: type,
         hotReload: hotReload,
         debug: debug);
   }
@@ -46,12 +52,12 @@ extension ServeHandlerFactoryExtension
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     bool hotReload = false,
     bool debug = false,
@@ -64,12 +70,12 @@ extension ServeHandlerFactoryExtension
     }
 
     return applicationFactory.serve(address, port,
-        type: type,
         securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
+        type: type,
         isolates: isolates,
         hotReload: hotReload,
         debug: debug);
@@ -80,26 +86,32 @@ extension ServeApplicationExtension on FutureOr<Application> {
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
+    int isolates = 1,
     bool hotReload = false,
     bool debug = false,
   }) async {
+    if (isolates != 1) {
+      // TODO(serve): add error message
+      throw ArgumentError.value(isolates, 'isolates');
+    }
+
     Future<Application> applicationFactory() async {
       return await this;
     }
 
     return applicationFactory.serve(address, port,
-        type: type,
         securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
+        type: type,
         hotReload: hotReload,
         debug: debug);
   }
@@ -110,12 +122,12 @@ extension ServeApplicationFactoryExtension
   Future<Server> serve(
     Object address,
     int port, {
-    ServerType type = ServerType.defaultType,
     SecurityContext? securityContext,
     int backlog = 0,
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     bool hotReload = false,
     bool debug = false,

@@ -1,7 +1,22 @@
-import 'dart:async' show Future;
-import 'dart:io' show InternetAddress;
+import 'dart:async' show Future, FutureOr;
+import 'dart:io' show InternetAddress, SecurityContext;
 
 import 'package:astra/src/core/application.dart';
+import 'package:astra/src/serve/type.dart';
+
+/// [Server] factory.
+typedef ServerFactory = FutureOr<Server> Function(
+  Object address,
+  int port, {
+  ServerType type,
+  SecurityContext? securityContext,
+  int backlog,
+  bool v6Only,
+  bool requestClientCertificate,
+  bool shared,
+  bool hotReload,
+  bool debug,
+});
 
 /// An [adapter][] with a concrete URL.
 ///

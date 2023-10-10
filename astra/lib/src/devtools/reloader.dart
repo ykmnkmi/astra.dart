@@ -43,10 +43,11 @@ Future<void> registerReloader(Application application, [Server? server]) async {
     }
   }
 
-  service.onIsolateEvent.listen(onIsolateEvent);
+  var subscription = service.onIsolateEvent.listen(onIsolateEvent);
 
   if (server != null) {
     await server.done;
+    await subscription.cancel();
     await service.dispose();
   }
 }
