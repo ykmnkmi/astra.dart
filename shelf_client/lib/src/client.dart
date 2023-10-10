@@ -3,9 +3,15 @@ import 'dart:convert' show Encoding;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:shelf/shelf.dart' show Request, Response;
+import 'package:shelf_client/src/client_stub.dart'
+    if (dart.library.io) 'package:shelf_client/src/io_client.dart';
 
 /// Represents an HTTP client that can perform various HTTP requests.
 abstract interface class Client {
+  factory Client() {
+    return createClient();
+  }
+
   /// Sends an HTTP HEAD request to the specified [url].
   Future<Response> head(Uri url, {Map<String, String>? headers});
 

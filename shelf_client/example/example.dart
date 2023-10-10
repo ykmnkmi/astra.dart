@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:shelf_client/shelf_client.dart';
 
 Future<void> main(List<String> arguments) async {
-  var client = IOClient();
+  var client = Client();
 
   var response = await client.get(
     Uri(

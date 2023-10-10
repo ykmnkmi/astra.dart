@@ -4,6 +4,11 @@ import 'package:shelf/shelf.dart' show Pipeline, Request, Response;
 import 'package:shelf_client/src/base_client.dart';
 import 'package:shelf_client/src/client.dart';
 
+/// Create an [IOClient].
+Client createClient({Pipeline? pipeline}) {
+  return IOClient(pipeline: pipeline);
+}
+
 /// A `dart:io`-based HTTP [Client].
 class IOClient extends BaseClient {
   IOClient({HttpClient? httpClient, Pipeline? pipeline})

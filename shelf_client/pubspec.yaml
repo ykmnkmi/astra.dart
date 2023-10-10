@@ -1,6 +1,6 @@
 name: shelf_client
 description: HTTP client based on shelf package.
-version: 0.0.3
+version: 0.0.4
 homepage: https://github.com/ykmnkmi/astra.dart/tree/master/shelf_client
 repository: https://github.com/ykmnkmi/astra.dart
 
