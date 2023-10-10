@@ -1,6 +1,9 @@
-import 'dart:async' show Future;
+import 'dart:async' show Future, FutureOr;
 
 import 'package:astra/src/core/handler.dart';
+
+/// [Application] factory.
+typedef ApplicationFactory = FutureOr<Application> Function();
 
 /// {@template application}
 /// An object that defines the behavior specific to your application.

@@ -1,12 +1,12 @@
 import 'dart:async' show Future;
 import 'dart:io' show InternetAddress;
 
-import 'package:astra/core.dart';
+import 'package:astra/src/core/application.dart';
 
 /// An [adapter][] with a concrete URL.
 ///
 /// [adapter]: https://github.com/dart-lang/shelf/tree/master/pkgs/shelf#adapters
-abstract class Server {
+abstract interface class Server {
   /// Mounted application.
   Application? get application;
 

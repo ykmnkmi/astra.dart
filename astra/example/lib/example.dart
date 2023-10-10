@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:isolate';
 
 import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
@@ -18,6 +19,10 @@ class Counter extends Application {
   Future<Response> handler(Request request) async {
     if (request.url.path == '') {
       return Response.ok('You have requested this route ${++count} time(s).');
+    }
+
+    if (request.url.path == 'isolate') {
+      return Response.ok(Isolate.current.debugName);
     }
 
     if (request.url.path == 'throw') {

@@ -8,17 +8,15 @@ Inspired by [uvicorn][uvicorn] and [starlette][starlette].
 **WORK IN PROGRESS**
 
 ### ToDo
-- Verbose output 🔥
 - More API Documentation 🔥
 - Logging 🔥
 - Tests 🔥
-- Environment variables & configuration file
 - ...
 
 ### Experimenting
-- Shelf Request/Response based HttpServer alternatives:
-  - dart:io Socket (without HttpRequest/HttpResponse, ...) 🤔
-  - dart:ffi and Go/Rust web server adapter 🤔
+- Shelf `Request`/`Response` based `HttpServer` alternatives:
+  - `dart:io` `Socket` (without `HttpRequest`/`HttpResponse`, ...) 🤔
+  - `dart:ffi` and Go/Rust web server adapter 🤔
   - ...
 - HTTP/2 🤔
 - ...

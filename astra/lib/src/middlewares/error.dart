@@ -2,7 +2,11 @@ import 'dart:async' show Future;
 import 'dart:convert' show htmlEscape;
 import 'dart:io' show File;
 
-import 'package:astra/core.dart';
+import 'package:astra/src/core/error.dart';
+import 'package:astra/src/core/handler.dart';
+import 'package:astra/src/core/middleware.dart';
+import 'package:astra/src/core/request.dart';
+import 'package:astra/src/core/response.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
 String _renderPageTitle(Object error, Trace trace) {

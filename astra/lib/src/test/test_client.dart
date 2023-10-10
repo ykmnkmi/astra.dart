@@ -2,11 +2,10 @@ import 'dart:async' show Future;
 import 'dart:convert' show Encoding;
 import 'dart:io' show HttpClient, SecurityContext;
 
-import 'package:astra/core.dart';
-import 'package:astra/serve.dart';
-
-// ignore: implementation_imports
-import 'package:shelf_client/src/io_client.dart';
+import 'package:astra/src/core/handler.dart';
+import 'package:astra/src/core/response.dart';
+import 'package:astra/src/serve/serve.dart';
+import 'package:shelf_client/io_client.dart';
 
 class TestClient extends IOClient {
   TestClient(
@@ -15,7 +14,7 @@ class TestClient extends IOClient {
     this.port = 0,
     this.context,
   })  : scheme = context == null ? 'http' : 'https',
-        super(HttpClient(context: context));
+        super(httpClient: HttpClient(context: context));
 
   final Handler handler;
 
@@ -34,10 +33,9 @@ class TestClient extends IOClient {
     var server = await handler.serve(host, port, securityContext: context);
 
     url = url.replace(
-      scheme: url.scheme.isEmpty ? scheme : url.scheme,
-      host: url.host.isEmpty ? host : url.host,
-      port: port == 0 ? server.port : url.port,
-    );
+        scheme: url.scheme.isEmpty ? scheme : url.scheme,
+        host: url.host.isEmpty ? host : url.host,
+        port: port == 0 ? server.port : url.port);
 
     var response = await callback(url);
     await server.close();
@@ -46,16 +44,20 @@ class TestClient extends IOClient {
 
   @override
   Future<Response> head(Uri url, {Map<String, String>? headers}) {
-    return withServer(url, (url) {
-      return super.head(url, headers: headers);
-    });
+    Future<Response> callback(Uri url) {
+      return super.delete(url, headers: headers);
+    }
+
+    return withServer(url, callback);
   }
 
   @override
   Future<Response> get(Uri url, {Map<String, String>? headers}) {
-    return withServer(url, (url) {
-      return super.get(url, headers: headers);
-    });
+    Future<Response> callback(Uri url) {
+      return super.delete(url, headers: headers);
+    }
+
+    return withServer(url, callback);
   }
 
   @override
@@ -65,14 +67,12 @@ class TestClient extends IOClient {
     Object? body,
     Encoding? encoding,
   }) {
-    return withServer(url, (url) {
-      return super.post(
-        url,
-        headers: headers,
-        body: body,
-        encoding: encoding,
-      );
-    });
+    Future<Response> callback(Uri url) {
+      return super
+          .delete(url, headers: headers, body: body, encoding: encoding);
+    }
+
+    return withServer(url, callback);
   }
 
   @override
@@ -82,14 +82,12 @@ class TestClient extends IOClient {
     Object? body,
     Encoding? encoding,
   }) {
-    return withServer(url, (url) {
-      return super.put(
-        url,
-        headers: headers,
-        body: body,
-        encoding: encoding,
-      );
-    });
+    Future<Response> callback(Uri url) {
+      return super
+          .delete(url, headers: headers, body: body, encoding: encoding);
+    }
+
+    return withServer(url, callback);
   }
 
   @override
@@ -99,14 +97,12 @@ class TestClient extends IOClient {
     Object? body,
     Encoding? encoding,
   }) {
-    return withServer(url, (url) {
-      return super.patch(
-        url,
-        headers: headers,
-        body: body,
-        encoding: encoding,
-      );
-    });
+    Future<Response> callback(Uri url) {
+      return super
+          .delete(url, headers: headers, body: body, encoding: encoding);
+    }
+
+    return withServer(url, callback);
   }
 
   @override
@@ -116,13 +112,11 @@ class TestClient extends IOClient {
     Object? body,
     Encoding? encoding,
   }) {
-    return withServer(url, (url) {
-      return super.delete(
-        url,
-        headers: headers,
-        body: body,
-        encoding: encoding,
-      );
-    });
+    Future<Response> callback(Uri url) {
+      return super
+          .delete(url, headers: headers, body: body, encoding: encoding);
+    }
+
+    return withServer(url, callback);
   }
 }

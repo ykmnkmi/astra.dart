@@ -10,7 +10,10 @@ import 'dart:io'
         SecurityContext,
         Socket;
 
-import 'package:astra/core.dart';
+import 'package:astra/src/core/application.dart';
+import 'package:astra/src/core/error.dart';
+import 'package:astra/src/core/request.dart';
+import 'package:astra/src/core/response.dart';
 import 'package:astra/src/serve/server.dart';
 import 'package:astra/src/serve/utils.dart';
 import 'package:collection/collection.dart' show equalsIgnoreAsciiCase;
@@ -19,14 +22,14 @@ import 'package:stream_channel/stream_channel.dart' show StreamChannel;
 
 /// A HTTP/1.1 [Server] backed by a `dart:io` [HttpServer].
 class ShelfServer implements Server {
-  ShelfServer(this.httpServer, {this.isSecure = false})
-      : _doneCompleter = Completer<void>();
+  ShelfServer(HttpServer httpServer, {bool isSecure = false})
+      : _httpServer = httpServer,
+        _isSecure = isSecure,
+        _doneCompleter = Completer<void>();
 
-  /// The underlying [HttpServer].
-  final HttpServer httpServer;
+  final HttpServer _httpServer;
 
-  /// {@nodoc}
-  final bool isSecure;
+  final bool _isSecure;
 
   final Completer<void> _doneCompleter;
 
@@ -39,12 +42,12 @@ class ShelfServer implements Server {
 
   @override
   InternetAddress get address {
-    return httpServer.address;
+    return _httpServer.address;
   }
 
   @override
   int get port {
-    return httpServer.port;
+    return _httpServer.port;
   }
 
   @override
@@ -59,7 +62,7 @@ class ShelfServer implements Server {
       host = address.address;
     }
 
-    return Uri(scheme: isSecure ? 'https' : 'http', host: host, port: port);
+    return Uri(scheme: _isSecure ? 'https' : 'http', host: host, port: port);
   }
 
   @override
@@ -83,7 +86,7 @@ class ShelfServer implements Server {
     }
 
     void body() {
-      httpServer.listen(onRequest);
+      _httpServer.listen(onRequest);
     }
 
     void onError(Object error, StackTrace stackTrace) {
@@ -100,7 +103,7 @@ class ShelfServer implements Server {
     }
 
     try {
-      await httpServer.close(force: force);
+      await _httpServer.close(force: force);
 
       if (application case var application?) {
         await application.close();
@@ -272,8 +275,9 @@ Future<void> writeResponse(Response response, HttpResponse httpResponse) async {
     // If the response is already in a chunked encoding, de-chunk it because
     // otherwise `dart:io` will try to add another layer of chunking.
     // TODO(h11): Do this more cleanly when sdk#27886 is fixed.
-    response =
-        response.change(body: chunkedCoding.decoder.bind(response.read()));
+    response = response.change(
+      body: chunkedCoding.decoder.bind(response.read()),
+    );
 
     httpResponse.headers.set(HttpHeaders.transferEncodingHeader, 'chunked');
   } else if (response.statusCode >= 200 &&
