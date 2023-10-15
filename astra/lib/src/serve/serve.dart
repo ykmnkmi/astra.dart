@@ -47,8 +47,7 @@ extension ServeHandlerExtension on FutureOr<Handler> {
   }
 }
 
-extension ServeHandlerFactoryExtension
-    on FutureOr<FutureOr<Handler> Function()> {
+extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
   Future<Server> serve(
     Object address,
     int port, {
@@ -62,9 +61,8 @@ extension ServeHandlerFactoryExtension
     bool hotReload = false,
     bool debug = false,
   }) async {
-    var handlerFactory = await this;
-
     Future<Application> applicationFactory() async {
+      var handlerFactory = await this;
       var handler = await handlerFactory();
       return handler.asApplication();
     }
@@ -117,8 +115,7 @@ extension ServeApplicationExtension on FutureOr<Application> {
   }
 }
 
-extension ServeApplicationFactoryExtension
-    on FutureOr<FutureOr<Application> Function()> {
+extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
   Future<Server> serve(
     Object address,
     int port, {
@@ -132,7 +129,7 @@ extension ServeApplicationFactoryExtension
     bool hotReload = false,
     bool debug = false,
   }) async {
-    var applicationFactory = await this;
+    var applicationFactoryFuture = this;
 
     if (isolates < 0) {
       // TODO(serve): add error message
@@ -153,6 +150,7 @@ extension ServeApplicationFactoryExtension
             shared: shared),
       };
 
+      var applicationFactory = await applicationFactoryFuture;
       var application = await applicationFactory();
 
       if (hotReload || debug) {

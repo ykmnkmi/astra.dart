@@ -19,12 +19,17 @@ ServiceExtensionResponse _errorResponse(Object error, StackTrace stackTrace) {
 }
 
 Future<void> registerExtensions(Server server) async {
-  registerExtension('ext.astra.close', (isolateId, params) async {
+  Future<ServiceExtensionResponse> close(
+    String isolateId,
+    Map<String, String> params,
+  ) async {
     try {
       await server.close(force: params['force'] == 'true');
       return _okResponse();
     } catch (error, trace) {
       return _errorResponse(error, trace);
     }
-  });
+  }
+
+  registerExtension('ext.astra.close', close);
 }

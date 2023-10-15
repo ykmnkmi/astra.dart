@@ -4,7 +4,7 @@ import 'dart:isolate';
 import 'package:astra/core.dart';
 import 'package:astra/middlewares.dart';
 
-Application get application {
+Application application() {
   return Counter();
 }
 
