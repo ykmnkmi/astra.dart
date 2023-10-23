@@ -63,35 +63,35 @@ Application options:
                                           Must be within application root folder.
 -C, --directory=<.>                       Application root folder.
 -D, --define=<key=value>                  Define an environment declaration.
--v, --verbose                             Print detailed logging.
 
 Server options:
-    --server-type=<h1x>                   Server type.
-
-          [h1x]                           HTTP/1.x Shelf server.
-
--j, --concurrency=<1>                     Number of isolates.
 -a, --address=<localhost>                 Bind server to this address.
                                           Bind will perform a InternetAddress.lookup and use the first value in the list.
 -p, --port=<8080>                         Bind server to this port.
                                           If port has the value 0 an ephemeral port will be chosen by the system.
                                           The actual port used can be retrieved using the port getter.
-    --backlog=<0>                         Number of connections to hold in backlog.
-                                          If it has the value of 0 a reasonable value will be chosen by the system.
-    --shared                              Specifies whether additional servers can bind to the same combination of address, port and v6Only.
-                                          If it's true and more servers are bound to the port, then the incoming connections will be distributed among all the bound servers.
-    --v6Only                              Restrict IP addresses to version 6 (IPv6) only.
-                                          If an IP version 6 (IPv6) address is used, both IP version 6 (IPv6) and version 4 (IPv4) connections will be accepted.
     --ssl-key=<file.key>                  SSL key file.
     --ssl-cert=<file.crt>                 SSL certificate file.
     --ssl-key-password=<password>         SSL keyfile password.
+    --backlog=<0>                         Number of connections to hold in backlog.
+                                          If it has the value of 0 a reasonable value will be chosen by the system.
+    --v6Only                              Restrict IP addresses to version 6 (IPv6) only.
+                                          If an IP version 6 (IPv6) address is used, both IP version 6 (IPv6) and version 4 (IPv4) connections will be accepted.
+    --shared                              Specifies whether additional servers can bind to the same combination of address, port and v6Only.
+                                          If it's true and more servers are bound to the port, then the incoming connections will be distributed among all the bound servers.
+    --server-type=<shelf>                 Server type.
+
+          [shelf]                         HTTP/1.x shelf server.
+
+-i, --isolates=<1>                        Number of isolates.
 
 Debugging options:
     --debug
-    --hot
+    --hot-reload
 -w, --watch
     --service-port=<8181>
     --enable-asserts
+-v, --verbose                             Print detailed logging.
 
 Run "astra help" to see global options.
 ```

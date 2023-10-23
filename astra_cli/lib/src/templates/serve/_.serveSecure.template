@@ -2,14 +2,12 @@
     ..useCertificateChain(__SSLCERT__)
     ..usePrivateKey(__SSLKEY__, password: __SSLKEYPASSWORD__);
 
-  application.register();
-
-  await application.serve(
-    __ADDRESS__,
-    __PORT__,
-    type: __SERVERTYPE__,
-    backlog: __BACKLOG__,
-    v6Only: __V6ONLY__,
-    shared: __SHARED__,
-    controlPort: sendPort,
-  );
+  var server = await serve(__ADDRESS__, __PORT__,
+      securityContext: securityContext,
+      backlog: __BACKLOG__,
+      v6Only: __V6ONLY__,
+      shared: __SHARED__,
+      type: __SERVERTYPE__,
+      isolates: __ISOLATES__,
+      hotReload: __HOTRELOAD__,
+      debug: __DEBUG__);

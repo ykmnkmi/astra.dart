@@ -5,7 +5,7 @@ import 'package:args/args.dart' show ArgResults;
 import 'package:args/command_runner.dart' show Command;
 import 'package:astra_cli/src/extension.dart';
 import 'package:path/path.dart' show absolute, isWithin, join, normalize;
-import 'package:pubspec/pubspec.dart';
+import 'package:pubspec/pubspec.dart' show PubSpec;
 
 /// A exception thrown by command line interfaces.
 class CliException implements Exception {
@@ -37,22 +37,20 @@ abstract class CliCommand extends Command<int> {
       ..addMultiOption('define',
           abbr: 'D',
           help: 'Define an environment declaration.',
-          valueHelp: 'key=value')
-      ..addFlag('verbose',
-          abbr: 'v', help: 'Print detailed logging.', negatable: false);
+          valueHelp: 'key=value');
   }
 
   late final String target = getString('target') ?? 'application';
 
-  late final String targetPath = normalize(
-      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart'));
+  late final String targetPath = absolute(normalize(
+      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart')));
+
+  late final File targetFile = File(targetPath);
 
   late final String directoryPath =
-      normalize(absolute(getString('directory') ?? '.'));
+      absolute(normalize(getString('directory') ?? '.'));
 
-  late final bool verbose = getBoolean('verbose') ?? false;
-
-  late final List<String> defineList = getStringList('define').toList();
+  late final List<String> defineList = getStringList('define');
 
   @override
   ArgResults get argResults {
@@ -67,14 +65,12 @@ abstract class CliCommand extends Command<int> {
 
   late final Directory directory = Directory(directoryPath);
 
-  late final File pubspecFile = File(join(directory.path, 'pubspec.yaml'));
+  late final File pubspecFile = File(join(directoryPath, 'pubspec.yaml'));
 
   late final PubSpec pubspec =
       PubSpec.fromYamlString(pubspecFile.readAsStringSync());
 
   late final String package = pubspec.name!;
-
-  late final File targetFile = File(targetPath);
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
     var templateUri = Uri(
