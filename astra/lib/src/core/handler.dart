@@ -5,32 +5,31 @@ import 'package:shelf/shelf.dart' show Handler, Middleware;
 
 export 'package:shelf/shelf.dart' show Handler;
 
-/// [Handler] factory.
+/// A factory function that creates a [Handler].
 typedef HandlerFactory = FutureOr<Handler> Function();
 
-/// [Middleware] extension.
+/// An extension on the [Handler] class.
 extension HandlerExtension on Handler {
-  /// Same as `middleware(handler)`.
+  /// Shorthand for `middleware(handler)`.
   Handler use(Middleware middleware) {
     return middleware(this);
   }
 
+  /// Converts this [Handler] to an [Application].
+  ///
+  /// The optional [onClose] callback is invoked when the application is closed.
   Application asApplication([Future<void> Function()? onClose]) {
     return _HandlerApplication(this, onClose);
   }
 }
 
-class _HandlerApplication extends Application {
-  const _HandlerApplication(this.handler, [this.onClose]);
-
-  final Handler handler;
-
-  final Future<void> Function()? onClose;
+final class _HandlerApplication extends Application {
+  _HandlerApplication(this.entryPoint, [this.onClose]);
 
   @override
-  Handler get entryPoint {
-    return handler;
-  }
+  final Handler entryPoint;
+
+  final Future<void> Function()? onClose;
 
   @override
   Future<void> close() async {

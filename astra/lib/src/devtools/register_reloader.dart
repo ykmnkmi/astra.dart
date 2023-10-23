@@ -9,12 +9,9 @@ import 'package:vm_service/vm_service_io.dart' show vmServiceConnectUri;
 
 /// Registers reloader functionality.
 ///
-/// Sets up a connection to the VM service, listens for isolate reload events,
-/// and reloads the application when such events occur.
-///
 /// When [server] is provided, the VM service will wait for the server to
 /// done receiving requests before disposing of the connection.
-Future<void> registerReloader(Application application, [Server? server]) async {
+Future<void> registerReloader(Application application, {Server? server}) async {
   var isolateId = Service.getIsolateID(Isolate.current);
 
   if (isolateId == null) {

@@ -1,5 +1,5 @@
 enum ServerType {
-  shelf('HTTP/1.x Shelf server.');
+  shelf('HTTP/1.x shelf server.');
 
   const ServerType(this.description);
 

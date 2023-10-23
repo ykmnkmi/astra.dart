@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:astra/core.dart';
@@ -13,16 +14,24 @@ class Counter extends Application {
 
   @override
   Handler get entryPoint {
-    return handler.use(logRequests()).use(error(debug: true));
+    return handler.use(logRequests());
   }
 
   Future<Response> handler(Request request) async {
+    count += 1;
+
     if (request.url.path == '') {
-      return Response.ok('You have requested this route ${++count} time(s).');
+      return Response.ok('You have requested this application $count time(s).');
     }
 
     if (request.url.path == 'isolate') {
       return Response.ok(Isolate.current.debugName);
+    }
+
+    if (request.url.path == 'send') {
+      messageHub?.add(request.url.queryParameters);
+      return Response.ok(json.encode(request.url.queryParameters),
+          headers: {'Content-Type': 'application/json; charset=utf-8'});
     }
 
     if (request.url.path == 'throw') {
@@ -32,14 +41,23 @@ class Counter extends Application {
     return Response.notFound('Not Found: ${request.url.path}');
   }
 
+  void onMessage(Object? event) {
+    print('${Isolate.current.debugName}: $event');
+  }
+
+  @override
+  Future<void> prepare() async {
+    messageHub?.listen(onMessage);
+  }
+
   @override
   Future<void> reload() async {
     count = 0;
-    print('Application reloaded.');
+    print('Application reloaded. Current count: $count.');
   }
 
   @override
   Future<void> close() async {
-    print('Application closed.');
+    print('Application closed. Total count: $count.');
   }
 }

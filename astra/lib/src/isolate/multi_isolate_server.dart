@@ -3,20 +3,17 @@ import 'dart:io' show InternetAddress, InternetAddressType;
 import 'dart:isolate' show SendPort;
 
 import 'package:astra/src/core/application.dart';
-import 'package:astra/src/isolate/manager.dart';
+import 'package:astra/src/isolate/isolate_supervisor.dart';
 import 'package:astra/src/serve/server.dart';
 
-final class MultiIsolateServer implements Server {
+// TODO(isolate): add hot reload support.
+final class MultiIsolateServer extends SupervisorManager implements Server {
   MultiIsolateServer(
-    List<IsolateManager> managers,
     this.address,
     this.port, {
     bool isSecure = false,
-  })  : _managers = managers,
-        _isSecure = isSecure,
+  })  : _isSecure = isSecure,
         _doneCompleter = Completer<void>();
-
-  final List<IsolateManager> _managers;
 
   @override
   final InternetAddress address;
@@ -66,46 +63,19 @@ final class MultiIsolateServer implements Server {
       return;
     }
 
-    try {
-      Future<void> close(int index) async {
-        await _managers[index].stop(force: force);
-      }
-
-      var futures = List<Future<void>>.generate(_managers.length, close);
-      await Future.wait<void>(futures);
-    } finally {
-      _doneCompleter.complete();
-    }
+    stop(force: force);
+    _doneCompleter.complete();
   }
 
   static Future<MultiIsolateServer> spawn(
     int isolates,
-    Future<Server> Function(SendPort?) spawn,
-    Object address,
+    Future<Server> Function(SendPort) spawn,
+    InternetAddress address,
     int port, {
     bool isSecure = false,
   }) async {
-    Future<IsolateManager> start(int index) async {
-      return await IsolateManager.spawn(spawn, 'server/${index + 1}');
-    }
-
-    InternetAddress internetAddress;
-
-    if (address is InternetAddress) {
-      internetAddress = address;
-    } else if (address is String) {
-      var addresses = await InternetAddress.lookup(address);
-      // TODO(serve): add assert message
-      assert(addresses.isNotEmpty);
-      internetAddress = addresses.first;
-    } else {
-      // TODO(serve): add error message
-      throw ArgumentError.value(address, 'address');
-    }
-
-    var futures = List<Future<IsolateManager>>.generate(isolates, start);
-    var managers = await Future.wait<IsolateManager>(futures);
-    return MultiIsolateServer(managers, internetAddress, port,
-        isSecure: isSecure);
+    var server = MultiIsolateServer(address, port, isSecure: isSecure);
+    await server.start(isolates, spawn);
+    return server;
   }
 }

@@ -1,5 +1,5 @@
 library astra.serve.isolate;
 
-export 'package:astra/src/isolate/isolate.dart';
-export 'package:astra/src/isolate/manager.dart';
-export 'package:astra/src/isolate/multi.dart';
+export 'package:astra/src/isolate/isolate_server.dart';
+export 'package:astra/src/isolate/isolate_supervisor.dart';
+export 'package:astra/src/isolate/multi_isolate_server.dart';

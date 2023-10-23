@@ -1,13 +1,12 @@
 import 'dart:async' show Future, FutureOr;
-import 'dart:io' show Platform, SecurityContext;
+import 'dart:io' show InternetAddress, Platform, SecurityContext;
 import 'dart:isolate' show SendPort;
 
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/devtools/reloader.dart';
-import 'package:astra/src/isolate/isolate.dart';
-import 'package:astra/src/isolate/multi.dart';
-import 'package:astra/src/serve/h11.dart';
+import 'package:astra/src/devtools/register_reloader.dart';
+import 'package:astra/src/isolate/isolate_server.dart';
+import 'package:astra/src/isolate/multi_isolate_server.dart';
 import 'package:astra/src/serve/server.dart';
 import 'package:astra/src/serve/type.dart';
 
@@ -131,6 +130,19 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
   }) async {
     var applicationFactoryFuture = this;
 
+    InternetAddress internetAddress;
+
+    if (address is InternetAddress) {
+      internetAddress = address;
+    } else if (address is String) {
+      var addresses = await InternetAddress.lookup(address);
+      // TODO(serve): can it be empty?
+      internetAddress = addresses.first;
+    } else {
+      // TODO(serve): add error message
+      throw ArgumentError.value(address, 'address');
+    }
+
     if (isolates < 0) {
       // TODO(serve): add error message
       throw ArgumentError.value(isolates, 'isolates');
@@ -140,36 +152,44 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
 
     shared = shared || isolates > 1;
 
-    Future<Server> create(SendPort? controlPort) async {
-      Server server = switch (type) {
-        ServerType.shelf => await ShelfServer.bind(address, port,
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared),
-      };
+    if (isolates == 1) {
+      var server = await Server.bind(internetAddress, port,
+          securityContext: securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared,
+          type: type);
 
       var applicationFactory = await applicationFactoryFuture;
       var application = await applicationFactory();
 
       if (hotReload || debug) {
-        await registerReloader(application, server);
-      }
-
-      if (controlPort != null) {
-        server = IsolateServer(server, controlPort);
+        await registerReloader(application, server: server);
       }
 
       await server.mount(application);
       return server;
     }
 
-    if (isolates == 1) {
-      return await create(null);
+    Future<Server> create(SendPort controlPort) async {
+      var server = await Server.bind(internetAddress, port,
+          securityContext: securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared,
+          type: type);
+
+      var applicationFactory = await applicationFactoryFuture;
+      var application = await applicationFactory();
+      server = IsolateServer(server, controlPort);
+      await server.mount(application);
+      return server;
     }
 
-    return await MultiIsolateServer.spawn(isolates, create, address, port,
+    return await MultiIsolateServer.spawn(
+        isolates, create, internetAddress, port,
         isSecure: securityContext != null);
   }
 }

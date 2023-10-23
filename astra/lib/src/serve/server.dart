@@ -1,28 +1,16 @@
-import 'dart:async' show Future, FutureOr;
+import 'dart:async' show Future;
 import 'dart:io' show InternetAddress, SecurityContext;
 
 import 'package:astra/src/core/application.dart';
+import 'package:astra/src/core/handler.dart';
+import 'package:astra/src/serve/servers/shelf.dart';
 import 'package:astra/src/serve/type.dart';
 
-/// [Server] factory.
-typedef ServerFactory = FutureOr<Server> Function(
-  Object address,
-  int port, {
-  ServerType type,
-  SecurityContext? securityContext,
-  int backlog,
-  bool v6Only,
-  bool requestClientCertificate,
-  bool shared,
-  bool hotReload,
-  bool debug,
-});
-
-/// An [adapter][] with a concrete URL.
+/// A server [adapter][] with a concrete URL.
 ///
 /// [adapter]: https://github.com/dart-lang/shelf/tree/master/pkgs/shelf#adapters
 abstract interface class Server {
-  /// Mounted application.
+  /// The mounted application.
   Application? get application;
 
   /// The address that the server is listening on.
@@ -46,17 +34,40 @@ abstract interface class Server {
   /// A future which is completed when the server is done receiving requests.
   Future<void> get done;
 
-  /// Mounts [application] as the base handler for this server.
+  /// Mounts [application] as the base [Handler] for this server.
   ///
   /// All requests will be sent to [application] until [close] is called.
   ///
-  /// Throws a [StateError] if there's already a handler mounted.
+  /// Throws a [StateError] if there's already a [application] mounted.
   Future<void> mount(Application application);
 
-  /// Closes the server and returns a Future that completes
-  /// when all resources are released.
+  /// Closes the mounted [Application] and returns a future that
+  /// completes when all resources are released.
   ///
   /// Once this is called, no more requests will be passed to this server's
-  /// handler. Otherwise, the cleanup behavior is implementation-dependent.
+  /// [application]. Otherwise, the cleanup behavior is
+  /// implementation-dependent.
   Future<void> close({bool force = false});
+
+  /// Bounds the [Server] to the given [address] and [port].
+  // TODO(serve): document parameters
+  static Future<Server> bind(
+    Object address,
+    int port, {
+    SecurityContext? securityContext,
+    int backlog = 0,
+    bool v6Only = false,
+    bool requestClientCertificate = false,
+    bool shared = false,
+    ServerType type = ServerType.defaultType,
+  }) async {
+    return switch (type) {
+      ServerType.shelf => await ShelfServer.bind(address, port,
+          securityContext: securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared),
+    };
+  }
 }

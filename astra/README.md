@@ -1,9 +1,9 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Astra is Shelf web server adapter and application framework.
-Multi-isolate support and hot reload/restart.
-Inspired by [uvicorn][uvicorn] and [starlette][starlette].
+A multi-threaded `shelf` server framework and web server adapter.
+
+Inspired by [aqueduct][aqueduct], [uvicorn][uvicorn] and [starlette][starlette].
 
 **WORK IN PROGRESS**
 
@@ -14,11 +14,8 @@ Inspired by [uvicorn][uvicorn] and [starlette][starlette].
 - ...
 
 ### Experimenting
-- Shelf `Request`/`Response` based `HttpServer` alternatives:
-  - `dart:io` `Socket` (without `HttpRequest`/`HttpResponse`, ...) 🤔
-  - `dart:ffi` and Go/Rust web server adapter 🤔
-  - ...
-- HTTP/2 🤔
+- Shelf `Request`/`Response` based `HttpServer` alternatives 🤔
+- `HTTP/2` support
 - ...
 
 ## Quickstart
@@ -49,5 +46,6 @@ Future<void> main() async {
 
 to run application.
 
+[aqueduct]: https://github.com/stablekernel/aqueduct
 [uvicorn]: https://github.com/encode/uvicorn
 [starlette]: https://github.com/encode/starlette
