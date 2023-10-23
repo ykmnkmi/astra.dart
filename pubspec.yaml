@@ -1,6 +1,6 @@
 name: astra_repo
 description: Astra GitHub repository.
-version: 1.0.0+1
+version: 1.0.0+2
 publish_to: none
 
 environment:
