@@ -2,25 +2,29 @@ import 'dart:async' show Future, FutureOr, StreamSubscription;
 import 'dart:isolate' show SendPort;
 
 import 'package:astra/src/core/handler.dart';
+import 'package:astra/src/serve/server.dart';
+import 'package:logging/logging.dart' show Logger;
 import 'package:meta/meta.dart' show internal, nonVirtual;
 
 /// A factory function that creates an [Application].
 typedef ApplicationFactory = FutureOr<Application> Function();
 
-/// {@template application}
 /// An object that defines the behavior specific to your application.
-/// {@endtemplate}
-abstract class Application {
-  /// {@macro application}
+///
+/// This is the core class for defining your application's behavior. It includes
+/// methods to handle HTTP requests and manage the application's lifecycle.
+abstract base class Application {
+  /// Creates an [Application].
   Application();
 
-  /// Implement this accessor to define how HTTP requests are handled by
+  /// Retrieves the handler responsible for handling HTTP requests in this
   /// application.
   Handler get entryPoint;
 
-  /// Use this object to send data to the applications running on other
+  /// Allows sending and receiving messages between different [Application]s.
+  ///
+  /// This message hub can be used to send data to applications running on other
   /// isolates.
-  @nonVirtual
   MessageHub? get messageHub => _messageHub;
 
   MessageHub? _messageHub;
@@ -31,44 +35,64 @@ abstract class Application {
     _messageHub = messageHub;
   }
 
-  /// Override this method to perform initialization tasks.
+  /// Retrieves the logger used for this application.
+  Logger get logger => Logger('astra');
+
+  /// Retrieves the [Server] responsible for sending HTTP requests to this
+  /// application.
+  @nonVirtual
+  Server get server => _server!;
+
+  Server? _server;
+
+  @internal
+  @nonVirtual
+  set server(Server server) {
+    _server = server;
+  }
+
+  /// Initializes the application and its services.
   ///
-  /// This method is invoked prior to [entryPoint], so that the services it
-  /// creates can be injected into [Handler]s.
+  /// Override this method to perform any necessary initialization tasks before
+  /// handling HTTP requests. You can create and configure services in this
+  /// method to be used by the [entryPoint].
   Future<void> prepare() async {}
 
-  /// Override this method to rerun any initialization tasks or update any
-  /// resources while developing.
+  /// Reinitializes the application during development.
   ///
-  /// This method will only be called during development.
+  /// Override this method to rerun initialization tasks or update resources
+  /// while developing your application. This method is called only during
+  /// development.
   Future<void> reload() async {}
 
-  /// Override this method to release any resources created in prepare.
+  /// Releases any resources created in the `prepare` method.
+  ///
+  /// Override this method to release resources created during the application's
+  /// initialization. This is important for cleanup when the application is
+  /// closing.
   Future<void> close() async {}
 }
 
-/// An object that sends and receives messages between [Application]s.
+/// An object that sends and receives messages between [Application] instances.
 abstract interface class MessageHub implements Stream<Object?>, Sink<Object?> {
   /// Sends a message to all other hubs.
   ///
   /// [event] will be delivered to all other isolates that have set up a
-  /// callback for [listen].
+  /// callback for [listen]. It must be isolate-safe data, or an error will be
+  /// delivered to the listening isolate.
   ///
-  /// [event] must be isolate-safe data. If [event] is not isolate-safe data,
-  /// an error is delivered to [listen] on this isolate.
-  ///
-  /// See [SendPort.send] for more details.
+  /// See [SendPort.send] for more details on sending messages.
   @override
   void add(Object? event);
 
   /// Adds a listener for messages from other hubs.
   ///
-  /// Use this method to add listeners for messages from other hubs.
-  /// When another hub [add]s a message, this hub will receive it on [onData].
+  /// Use this method to add listeners for messages from other hubs. When
+  /// another hub sends a message using the [add] method, this hub will receive
+  /// it through the [onData] callback.
   ///
-  /// [onError], if provided, will be invoked when this isolate tries to [add]
-  /// invalid data. Only the isolate that failed to send the data will receive
-  /// [onError] events.
+  /// If invalid data is sent, the optional [onError] callback can handle it.
+  /// Only the isolate that failed to send the data will receive [onError] events.
   @override
   StreamSubscription<Object?> listen(
     void Function(Object? event)? onData, {

@@ -4,12 +4,13 @@ import 'package:shelf/shelf.dart' show Request;
 
 export 'package:shelf/shelf.dart' show Request;
 
-/// An extension on the [Request] class.
+/// An extension on the [Request] class that provides additional functionality.
 extension RequestExtension on Request {
-  /// Information about the client connection.
+  /// Retrieves information about the client's connection to the server.
   ///
-  /// Returns `null` if the socket is not available.
-  HttpConnectionInfo? get connectionInfo {
-    return context['shelf.io.connection_info'] as HttpConnectionInfo?;
-  }
+  /// This getter returns information about the client's connection, such as the
+  /// remote address and port, or `null` if the socket information is not
+  /// available.
+  HttpConnectionInfo? get connectionInfo =>
+      context['shelf.io.connection_info'] as HttpConnectionInfo?;
 }

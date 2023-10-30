@@ -30,12 +30,19 @@ class TestClient extends IOClient {
     Uri url,
     Future<Response> Function(Uri url) callback,
   ) async {
-    var server = await handler.serve(host, port, securityContext: context);
+    SecurityContextFactory? securityContextFactory;
+
+    if (context case var context?) {
+      securityContextFactory = () => context;
+    }
+
+    var server = await handler.serve(host, port,
+        securityContextFactory: securityContextFactory);
 
     url = url.replace(
         scheme: url.scheme.isEmpty ? scheme : url.scheme,
         host: url.host.isEmpty ? host : url.host,
-        port: port == 0 ? server.port : url.port);
+        port: port == 0 ? server.url.port : url.port);
 
     var response = await callback(url);
     await server.close();
@@ -45,7 +52,7 @@ class TestClient extends IOClient {
   @override
   Future<Response> head(Uri url, {Map<String, String>? headers}) {
     Future<Response> callback(Uri url) {
-      return super.delete(url, headers: headers);
+      return super.head(url, headers: headers);
     }
 
     return withServer(url, callback);
@@ -54,7 +61,7 @@ class TestClient extends IOClient {
   @override
   Future<Response> get(Uri url, {Map<String, String>? headers}) {
     Future<Response> callback(Uri url) {
-      return super.delete(url, headers: headers);
+      return super.get(url, headers: headers);
     }
 
     return withServer(url, callback);
@@ -68,8 +75,7 @@ class TestClient extends IOClient {
     Encoding? encoding,
   }) {
     Future<Response> callback(Uri url) {
-      return super
-          .delete(url, headers: headers, body: body, encoding: encoding);
+      return super.post(url, headers: headers, body: body, encoding: encoding);
     }
 
     return withServer(url, callback);
@@ -83,8 +89,7 @@ class TestClient extends IOClient {
     Encoding? encoding,
   }) {
     Future<Response> callback(Uri url) {
-      return super
-          .delete(url, headers: headers, body: body, encoding: encoding);
+      return super.put(url, headers: headers, body: body, encoding: encoding);
     }
 
     return withServer(url, callback);
@@ -98,8 +103,7 @@ class TestClient extends IOClient {
     Encoding? encoding,
   }) {
     Future<Response> callback(Uri url) {
-      return super
-          .delete(url, headers: headers, body: body, encoding: encoding);
+      return super.patch(url, headers: headers, body: body, encoding: encoding);
     }
 
     return withServer(url, callback);

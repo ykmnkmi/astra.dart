@@ -9,7 +9,7 @@ Application application() {
   return Counter();
 }
 
-class Counter extends Application {
+final class Counter extends Application {
   int count = 0;
 
   @override

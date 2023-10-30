@@ -1,30 +1,38 @@
-import 'dart:async' show Completer, Future, FutureOr, TimeoutException;
+import 'dart:async' show Completer, Future, FutureOr;
 import 'dart:isolate' show Isolate, ReceivePort, RemoteError, SendPort;
 
-import 'package:astra/src/isolate/isolate_server.dart';
 import 'package:astra/src/isolate/message_hub_message.dart';
 import 'package:astra/src/serve/server.dart';
+import 'package:logging/logging.dart' show Logger;
 
-abstract class SupervisorManager {
-  SupervisorManager()
+final class SupervisorManager {
+  SupervisorManager([this.logger])
       : _supervisors = <IsolateSupervisor>[],
         _isRunning = false;
 
+  final Logger? logger;
+
   final List<IsolateSupervisor> _supervisors;
+
+  bool _isRunning;
 
   bool get isRunning {
     return _isRunning;
   }
 
-  bool _isRunning;
-
   Future<void> start(
     int isolates,
     Future<Server> Function(SendPort sendPort) spawn,
   ) async {
-    for (var index = 0; index < isolates; index += 1) {
-      var supervisor = await IsolateSupervisor.spawn(this, spawn, index + 1);
-      _supervisors.add(supervisor);
+    try {
+      for (var index = 0; index < isolates; index += 1) {
+        var supervisor = await IsolateSupervisor.spawn(this, spawn, index + 1);
+        _supervisors.add(supervisor);
+      }
+    } catch (error, stackTrace) {
+      logger?.severe(null, error, stackTrace);
+      await stop();
+      rethrow;
     }
 
     for (var currentSupervisor in _supervisors) {
@@ -34,61 +42,56 @@ abstract class SupervisorManager {
     _isRunning = true;
   }
 
-  Future<void> stop({bool force = false}) async {
-    Future<void> close(IsolateSupervisor supervisor) async {
-      await supervisor.stop(force: force);
+  Future<void> reload() async {
+    Future<void> reload(IsolateSupervisor supervisor) async {
+      await supervisor.reload();
     }
 
-    var futures = _supervisors.map<Future<void>>(close);
-    await Future.wait<void>(futures);
+    await Future.wait<void>(_supervisors.map<Future<void>>(reload));
+  }
+
+  Future<void> stop({bool force = false}) async {
+    Future<void> close(IsolateSupervisor supervisor) {
+      return supervisor.stop(force: force);
+    }
+
+    await Future.wait<void>(_supervisors.map<Future<void>>(close));
+    _supervisors.clear();
+    _isRunning = false;
   }
 }
 
-/// Represents the supervision of a [IsolateServer].
-class IsolateSupervisor {
+final class IsolateSupervisor {
   IsolateSupervisor(
     this.supervisorManager,
     this.isolate,
     this.receivePort,
   ) : _pendingMessageQueue = <MessageHubMessage>[] {
     _launchCompleter = Completer<SendPort>();
-    _launchCompleter!.future
-        .timeout(const Duration(seconds: 10))
-        .then<void>(_bindServerSendPort);
-
+    _launchCompleter!.future.then<void>(_bindServerSendPort);
     receivePort.listen(_listener);
     isolate.resume(isolate.pauseCapability!);
   }
 
   final SupervisorManager supervisorManager;
 
-  /// The [Isolate] being supervised.
   final Isolate isolate;
 
-  /// The [ReceivePort] for which messages coming from [isolate] will be received.
   final ReceivePort receivePort;
-
-  late SendPort _serverControlPort;
 
   final List<MessageHubMessage> _pendingMessageQueue;
 
+  late SendPort _serverControlPort;
+
   Completer<SendPort>? _launchCompleter;
+
+  Completer<void>? _reloadCompleter;
 
   Completer<void>? _stopCompleter;
 
-  void _bindServerSendPort(SendPort sendPort) {
-    _serverControlPort = sendPort;
-  }
-
   void _listener(Object? value) {
     switch (value) {
-      case null: // on exit or stop
-        receivePort.close();
-        _stopCompleter!.complete();
-        _stopCompleter = null;
-        break;
-
-      case MessageHubMessage message:
+      case MessageHubMessage message: // on hub message
         if (supervisorManager.isRunning) {
           _sendMessage(message);
         } else {
@@ -96,26 +99,48 @@ class IsolateSupervisor {
         }
 
         break;
-
-      case SendPort sendPort:
+      case SendPort sendPort: // on start
         _launchCompleter!.complete(sendPort);
         _launchCompleter = null;
         break;
-
-      case [Object error, StackTrace stackTrace]:
-        if (_launchCompleter case var completer?) {
-          completer.completeError(error, stackTrace);
-        } else if (_stopCompleter case var completer?) {
-          completer.completeError(error, stackTrace);
+      case bool(): // on reload
+        _reloadCompleter!.complete();
+        _reloadCompleter = null;
+        break;
+      case null: // on exit or stop
+        receivePort.close();
+        _stopCompleter!.complete();
+        _stopCompleter = null;
+        break;
+      case [Object error, Object stackTrace]: // on error
+        if (stackTrace is StackTrace) {
+          if (_launchCompleter case var completer?) {
+            completer.completeError(error, stackTrace);
+          } else if (_reloadCompleter case var completer?) {
+            completer.completeError(error, stackTrace);
+          } else if (_stopCompleter case var completer?) {
+            completer.completeError(error, stackTrace);
+          } else {
+            Error.throwWithStackTrace(error, stackTrace);
+          }
         } else {
           throw RemoteError('$error', '$stackTrace');
         }
 
         break;
-
       default:
         assert(false, 'Unreachable.');
     }
+  }
+
+  void _bindServerSendPort(SendPort sendPort) {
+    _serverControlPort = sendPort;
+  }
+
+  Future<void> reload() {
+    _reloadCompleter = Completer<void>();
+    _serverControlPort.send(null);
+    return _reloadCompleter!.future;
   }
 
   void _sendMessage(MessageHubMessage message) {
@@ -134,13 +159,22 @@ class IsolateSupervisor {
   Future<void> stop({bool force = false}) async {
     _stopCompleter = Completer<void>();
     _serverControlPort.send(force);
+    await _stopCompleter!.future;
+    _stopCompleter = null;
+  }
 
-    try {
-      await _stopCompleter!.future.timeout(const Duration(seconds: 10));
-      _stopCompleter = null;
-    } on TimeoutException {
-      isolate.kill();
-    }
+  static Future<IsolateSupervisor> current(
+    SupervisorManager supervisorManager,
+    FutureOr<void> Function(SendPort) create,
+    int identifier,
+  ) async {
+    var receivePort = ReceivePort();
+    var sendPort = receivePort.sendPort;
+
+    var isolate = await Isolate.spawn<SendPort>(create, sendPort,
+        onExit: sendPort, onError: sendPort, debugName: 'server/$identifier');
+
+    return IsolateSupervisor(supervisorManager, isolate, receivePort);
   }
 
   static Future<IsolateSupervisor> spawn(
@@ -152,10 +186,7 @@ class IsolateSupervisor {
     var sendPort = receivePort.sendPort;
 
     var isolate = await Isolate.spawn<SendPort>(create, sendPort,
-        paused: true,
-        onExit: sendPort,
-        onError: sendPort,
-        debugName: 'server/$identifier');
+        onExit: sendPort, onError: sendPort, debugName: 'server/$identifier');
 
     return IsolateSupervisor(supervisorManager, isolate, receivePort);
   }

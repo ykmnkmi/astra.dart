@@ -1,43 +1,33 @@
 import 'dart:async' show Completer;
-import 'dart:io'
-    show HttpServer, InternetAddress, InternetAddressType, SecurityContext;
+import 'dart:io' show HttpServer, InternetAddressType, SecurityContext;
 
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/serve/server.dart';
+import 'package:logging/logging.dart' show Logger;
 import 'package:shelf/shelf_io.dart' show serveRequests;
 
-/// A HTTP/1.1 [Server] based on `package:shelf/shelf_io.dart`.
-class ShelfServer implements Server {
-  ShelfServer(HttpServer httpServer, {bool isSecure = false})
-      : _httpServer = httpServer,
-        _isSecure = isSecure,
-        _doneCompleter = Completer<void>();
+final class ShelfServer implements Server {
+  ShelfServer(this.httpServer, {this.isSecure = false, this.logger})
+      : _doneCompleter = Completer<void>();
 
-  final HttpServer _httpServer;
+  final HttpServer httpServer;
 
-  final bool _isSecure;
+  final bool isSecure;
+
+  @override
+  final Logger? logger;
 
   final Completer<void> _doneCompleter;
 
   Application? _application;
 
   @override
-  Application? get application {
-    return _application;
-  }
-
-  @override
-  InternetAddress get address {
-    return _httpServer.address;
-  }
-
-  @override
-  int get port {
-    return _httpServer.port;
-  }
+  Application? get application => _application;
 
   @override
   Uri get url {
+    var HttpServer(:address, :port) = httpServer;
+
     String host;
 
     if (address.isLoopback) {
@@ -48,41 +38,46 @@ class ShelfServer implements Server {
       host = address.address;
     }
 
-    return Uri(scheme: _isSecure ? 'https' : 'http', host: host, port: port);
+    return Uri(scheme: isSecure ? 'https' : 'http', host: host, port: port);
   }
 
   @override
-  Future<void> get done {
-    return _doneCompleter.future;
-  }
+  Future<void> get done => _doneCompleter.future;
 
   @override
   Future<void> mount(Application application) async {
+    logger?.fine('ShelfServer.mount: Mounting application.');
+
     if (_application != null) {
       throw StateError("Can't mount two applications for the same server");
     }
 
-    _application = application;
+    application.server = this;
     await application.prepare();
-    serveRequests(_httpServer, application.entryPoint);
+    serveRequests(httpServer, application.entryPoint);
+    _application = application;
+    logger?.fine('ShelfServer.mount: Serving requests.');
   }
 
   @override
   Future<void> close({bool force = false}) async {
+    logger?.fine('ShelfServer.close: Closing HTTP shelf server.');
+
     if (_doneCompleter.isCompleted) {
       return;
     }
 
-    await _httpServer.close(force: force);
+    await httpServer.close(force: force);
 
     if (application case var application?) {
+      logger?.fine('ShelfServer.close: Closing application.');
       await application.close();
     }
 
     _doneCompleter.complete();
+    logger?.fine('ShelfServer.close: Closing complete.');
   }
 
-  /// Bounds the [ShelfServer] to the given [address] and [port].
   static Future<ShelfServer> bind(
     Object address,
     int port, {
@@ -91,8 +86,12 @@ class ShelfServer implements Server {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    Logger? logger,
   }) async {
+    logger?.fine('ShelfServer.bind: Binding HTTP server.');
+
     var isSecure = securityContext != null;
+
     HttpServer server;
 
     if (isSecure) {
@@ -106,6 +105,7 @@ class ShelfServer implements Server {
           backlog: backlog, v6Only: v6Only, shared: shared);
     }
 
-    return ShelfServer(server, isSecure: isSecure);
+    logger?.fine('ShelfServer.bind: Bound HTTP server.');
+    return ShelfServer(server, isSecure: isSecure, logger: logger);
   }
 }
