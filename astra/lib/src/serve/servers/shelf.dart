@@ -4,29 +4,35 @@ import 'dart:io' show HttpServer, InternetAddressType, SecurityContext;
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/serve/server.dart';
 import 'package:logging/logging.dart' show Logger;
+import 'package:meta/meta.dart' show internal;
 import 'package:shelf/shelf_io.dart' show serveRequests;
 
+/// A server implementation using the `shelf` framework.
 final class ShelfServer implements Server {
-  ShelfServer(this.httpServer, {this.isSecure = false, this.logger})
-      : _doneCompleter = Completer<void>();
+  /// Creates a new [ShelfServer] instance.
+  @internal
+  ShelfServer(HttpServer httpServer, {bool isSecure = false, this.logger})
+      : _httpServer = httpServer,
+        _isSecure = isSecure,
+        _doneCompleter = Completer<void>();
 
-  final HttpServer httpServer;
+  final HttpServer _httpServer;
 
-  final bool isSecure;
-
-  @override
-  final Logger? logger;
+  final bool _isSecure;
 
   final Completer<void> _doneCompleter;
-
-  Application? _application;
 
   @override
   Application? get application => _application;
 
+  Application? _application;
+
+  @override
+  final Logger? logger;
+
   @override
   Uri get url {
-    var HttpServer(:address, :port) = httpServer;
+    var HttpServer(:address, :port) = _httpServer;
 
     String host;
 
@@ -38,7 +44,7 @@ final class ShelfServer implements Server {
       host = address.address;
     }
 
-    return Uri(scheme: isSecure ? 'https' : 'http', host: host, port: port);
+    return Uri(scheme: _isSecure ? 'https' : 'http', host: host, port: port);
   }
 
   @override
@@ -46,7 +52,7 @@ final class ShelfServer implements Server {
 
   @override
   Future<void> mount(Application application) async {
-    logger?.fine('ShelfServer.mount: Mounting application.');
+    logger?.fine('ShelfServer.mount: Mounting application...');
 
     if (_application != null) {
       throw StateError("Can't mount two applications for the same server");
@@ -54,30 +60,35 @@ final class ShelfServer implements Server {
 
     application.server = this;
     await application.prepare();
-    serveRequests(httpServer, application.entryPoint);
+    serveRequests(_httpServer, application.entryPoint);
     _application = application;
-    logger?.fine('ShelfServer.mount: Serving requests.');
+    logger?.fine('ShelfServer.mount: Mounting application is complete. '
+        'Serving requests.');
   }
 
   @override
   Future<void> close({bool force = false}) async {
-    logger?.fine('ShelfServer.close: Closing HTTP shelf server.');
+    logger?.fine('ShelfServer.close: Closing server...');
 
     if (_doneCompleter.isCompleted) {
       return;
     }
 
-    await httpServer.close(force: force);
+    await _httpServer.close(force: force);
 
     if (application case var application?) {
-      logger?.fine('ShelfServer.close: Closing application.');
+      logger?.fine('ShelfServer.close: Closing application...');
       await application.close();
+      logger?.fine('ShelfServer.close: Closing application is complete.');
     }
 
     _doneCompleter.complete();
-    logger?.fine('ShelfServer.close: Closing complete.');
+    logger?.fine('ShelfServer.close: Closing server is complete.');
   }
 
+  /// Binds the `shelf` [Server] to the given [address] and [port].
+  ///
+  /// {@macro server}
   static Future<ShelfServer> bind(
     Object address,
     int port, {
@@ -88,7 +99,7 @@ final class ShelfServer implements Server {
     bool shared = false,
     Logger? logger,
   }) async {
-    logger?.fine('ShelfServer.bind: Binding HTTP server.');
+    logger?.fine('ShelfServer.bind: Binding server...');
 
     var isSecure = securityContext != null;
 
@@ -105,7 +116,7 @@ final class ShelfServer implements Server {
           backlog: backlog, v6Only: v6Only, shared: shared);
     }
 
-    logger?.fine('ShelfServer.bind: Bound HTTP server.');
+    logger?.fine('ShelfServer.bind: Binding server is complete.');
     return ShelfServer(server, isSecure: isSecure, logger: logger);
   }
 }

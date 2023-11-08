@@ -1,7 +1,7 @@
 name: astra
 description: >
   A multi-threaded shelf server framework and web server adapter.
-version: 1.0.0-dev.155
+version: 1.0.0-dev.156
 homepage: https://github.com/ykmnkmi/astra.dart/tree/master/astra
 repository: https://github.com/ykmnkmi/astra.dart
 
