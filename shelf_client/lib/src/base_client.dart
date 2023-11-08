@@ -22,12 +22,12 @@ abstract mixin class BaseClient implements Client {
 
   @override
   Future<Response> head(Uri url, {Map<String, String>? headers}) {
-    return send(Request('HEAD', url, headers: headers));
+    return send(makeRequest('HEAD', url, headers: headers));
   }
 
   @override
   Future<Response> get(Uri url, {Map<String, String>? headers}) {
-    return send(Request('GET', url, headers: headers));
+    return send(makeRequest('GET', url, headers: headers));
   }
 
   @override
@@ -37,7 +37,7 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request(
+    return send(makeRequest(
       'POST',
       url,
       headers: headers,
@@ -53,7 +53,7 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request(
+    return send(makeRequest(
       'PUT',
       url,
       headers: headers,
@@ -69,7 +69,7 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request(
+    return send(makeRequest(
       'PATCH',
       url,
       headers: headers,
@@ -85,7 +85,7 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(Request(
+    return send(makeRequest(
       'DELETE',
       url,
       headers: headers,
@@ -114,6 +114,18 @@ abstract mixin class BaseClient implements Client {
     return response.read().fold(Uint8List(0), fold);
   }
 
+  /// Creates a new [Request] instance with the given parameters.
+  Request makeRequest(
+    String method,
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  });
+
+  /// Sends the given [request] and returns the response.
+  Future<Response> send(Request request);
+
   @override
-  void close() {}
+  Future<void> close() async {}
 }

@@ -2,7 +2,7 @@ import 'dart:async' show Future;
 import 'dart:convert' show Encoding;
 import 'dart:typed_data' show Uint8List;
 
-import 'package:shelf/shelf.dart' show Request, Response;
+import 'package:shelf/shelf.dart' show Response;
 import 'package:shelf_client/src/client_stub.dart'
     if (dart.library.io) 'package:shelf_client/src/io_client.dart';
 
@@ -58,11 +58,8 @@ abstract interface class Client {
   /// a [Uint8List].
   Future<Uint8List> readBytes(Uri url, {Map<String, String>? headers});
 
-  /// Sends the given [request] and returns the response.
-  Future<Response> send(Request request);
-
-  /// {@template Client.close}
+  /// {@template astra_client_close}
   /// Closes the client and cleans up any associated resources.
   /// {@endtemplate}
-  void close();
+  Future<void> close();
 }
