@@ -1,4 +1,5 @@
-import 'dart:convert';
+import 'dart:async' show Future, FutureOr;
+import 'dart:convert' show Encoding;
 import 'dart:io' show HttpClient;
 
 import 'package:shelf/shelf.dart' show Pipeline, Request, Response;
@@ -61,9 +62,7 @@ class IOClient extends BaseClient {
       var headers = <String, List<String>>{};
 
       void setHeaders(String name, List<String> values) {
-        headers[name] = <String>[
-          for (var value in values) value.trimRight(),
-        ];
+        headers[name] = List<String>.of(values);
       }
 
       ioResponse.headers.forEach(setHeaders);
@@ -76,11 +75,15 @@ class IOClient extends BaseClient {
       );
     }
 
+    FutureOr<Response> Function(Request) handle;
+
     if (_pipeline case var pipeline?) {
-      return await pipeline.addHandler(handler)(request);
+      handle = pipeline.addHandler(handler);
+    } else {
+      handle = handler;
     }
 
-    return await handler(request);
+    return await handle(request);
   }
 
   /// {@macro astra_client_close}
