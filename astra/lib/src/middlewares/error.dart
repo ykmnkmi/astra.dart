@@ -1,18 +1,20 @@
 import 'dart:async' show Future;
 import 'dart:convert' show htmlEscape;
 import 'dart:io' show File;
+import 'dart:isolate' show Isolate;
 
 import 'package:astra/src/core/error.dart';
 import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/core/middleware.dart';
 import 'package:astra/src/core/request.dart';
 import 'package:astra/src/core/response.dart';
+import 'package:astra/src/middlewares/utils.dart';
 import 'package:stack_trace/stack_trace.dart' show Frame, Trace;
 
 String _renderPageTitle(Object error, Trace trace) {
   var parts = error.toString().split(':');
   var type = parts.length > 1 ? parts.removeAt(0).trim() : 'Error';
-  var message = parts.join(':').trim();
+  var message = parts.join(':');
   return '$type: $message';
 }
 
@@ -24,26 +26,33 @@ String _renderType(Object error, Trace trace) {
 
 String _renderMessage(Object error, Trace trace) {
   var parts = error.toString().split(':');
-  var message = parts.skip(1).join(':').trim();
+  var message = parts.skip(1).join(':');
   return '<h2>$message</h2>';
 }
 
 String _renderTitle(Object error, Trace trace) {
-  return ''
-      '<p class="title">'
-      'Traceback <span style="color:grey">(most recent call last)</span>'
-      '</p>';
+  return '<p class="title">Traceback</p>';
 }
 
 String _renderFrame(Frame frame, [bool full = false]) {
+  var Frame(:library, :line, :column, :member) = frame;
+
   var result = ''
       '<div class="frame">'
-      '<span class="library">${frame.library.replaceAll('\\', '/')}</span>, '
-      'line <i>${frame.line}</i> column <i>${frame.column}</i>, '
-      'in <span class="member">${htmlEscape.convert(frame.member!)}</span>';
+      '<span class="library">${library.replaceAll('\\', '/')}</span> '
+      '$line:$column, '
+      'in <span class="member">${htmlEscape.convert(member!)}</span>';
 
-  if (full && frame.uri.scheme == 'file' && frame.line != null) {
-    var file = File.fromUri(frame.uri);
+  if (full && frame.line != null) {
+    Uri uri;
+
+    if (frame.uri.scheme == 'package') {
+      uri = Isolate.resolvePackageUriSync(frame.uri)!;
+    } else {
+      uri = frame.uri;
+    }
+
+    var file = File.fromUri(uri);
     var lines = file.readAsLinesSync();
     var line = frame.line ?? 1;
     result = '$result<br><pre>${lines[line - 1].trim()}</pre>';
@@ -54,17 +63,17 @@ String _renderFrame(Frame frame, [bool full = false]) {
 
 Iterable<String> _renderFrames(Object error, Trace trace) sync* {
   var frames = trace.frames.reversed.toList();
-  var frame = frames.removeLast();
+  var lastFrame = frames.removeLast();
 
   for (var frame in frames) {
-    if (frame.isCore) {
+    if (isCoreFrame(frame)) {
       continue;
     }
 
     yield _renderFrame(frame);
   }
 
-  yield _renderFrame(frame, true);
+  yield _renderFrame(lastFrame, true);
 }
 
 String _render(Object error, Trace trace) {
@@ -74,8 +83,20 @@ String _render(Object error, Trace trace) {
   <head>
     <title>${_renderPageTitle(error, trace)}</title>
     <style>
+      html, body {
+        heidht: 100%;
+        margin: 0;
+        width: 100%;
+      }
+
       body {
         font-family: monospace;
+        font-size: 16px;
+      }
+
+      main {
+        margin: 1em auto;
+        max-width: 64em;
       }
 
       pre {
@@ -87,7 +108,7 @@ String _render(Object error, Trace trace) {
 
       .traceback {
         border: 1px solid lightgrey;
-        overflow:hidden;
+        overflow: hidden;
       }
 
       .traceback > .title {
@@ -99,7 +120,7 @@ String _render(Object error, Trace trace) {
       }
 
       .frame {
-        padding: 0.25em 0.5em;
+        padding: 0.5em;
       }
 
       .frame > .library {
@@ -109,22 +130,30 @@ String _render(Object error, Trace trace) {
       .frame > .member {
         background-color: #EEEEEE;
         border-radius: 0.2em;
-        padding: 0em 0.2em;
+        padding: 0.05em 0.3em;
       }
     </style>
   </head>
   <body>
-    ${_renderType(error, trace)}
-    ${_renderMessage(error, trace)}
-    <div class="traceback">
-      ${_renderTitle(error, trace)}
-      ${_renderFrames(error, trace).join('\n      ')}
-    </div>
+    <main>
+      ${_renderType(error, trace)}
+      ${_renderMessage(error, trace)}
+      <div class="traceback">
+        ${_renderTitle(error, trace)}
+        ${_renderFrames(error, trace).join('\n      ')}
+      </div>
+    </main>
   </body>
 </html>
 ''';
 }
 
+/// Middleware which catches errors thrown by inner handlers and returns a
+/// response with a 500 status code.
+///
+/// If [debug] is `true`, the error message and stack trace are returned in the
+/// response body. If [debug] is `false` (the default), a generic error message
+/// is returned.
 Middleware error({bool debug = false, ErrorHandler? errorHandler}) {
   Handler middleware(Handler innerHandler) {
     Future<Response> handler(Request request) async {

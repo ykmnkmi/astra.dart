@@ -1,6 +1,6 @@
 import 'package:shelf/shelf.dart' show Handler, Middleware;
 
-export 'package:shelf/shelf.dart' show Middleware;
+export 'package:shelf/shelf.dart' show Middleware, createMiddleware;
 
 /// An extension on the [Middleware] class that provides additional functionality.
 extension MiddlewareExtension on Middleware {

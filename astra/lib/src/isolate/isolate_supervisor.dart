@@ -3,14 +3,11 @@ import 'dart:isolate' show Isolate, ReceivePort, RemoteError, SendPort;
 
 import 'package:astra/src/isolate/message_hub_message.dart';
 import 'package:astra/src/serve/server.dart';
-import 'package:logging/logging.dart' show Logger;
 
 final class SupervisorManager {
-  SupervisorManager([this.logger])
+  SupervisorManager()
       : _supervisors = <IsolateSupervisor>[],
         _isRunning = false;
-
-  final Logger? logger;
 
   final List<IsolateSupervisor> _supervisors;
 
@@ -29,8 +26,7 @@ final class SupervisorManager {
         var supervisor = await IsolateSupervisor.spawn(this, spawn, index + 1);
         _supervisors.add(supervisor);
       }
-    } catch (error, stackTrace) {
-      logger?.severe(null, error, stackTrace);
+    } catch (error) {
       await stop();
       rethrow;
     }
@@ -99,20 +95,24 @@ final class IsolateSupervisor {
         }
 
         break;
+
       case SendPort sendPort: // on start
         _launchCompleter!.complete(sendPort);
         _launchCompleter = null;
         break;
+
       case bool(): // on reload
         _reloadCompleter!.complete();
         _reloadCompleter = null;
         break;
+
       case null: // on exit or stop
         receivePort.close();
         _stopCompleter!.complete();
         _stopCompleter = null;
         break;
-      case [Object error, Object stackTrace]: // on error
+
+      case <Object?>[Object error, Object stackTrace]: // on error
         if (stackTrace is StackTrace) {
           if (_launchCompleter case var completer?) {
             completer.completeError(error, stackTrace);
@@ -128,6 +128,7 @@ final class IsolateSupervisor {
         }
 
         break;
+
       default:
         assert(false, 'Unreachable.');
     }

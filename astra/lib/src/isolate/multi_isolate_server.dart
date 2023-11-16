@@ -1,42 +1,50 @@
-import 'dart:async' show Completer, Future;
+import 'dart:async' show Future;
 import 'dart:isolate' show SendPort;
 
 import 'package:astra/src/core/application.dart';
-import 'package:astra/src/isolate/isolate_server.dart';
+import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/isolate/isolate_supervisor.dart';
 import 'package:astra/src/serve/server.dart';
-import 'package:logging/logging.dart' show Logger;
 
-final class MultiIsolateServer implements Server {
+final class MultiIsolateServer extends Server {
   MultiIsolateServer(
-    this.url,
-    SupervisorManager supervisorManager, {
-    this.logger,
-  })  : _supervisorManager = supervisorManager,
-        _doneCompleter = Completer<void>();
+    super.address,
+    super.port, {
+    super.securityContext,
+    super.backlog,
+    super.v6Only,
+    super.requestClientCertificate,
+    super.shared,
+    super.identifier,
+    super.logger,
+  }) : _supervisorManager = SupervisorManager();
 
   final SupervisorManager _supervisorManager;
 
-  final Completer<void> _doneCompleter;
+  @override
+  // TODO(isolate): Update error message.
+  Application? get application => throw UnsupportedError('');
 
   @override
-  Application? get application {
-    // TODO(isolate): add error message
+  bool get isRunning => _supervisorManager.isRunning;
+
+  // TODO(serve): Bind stub server to get actual address and port.
+  Future<void> start(
+    int isolates,
+    Future<Server> Function(SendPort) create,
+  ) async {
+    await _supervisorManager.start(isolates, create);
+  }
+
+  @override
+  Future<void> handle(Handler handler) {
+    // TODO(isolate): Update error message.
     throw UnsupportedError('');
   }
 
   @override
-  final Logger? logger;
-
-  @override
-  final Uri url;
-
-  @override
-  Future<void> get done => _doneCompleter.future;
-
-  @override
-  Future<void> mount(Application application) {
-    // TODO(isolate): add error message
+  Future<void> mount(Application application) async {
+    // TODO(isolate): Update error message.
     throw UnsupportedError('');
   }
 
@@ -46,22 +54,6 @@ final class MultiIsolateServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    if (_doneCompleter.isCompleted) {
-      return;
-    }
-
     await _supervisorManager.stop(force: force);
-    _doneCompleter.complete();
-  }
-
-  static Future<MultiIsolateServer> spawn(
-    Uri url,
-    int isolates,
-    Future<IsolateServer> Function(SendPort controlPort) create, {
-    Logger? logger,
-  }) async {
-    var supervisorManager = SupervisorManager(logger);
-    await supervisorManager.start(isolates, create);
-    return MultiIsolateServer(url, supervisorManager, logger: logger);
   }
 }

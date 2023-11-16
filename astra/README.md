@@ -1,26 +1,27 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A multi-threaded `shelf` server framework and web server adapter.
+A ~~robust~~, multi-threaded [shelf][shelf] web server adapter designed for
+~~high performance~~ and concurrent handling of multiple requests.
 
 Inspired by [aqueduct][aqueduct], [uvicorn][uvicorn] and [starlette][starlette].
 
 **WORK IN PROGRESS**
 
 ### ToDo
-- More API Documentation 🔥
+- Enhance API documentation 🔥
 - Logging 🔥
-- Tests 🔥
+- Write more tests 🔥
 - ...
 
 ### Experimenting
-- Shelf `Request`/`Response` based `HttpServer` alternatives 🤔
-- `HTTP/2` support
+- Exploring `Request`/`Response` based `HttpServer` alternatives 🤔
+- Adding `HTTP/2` support
 - ...
 
 ## Quickstart
 
-Create an application in `lib/[package].dart` file
+Create an application in the `lib/[package].dart` file:
 
 ```dart
 import 'dart:io';
@@ -32,7 +33,7 @@ Response application(Request request) {
 }
 ```
 
-and `bin/main.dart` file
+and the `bin/main.dart` file:
 
 ```dart
 import 'package:astra/serve.dart';
@@ -47,5 +48,6 @@ Future<void> main() async {
 to run application.
 
 [aqueduct]: https://github.com/stablekernel/aqueduct
-[uvicorn]: https://github.com/encode/uvicorn
+[shelf]: https://github.com/dart-lang/shelf
 [starlette]: https://github.com/encode/starlette
+[uvicorn]: https://github.com/encode/uvicorn

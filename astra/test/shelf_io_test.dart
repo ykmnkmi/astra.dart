@@ -5,12 +5,23 @@ import 'package:astra/test.dart';
 import 'package:test/test.dart';
 
 void main() {
+  late TestClient client;
+
+  setUp(() {
+    client = TestClient();
+  });
+
+  tearDown(() async {
+    await client.close();
+  });
+
   test('sync handler returns a value to the client', () async {
     Response handler(Request request) {
       return Response.ok('Hello from ${request.requestedUri.path}');
     }
 
-    var client = TestClient(handler);
+    await client.handle(handler);
+
     var response = await client.get(Uri(path: '/'));
     expect(response.statusCode, HttpStatus.ok);
     expect(response.readAsString(), completion('Hello from /'));
@@ -25,7 +36,8 @@ void main() {
       return Future<Response>(callback);
     }
 
-    var client = TestClient(handler);
+    await client.handle(handler);
+
     var response = await client.get(Uri(path: '/'));
     expect(response.statusCode, HttpStatus.ok);
     expect(response.readAsString(), completion('Hello from /'));
@@ -36,7 +48,8 @@ void main() {
       throw UnsupportedError('test');
     }
 
-    var client = TestClient(handler);
+    await client.handle(handler);
+
     var response = await client.get(Uri(path: '/'));
     expect(response.statusCode, HttpStatus.internalServerError);
     expect(response.readAsString(), completion('Internal Server Error'));
@@ -47,7 +60,8 @@ void main() {
       return Future<Response>.error(UnsupportedError('test'));
     }
 
-    var client = TestClient(handler);
+    await client.handle(handler);
+
     var response = await client.get(Uri(path: '/'));
     expect(response.statusCode, HttpStatus.internalServerError);
     expect(response.readAsString(), completion('Internal Server Error'));

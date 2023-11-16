@@ -14,7 +14,7 @@ final class Counter extends Application {
 
   @override
   Handler get entryPoint {
-    return handler.use(logRequests());
+    return handler.use(logRequests()).use(error(debug: true));
   }
 
   Future<Response> handler(Request request) async {
@@ -53,11 +53,11 @@ final class Counter extends Application {
   @override
   Future<void> reload() async {
     count = 0;
-    print('Application reloaded. Current count: $count.');
+    print('Reset count.');
   }
 
   @override
   Future<void> close() async {
-    print('Application closed. Total count: $count.');
+    print('Total count: $count.');
   }
 }

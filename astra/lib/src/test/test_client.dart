@@ -1,126 +1,58 @@
-import 'dart:async' show Future;
-import 'dart:convert' show Encoding;
-import 'dart:io' show HttpClient, SecurityContext;
+import 'dart:convert';
 
+import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/core/response.dart';
-import 'package:astra/src/serve/serve.dart';
+import 'package:astra/src/core/request.dart';
+import 'package:astra/src/serve/server.dart';
+import 'package:astra/src/serve/servers/h11.dart';
 import 'package:shelf_client/io_client.dart';
 
 class TestClient extends IOClient {
-  TestClient(
-    this.handler, {
+  TestClient({
     this.host = 'localhost',
-    this.port = 0,
-    this.context,
-  })  : scheme = context == null ? 'http' : 'https',
-        super(httpClient: HttpClient(context: context));
-
-  final Handler handler;
-
-  final String scheme;
+    this.port = 80,
+  }) : _server = H11Server(host, port);
 
   final String host;
 
   final int port;
 
-  final SecurityContext? context;
+  final Server _server;
 
-  Future<Response> withServer(
-    Uri url,
-    Future<Response> Function(Uri url) callback,
-  ) async {
-    SecurityContextFactory? securityContextFactory;
+  Future<void> handle(Handler handler) async {
+    await _server.handle(handler);
+  }
 
-    if (context case var context?) {
-      securityContextFactory = () => context;
-    }
+  Future<void> mount(Application application) async {
+    await _server.mount(application);
+  }
 
-    var server = await handler.serve(host, port,
-        securityContextFactory: securityContextFactory);
-
+  @override
+  Request makeRequest(
+    String method,
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) {
     url = url.replace(
-        scheme: url.scheme.isEmpty ? scheme : url.scheme,
-        host: url.host.isEmpty ? host : url.host,
-        port: port == 0 ? server.url.port : url.port);
+      scheme: url.scheme.isEmpty ? 'http' : url.scheme,
+      host: url.host.isEmpty ? host : url.host,
+      port: url.port == 0 ? port : url.port,
+    );
 
-    var response = await callback(url);
-    await server.close();
-    return response;
+    return Request(
+      method,
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
   }
 
   @override
-  Future<Response> head(Uri url, {Map<String, String>? headers}) {
-    Future<Response> callback(Uri url) {
-      return super.head(url, headers: headers);
-    }
-
-    return withServer(url, callback);
-  }
-
-  @override
-  Future<Response> get(Uri url, {Map<String, String>? headers}) {
-    Future<Response> callback(Uri url) {
-      return super.get(url, headers: headers);
-    }
-
-    return withServer(url, callback);
-  }
-
-  @override
-  Future<Response> post(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    Future<Response> callback(Uri url) {
-      return super.post(url, headers: headers, body: body, encoding: encoding);
-    }
-
-    return withServer(url, callback);
-  }
-
-  @override
-  Future<Response> put(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    Future<Response> callback(Uri url) {
-      return super.put(url, headers: headers, body: body, encoding: encoding);
-    }
-
-    return withServer(url, callback);
-  }
-
-  @override
-  Future<Response> patch(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    Future<Response> callback(Uri url) {
-      return super.patch(url, headers: headers, body: body, encoding: encoding);
-    }
-
-    return withServer(url, callback);
-  }
-
-  @override
-  Future<Response> delete(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    Future<Response> callback(Uri url) {
-      return super
-          .delete(url, headers: headers, body: body, encoding: encoding);
-    }
-
-    return withServer(url, callback);
+  Future<void> close() async {
+    await _server.close();
+    await super.close();
   }
 }

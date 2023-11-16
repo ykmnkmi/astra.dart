@@ -1,45 +1,29 @@
 import 'dart:async' show Future, FutureOr;
-import 'dart:io'
-    show InternetAddress, InternetAddressType, Platform, SecurityContext;
-import 'dart:isolate' show SendPort;
+import 'dart:io' show InternetAddress, Platform, SecurityContext;
+import 'dart:isolate' show Isolate, SendPort;
 import 'dart:math' show min;
 
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/devtools/register_hot_reloader.dart';
+import 'package:astra/src/devtools/register_extensions.dart';
 import 'package:astra/src/isolate/isolate_server.dart';
 import 'package:astra/src/isolate/multi_isolate_server.dart';
 import 'package:astra/src/serve/server.dart';
-import 'package:astra/src/serve/type.dart';
+import 'package:astra/src/serve/servers/h11.dart';
 import 'package:logging/logging.dart' show Logger;
 
-/// A typedef for a function that produces a [SecurityContext].
-///
-/// The [SecurityContextFactory] represents a function that returns a
-/// [SecurityContext] instance, typically used for configuring security settings
-/// for an HTTPS server.
-///
-/// Example usage:
-///
-/// ```dart
-/// SecurityContext securityContextFactory() {
-///   // Create and configure a SecurityContext instance.
-///   var securityContext = SecurityContext();
-///   securityContext.setAlpnProtocols(['h2'], true);
-///   securityContext.useCertificateChain('path/to/certificate.pem');
-///   securityContext.usePrivateKey('path/to/private_key.pem');
-///   return securityContext;
-/// };
-/// ```
+/// A factory that creates a [SecurityContext].
 typedef SecurityContextFactory = FutureOr<SecurityContext> Function();
 
-/// Extension on [Handler] to serve a single HTTP server.
+/// A factory that creates a [Logger].
+typedef LoggerFactory = FutureOr<Logger> Function();
+
+/// Extension on [Handler] to serve a HTTP server.
 extension ServeHandlerExtension on FutureOr<Handler> {
-  /// Serves the specified [Handler] by creating and configuring an HTTP server.
+  /// Starts a [Server] that listens on the specified [address] and [port] and
+  /// sends requests to mounted [Handler].
   ///
-  /// {@macro serve}
-  ///
-  /// Returns a [Server] instance representing the running HTTP server.
+  /// {@macro astra_serve}
   Future<Server> serve(
     Object address,
     int port, {
@@ -48,16 +32,11 @@ extension ServeHandlerExtension on FutureOr<Handler> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    ServerType type = ServerType.defaultType,
     int isolates = 1,
-    bool hotReload = false,
-    bool debug = false,
-    Logger? logger,
+    LoggerFactory? loggerFactory,
   }) async {
-    var handlerOrFuture = this;
-
     Future<Application> handlerFactory() async {
-      var handler = await handlerOrFuture;
+      var handler = await this;
       return handler.asApplication();
     }
 
@@ -67,20 +46,17 @@ extension ServeHandlerExtension on FutureOr<Handler> {
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
-        type: type,
-        hotReload: hotReload,
-        debug: debug,
-        logger: logger);
+        isolates: isolates,
+        loggerFactory: loggerFactory);
   }
 }
 
-/// Extension on [HandlerFactory] to serve a single HTTP server.
+/// Extension on [HandlerFactory] to serve a HTTP server.
 extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
-  /// Serves the [HandlerFactory] by creating and configuring an HTTP server.
+  /// Starts a [Server] that listens on the specified [address] and [port] and
+  /// sends requests to mounted [Handler] created by [HandlerFactory].
   ///
-  /// {@macro serve}
-  ///
-  /// Returns a [Server] instance representing the running HTTP server.
+  /// {@macro astra_serve}
   Future<Server> serve(
     Object address,
     int port, {
@@ -89,16 +65,11 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    ServerType type = ServerType.defaultType,
     int isolates = 1,
-    bool hotReload = false,
-    bool debug = false,
-    Logger? logger,
+    LoggerFactory? loggerFactory,
   }) async {
-    var handlerFactoryOrFuture = this;
-
     Future<Application> handlerFactory() async {
-      var handlerFactory = await handlerFactoryOrFuture;
+      var handlerFactory = await this;
       var handler = await handlerFactory();
       return handler.asApplication();
     }
@@ -109,22 +80,17 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
-        type: type,
         isolates: isolates,
-        hotReload: hotReload,
-        debug: debug);
+        loggerFactory: loggerFactory);
   }
 }
 
-/// Extension on [Application] to serve a single HTTP server.
+/// Extension on [Application] to serve a HTTP server.
 extension ServeApplicationExtension on FutureOr<Application> {
-  /// Serves the specified [Application] by creating and configuring an HTTP
-  /// server.
+  /// Starts a [Server] that listens on the specified [address] and [port] and
+  /// sends requests to mounted [Application].
   ///
-  /// {@macro serve}
-  ///
-  /// Returns a [Server] instance representing the running HTTP server.
-  // TODO(serve): check http://dartbug.com/36983 and document it
+  /// {@macro astra_serve}
   Future<Server> serve(
     Object address,
     int port, {
@@ -133,11 +99,8 @@ extension ServeApplicationExtension on FutureOr<Application> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    ServerType type = ServerType.defaultType,
     int isolates = 1,
-    bool hotReload = false,
-    bool debug = false,
-    Logger? logger,
+    LoggerFactory? loggerFactory,
   }) async {
     var applicationOrFuture = this;
 
@@ -151,27 +114,54 @@ extension ServeApplicationExtension on FutureOr<Application> {
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
-        type: type,
-        hotReload: hotReload,
-        debug: debug);
+        isolates: isolates,
+        loggerFactory: loggerFactory);
   }
 }
 
-/// Extension on [ApplicationFactory] to serve a single HTTP server.
+/// Extension on [ApplicationFactory] to serve a HTTP server.
 extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
-  /// Serves the [ApplicationFactory] by creating and configuring an HTTP
-  /// server.
+  /// Starts a [Server] that listens on the specified [address] and [port] and
+  /// sends requests to mounted [Application] created by [ApplicationFactory].
   ///
-  /// {@template serve}
-  /// {@macro server}
+  /// {@template astra_serve}
+  /// The [address] can either be a [String] or an [InternetAddress]. If
+  /// [address] is a [String], [Server.handle] will perform a
+  /// [InternetAddress.lookup] and use the first value in the list. To listen
+  /// on the loopback adapter, which will allow only incoming connections from
+  /// the local host, use the value [InternetAddress.loopbackIPv4] or
+  /// [InternetAddress.loopbackIPv6]. To allow for incoming connection from the
+  /// network use either one of the values [InternetAddress.anyIPv4] or
+  /// [InternetAddress.anyIPv6] to bind to all interfaces or the IP address of
+  /// a specific interface.
   ///
-  /// If [isolates] is set to 1, a single HTTP server is created. If [isolates]
-  /// is set to 0, a reasonable value will be chosen by the system. If
-  /// [hotReload] or [debug] is enabled, the hot-reloading callback is
-  /// registered. Otherwise, the server runs with no hot-reloading support.
+  /// If [port] has the value `0`, an ephemeral port will be chosen by the
+  /// system.
+  ///
+  /// Incoming client connections are promoted to secure connections, using the
+  /// certificate and key set in [SecurityContext] created by
+  /// [securityContextFactory].
+  ///
+  /// The optional argument [backlog] can be used to specify the listen
+  /// [backlog] for the underlying OS listen setup. If [backlog] has the value
+  /// of `0` (the default) a reasonable value will be chosen by the system.
+  ///
+  /// If [requestClientCertificate] is `true`, the server will request clients
+  /// to authenticate with a client certificate. The server will advertise the
+  /// names of trusted issuers of client certificates, getting them from a
+  /// [SecurityContext], where they have been set using
+  /// [SecurityContext.setClientAuthorities].
+  ///
+  /// The optional argument [shared] specifies whether additional [Server]
+  /// objects can bind to the same combination of [address], [port] and
+  /// [v6Only]. If [shared] is `true` and more [Server]s from this isolate or
+  /// other isolates are bound to the port, then the incoming connections will
+  /// be distributed among all the bound [Server]s. Connections can be
+  /// distributed over multiple isolates this way.
+  ///
+  /// The optional argument [loggerFactory] specifies a logger factory that
+  /// creates a [Logger] for this [Server] instance.
   /// {@endtemplate}
-  ///
-  /// Returns a [Server] instance representing the running HTTP server.
   Future<Server> serve(
     Object address,
     int port, {
@@ -180,29 +170,11 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
-    ServerType type = ServerType.defaultType,
     int isolates = 1,
-    bool hotReload = false,
-    bool debug = false,
-    Logger? logger,
+    LoggerFactory? loggerFactory,
   }) async {
-    var applicationFactoryOrFuture = this;
-
-    InternetAddress internetAddress;
-
-    if (address is InternetAddress) {
-      internetAddress = address;
-    } else if (address is String) {
-      var addresses = await InternetAddress.lookup(address);
-      // TODO(serve): is this can be empty?
-      internetAddress = addresses.first;
-    } else {
-      // TODO(serve): add error message
-      throw ArgumentError.value(address, 'address');
-    }
-
     if (isolates < 0) {
-      // TODO(serve): add error message
+      // TODO(serve): Add error message.
       throw ArgumentError.value(isolates, 'isolates');
     } else if (isolates == 0) {
       isolates = min(1, Platform.numberOfProcessors - 1);
@@ -210,76 +182,79 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
 
     shared = shared || isolates > 1;
 
-    if (isolates == 1) {
+    Future<Server> create(SendPort? controlPort) async {
+      var applicationFactory = await this;
+      var application = await applicationFactory();
+
       SecurityContext? securityContext;
 
       if (securityContextFactory != null) {
         securityContext = await securityContextFactory();
       }
 
-      var server = await Server.bind(internetAddress, port,
-          securityContext: securityContext,
-          backlog: backlog,
-          v6Only: v6Only,
-          requestClientCertificate: requestClientCertificate,
-          shared: shared,
-          type: type);
+      Logger? logger;
 
-      var applicationFactory = await applicationFactoryOrFuture;
-      var application = await applicationFactory();
+      if (loggerFactory != null) {
+        logger = await loggerFactory();
+      }
 
-      if (hotReload || debug) {
-        await registerHotReloader(application.reload, server.done);
+      Server server;
+
+      if (controlPort == null) {
+        server = H11Server(address, port,
+            securityContext: securityContext,
+            backlog: backlog,
+            v6Only: v6Only,
+            requestClientCertificate: requestClientCertificate,
+            shared: shared,
+            identifier: 'server/main',
+            logger: logger);
+      } else {
+        server = IsolateServer(controlPort, address, port,
+            securityContext: securityContext,
+            backlog: backlog,
+            v6Only: v6Only,
+            requestClientCertificate: requestClientCertificate,
+            shared: shared,
+            identifier: Isolate.current.debugName,
+            logger: logger);
       }
 
       await server.mount(application);
       return server;
     }
 
-    String host;
-
-    if (internetAddress.isLoopback) {
-      host = 'localhost';
-    } else if (internetAddress.type == InternetAddressType.IPv6) {
-      host = '[${internetAddress.address}]';
-    } else {
-      host = internetAddress.address;
+    if (isolates == 1) {
+      var server = await create(null);
+      registerExtensions(server);
+      return server;
     }
 
-    var url = Uri(
-        scheme: securityContextFactory == null ? 'http' : 'https',
-        host: host,
-        port: port);
+    // Check security context before spawn.
+    SecurityContext? securityContext;
 
-    Future<IsolateServer> create(SendPort controlPort) async {
-      SecurityContext? securityContext;
-
-      if (securityContextFactory != null) {
-        securityContext = await securityContextFactory();
-      }
-
-      var server = await Server.bind(internetAddress, port,
-          securityContext: securityContext,
-          backlog: backlog,
-          v6Only: v6Only,
-          requestClientCertificate: requestClientCertificate,
-          shared: shared,
-          type: type,
-          logger: logger);
-
-      var applicationFactory = await applicationFactoryOrFuture;
-      var application = await applicationFactory();
-      var isolateServer = IsolateServer(server, controlPort);
-      await isolateServer.mount(application);
-      return isolateServer;
+    if (securityContextFactory != null) {
+      securityContext = await securityContextFactory();
     }
 
-    var server = await MultiIsolateServer.spawn(url, isolates, create);
+    // Check logger before spawn.
+    Logger? logger;
 
-    if (hotReload || debug) {
-      await registerHotReloader(server.reload, server.done);
+    if (loggerFactory != null) {
+      logger = await loggerFactory();
     }
 
+    var server = MultiIsolateServer(address, port,
+        securityContext: securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+        identifier: 'main',
+        logger: logger);
+
+    await server.start(isolates, create);
+    registerExtensions(server);
     return server;
   }
 }
