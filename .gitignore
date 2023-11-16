@@ -3,6 +3,7 @@
 .vs_code/
 .DS_store
 .packages
+doc/
 pubspec.lock
 pubspec_overrides.yaml
 **/**.iml
