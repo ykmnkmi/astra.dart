@@ -20,7 +20,7 @@ class IOClient extends BaseClient {
   /// The underlying [Pipeline] used to handle requests.
   final Pipeline? _pipeline;
 
-  /// The underlying `dart:io` HTTP client.
+  /// The underlying `dart:io` [HttpClient].
   HttpClient? _client;
 
   @override
@@ -45,7 +45,7 @@ class IOClient extends BaseClient {
     var client = _client;
 
     if (client == null) {
-      throw Exception('Client is already closed.');
+      throw StateError('Client is already closed.');
     }
 
     Future<Response> handler(Request request) async {
