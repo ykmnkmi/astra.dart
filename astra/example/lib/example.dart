@@ -20,6 +20,8 @@ final class Counter extends Application {
   Future<Response> handler(Request request) async {
     count += 1;
 
+    messageHub?.add(1);
+
     if (request.url.path == '') {
       return Response.ok('You have requested this application $count time(s).');
     }
@@ -29,9 +31,10 @@ final class Counter extends Application {
     }
 
     if (request.url.path == 'send') {
-      messageHub?.add(request.url.queryParameters);
-      return Response.ok(json.encode(request.url.queryParameters),
-          headers: {'Content-Type': 'application/json; charset=utf-8'});
+      const headers = {'Content-Type': 'application/json; charset=utf-8'};
+
+      var body = json.encode(request.url.queryParameters);
+      return Response.ok(body, headers: headers);
     }
 
     if (request.url.path == 'throw') {
@@ -42,7 +45,9 @@ final class Counter extends Application {
   }
 
   void onMessage(Object? event) {
-    print('${Isolate.current.debugName}: $event');
+    if (event is int) {
+      count += event;
+    }
   }
 
   @override

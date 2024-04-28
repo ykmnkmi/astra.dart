@@ -1,5 +1,7 @@
 // ignore: avoid_print
 
+import 'dart:io' show stderr, stdout;
+
 import 'package:astra/src/core/error.dart';
 import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/core/middleware.dart';
@@ -10,9 +12,9 @@ import 'package:stack_trace/stack_trace.dart' show Chain;
 
 void _defaultLogger(String msg, bool isError) {
   if (isError) {
-    print('[ERROR] $msg');
+    stderr.writeln('[ERROR] $msg');
   } else {
-    print(msg);
+    stdout.writeln(msg);
   }
 }
 

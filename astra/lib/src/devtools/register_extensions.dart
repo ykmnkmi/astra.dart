@@ -5,21 +5,21 @@ import 'package:astra/src/serve/server.dart';
 
 /// Registers useful extensions for the CLI and Dart DevTools.
 void registerExtensions(Server server) {
-  // TODO(devtools): Handle errors.
+  // TODO(devtools): handle errors.
   Future<ServiceExtensionResponse> reload(
     String method,
     Map<String, String> parameters,
   ) async {
     if (server is MultiIsolateServer) {
       await server.reload();
-    } else if (server.application case var application?) {
-      await application.reload();
+    } else if (server is ApplicationServer) {
+      await server.reload();
     }
 
     return ServiceExtensionResponse.result('{}');
   }
 
-  // TODO(devtools): Handle errors.
+  // TODO(devtools): handle errors.
   Future<ServiceExtensionResponse> close(
     String method,
     Map<String, String> parameters,

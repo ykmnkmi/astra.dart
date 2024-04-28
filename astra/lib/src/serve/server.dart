@@ -1,33 +1,32 @@
 import 'dart:async' show Future;
-import 'dart:io' show InternetAddress, InternetAddressType, SecurityContext;
+import 'dart:io'
+    show HttpServer, InternetAddress, InternetAddressType, SecurityContext;
 
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
+import 'package:astra/src/serve/servers/h11.dart';
 import 'package:logging/logging.dart' show Logger;
 
-/// A factory function that creates a [Server].
-///
-/// {@macro astra_server}
-typedef ServerFactory = Future<Server> Function(
-  Object address,
-  int port, {
-  SecurityContext? securityContext,
-  int backlog,
-  bool v6Only,
-  bool requestClientCertificate,
-  bool shared,
-  String? identifier,
-  Logger? logger,
-});
+/// A running HTTP server with a concrete URL.
+abstract interface class Server {
+  /// Creates an instance of [Server].
+  Server();
 
-/// Listens for HTTP requests and delivers them to its [Application] instance
-/// or [Handler].
-abstract base class Server {
-  /// Base constructor for [Server].
+  /// The URL that the server is listening on.
+  Uri get url;
+
+  /// The logger of the instance.
+  Logger? get logger;
+
+  /// Closes the server and returns a future that completes when all resources
+  /// are released.
+  Future<void> close({bool force = false});
+
+  /// Binds a [handler] to an [address] and [port].
   ///
-  /// {@template astra_server}
+  /// {@template astra_bind}
   /// The [address] can either be a [String] or an [InternetAddress]. If
-  /// [address] is a [String], [handle] will perform a [InternetAddress.lookup]
+  /// [address] is a [String], [bind] will perform a [InternetAddress.lookup]
   /// and use the first value in the list. To listen on the loopback adapter,
   /// which will allow only incoming connections from the local host, use the
   /// value [InternetAddress.loopbackIPv4] or [InternetAddress.loopbackIPv6].
@@ -59,85 +58,163 @@ abstract base class Server {
   /// be distributed among all the bound [Server]s. Connections can be
   /// distributed over multiple isolates this way.
   ///
-  /// The optional argument [identifier] specifies a unique identifier for this
-  /// [Server] instance.
-  ///
   /// The optional argument [logger] specifies a logger for this [Server]
   /// instance.
   /// {@endtemplate}
-  Server(
-    this.address,
-    this.port, {
-    this.securityContext,
-    this.backlog = 0,
-    this.v6Only = false,
-    this.requestClientCertificate = false,
-    this.shared = false,
-    this.identifier,
-    this.logger,
-  });
+  static Future<Server> bind(
+    Handler handler,
+    Object address,
+    int port, {
+    SecurityContext? securityContext,
+    int backlog = 0,
+    bool v6Only = false,
+    bool requestClientCertificate = false,
+    bool shared = false,
+    Logger? logger,
+  }) async {
+    logger?.fine('Binding HTTP server.');
 
-  /// The instance of [Application] serving requests.
-  Application? get application;
+    HttpServer httpServer;
 
-  /// The address that the server is listening on.
-  final Object address;
-
-  /// The port that the server is listening on.
-  final int port;
-
-  /// The URL that the server is listening on.
-  Uri get url {
-    String host;
-
-    if (address case InternetAddress internetAddress) {
-      if (internetAddress.isLoopback) {
-        host = 'localhost';
-      } else if (internetAddress.type == InternetAddressType.IPv6) {
-        host = '[${internetAddress.address}]';
-      } else {
-        host = internetAddress.address;
-      }
+    if (securityContext != null) {
+      httpServer = await HttpServer.bindSecure(address, port, securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared);
     } else {
-      host = '$address';
+      httpServer = await HttpServer.bind(address, port, //
+          backlog: backlog,
+          v6Only: v6Only,
+          shared: shared);
     }
 
-    return Uri(
-        scheme: securityContext == null ? 'http' : 'http',
-        host: host,
-        port: port);
+    logger?.fine('Bound HTTP server.');
+    logger?.fine('Listening for requests.');
+    serveRequests(httpServer, handler, logger);
+    logger?.info('Server started.');
+    return IOServer(httpServer, //
+        isSecure: securityContext != null,
+        logger: logger);
   }
+}
 
-  /// The security context used for secure HTTP connections.
-  final SecurityContext? securityContext;
+/// A running HTTP server with a concrete URL.
+final class IOServer implements Server {
+  /// Creates an instance of [IOServer].
+  IOServer(this.httpServer, {this.isSecure = false, this.logger});
 
-  final int backlog;
+  /// The underlying [HttpServer] instance.
+  final HttpServer httpServer;
 
-  /// Whether or not the [application] should only receive connections over
-  /// IPv6.
-  final bool v6Only;
+  /// Whether the server is secure.
+  final bool isSecure;
 
-  /// Whether or not the [application]'s request controllers should use
-  /// client-side HTTPS certificates.
-  final bool requestClientCertificate;
-
-  final bool shared;
-
-  /// The unique identifier of this instance.
-  final String? identifier;
-
-  /// The logger of this instance.
+  @override
   final Logger? logger;
 
-  /// Whether or not this server is running.
-  bool get isRunning;
+  @override
+  late final Uri url = getUrl(httpServer.address, httpServer.port, isSecure);
 
-  /// Mounts [Handler] to this HTTP server.
-  Future<void> handle(Handler handler);
+  @override
+  Future<void> close({bool force = false}) async {
+    logger?.fine('Closing server.');
+    await httpServer.close(force: force);
+    logger?.info('Server closed.');
+  }
+}
 
-  /// Mounts [Application] to this HTTP server.
-  Future<void> mount(Application application);
+/// A running application HTTP server with a concrete URL.
+abstract interface class ApplicationServer implements Server {
+  /// Creates an instance of [ApplicationServer].
+  ApplicationServer();
 
-  /// Closes this HTTP server and mounted [application].
-  Future<void> close({bool force = false});
+  /// The application that is running on the server.
+  Application get application;
+
+  Future<void> reload();
+
+  /// Binds a [application] to an [address] and [port].
+  ///
+  /// {@macro astra_bind}
+  static Future<ApplicationServer> bind(
+    Application application,
+    Object address,
+    int port, {
+    SecurityContext? securityContext,
+    int backlog = 0,
+    bool v6Only = false,
+    bool requestClientCertificate = false,
+    bool shared = false,
+    String? identifier,
+    Logger? logger,
+  }) async {
+    logger?.fine('Preparing application.');
+    await application.prepare();
+
+    var server = await Server.bind(application.entryPoint, address, port, //
+        securityContext: securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+        logger: logger);
+
+    return ApplicationIOServer(application, server);
+  }
+}
+
+/// A running application HTTP server with a concrete URL.
+final class ApplicationIOServer implements ApplicationServer {
+  /// Creates an instance of [ApplicationIOServer].
+  ApplicationIOServer(this.application, this.server) {
+    application.server = server;
+  }
+
+  @override
+  final Application application;
+
+  /// The underlying [Server] instance.
+  final Server server;
+
+  @override
+  Uri get url => server.url;
+
+  @override
+  Logger? get logger => server.logger;
+
+  @override
+  Future<void> reload() async {
+    logger?.fine('Reloading application.');
+    await application.reload();
+    logger?.fine('Application reloaded.');
+  }
+
+  @override
+  Future<void> close({bool force = false}) async {
+    await server.close(force: force);
+
+    logger?.fine('Closing application.');
+    await application.close();
+    logger?.info('Application closed.');
+  }
+}
+
+/// Makes a [Uri] for [Server].
+Uri getUrl(Object address, int port, bool isSecure) {
+  String host;
+
+  if (address is InternetAddress) {
+    if (address.isLoopback) {
+      host = 'localhost';
+    } else if (address.type == InternetAddressType.IPv6) {
+      host = '[${address.address}]';
+    } else {
+      host = address.address;
+    }
+  } else {
+    host = address as String;
+  }
+
+  return Uri(scheme: isSecure ? 'https' : 'http', host: host, port: port);
 }

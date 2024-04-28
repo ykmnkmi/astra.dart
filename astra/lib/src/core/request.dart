@@ -1,4 +1,4 @@
-import 'dart:io' show HttpConnectionInfo;
+import 'dart:io' show HttpConnectionInfo, X509Certificate;
 
 import 'package:shelf/shelf.dart' show Request;
 
@@ -13,4 +13,12 @@ extension RequestExtension on Request {
   /// available.
   HttpConnectionInfo? get connectionInfo =>
       context['shelf.io.connection_info'] as HttpConnectionInfo?;
+
+  /// The client certificate of the client making the request.
+  ///
+  /// This value is `null` if the connection is not a secure TLS or SSL
+  /// connection, or if the server does not request a client certificate,
+  /// or if the client does not provide one.
+  X509Certificate? get certificate =>
+      context['astra.server.certificate'] as X509Certificate?;
 }

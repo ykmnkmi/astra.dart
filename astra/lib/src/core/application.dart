@@ -20,20 +20,21 @@ abstract base class Application {
   /// Creates an instance of [Application].
   Application();
 
-  /// Implement this accsessor to define how HTTP requests are handled by application.
+  /// Implement this accsessor to define how HTTP requests are handled by
+  /// application.
   ///
   /// Implement this accsessor to return the handler that will handle an HTTP
   /// request. This accsessor is invoked during startup and handler cannot be
   /// changed after it is invoked. This accsessor is always invoked after
   /// [prepare].
   ///
-  /// In most applications, the handler is a router. Example with `shelf_router`:
+  /// In most applications, the handler is a router:
   /// ```dart
   /// @override
   /// Handler get entryPoint {
-  ///   return Router()
-  ///    ..get('/hello', (Request request) => Response.ok('Hello World!'))
-  ///    ..get('/user/<user>', (Request request, String user) => Response.ok('Hello $user!'));
+  ///   return shelf_router.Router()
+  ///    ..get('/hello', (request) => Response.ok('Hello World!'))
+  ///    /* other routes */;
   /// }
   /// ```
   Handler get entryPoint;
@@ -54,12 +55,12 @@ abstract base class Application {
     _messageHub = messageHub;
   }
 
-  /// The logger that this object will write messages to.
+  /// The logger that this application will write messages to.
   ///
   /// This logger's name appears as 'astra'.
   Logger get logger => Logger('astra');
 
-  /// The [Server] that sends HTTP requests to this object.
+  /// The HTTP server that sends requests to this application.
   @nonVirtual
   Server? get server => _server;
 
@@ -76,7 +77,8 @@ abstract base class Application {
   /// This method allows this instance to perform any initialization (other than
   /// setting up the [entryPoint]). This method is often used to set up services
   /// that [Handler]s use to fulfill their duties. This method is invoked prior
-  /// to [entryPoint], so that the services it creates can be injected into [Handler]s.
+  /// to [entryPoint], so that the services it creates can be injected into
+  /// [Handler]s.
   ///
   /// By default, this method does nothing.
   Future<void> prepare() async {}
@@ -106,7 +108,7 @@ abstract interface class MessageHub implements Stream<Object?>, Sink<Object?> {
   /// callback for [listen].
   ///
   /// [event] must be isolate-safe data - in general, this means it may not be
-  /// or contain a closure.  If [event] is not isolate-safe data, an error is
+  /// or contain a closure. If [event] is not isolate-safe data, an error is
   /// delivered to [listen] on this isolate. See [SendPort.send] for more details.
   @override
   void add(Object? event);
