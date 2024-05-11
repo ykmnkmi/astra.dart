@@ -72,7 +72,7 @@ abstract interface class Server {
     bool shared = false,
     Logger? logger,
   }) async {
-    logger?.fine('Binding HTTP server.');
+    logger?.fine('Binding HTTP server...');
 
     HttpServer httpServer;
 
@@ -90,9 +90,9 @@ abstract interface class Server {
     }
 
     logger?.fine('Bound HTTP server.');
-    logger?.fine('Listening for requests.');
+    logger?.fine('Listening for requests...');
     serveRequests(httpServer, handler, logger);
-    logger?.info('Server started.');
+    logger?.fine('Server started.');
     return IOServer(httpServer, //
         isSecure: securityContext != null,
         logger: logger);
@@ -118,9 +118,9 @@ final class IOServer implements Server {
 
   @override
   Future<void> close({bool force = false}) async {
-    logger?.fine('Closing server.');
+    logger?.fine('Closing server...');
     await httpServer.close(force: force);
-    logger?.info('Server closed.');
+    logger?.fine('Server closed.');
   }
 }
 
@@ -149,7 +149,7 @@ abstract interface class ApplicationServer implements Server {
     String? identifier,
     Logger? logger,
   }) async {
-    logger?.fine('Preparing application.');
+    logger?.fine('Preparing application...');
     await application.prepare();
 
     var server = await Server.bind(application.entryPoint, address, port, //
@@ -185,7 +185,7 @@ final class ApplicationIOServer implements ApplicationServer {
 
   @override
   Future<void> reload() async {
-    logger?.fine('Reloading application.');
+    logger?.fine('Reloading application...');
     await application.reload();
     logger?.fine('Application reloaded.');
   }
@@ -194,9 +194,9 @@ final class ApplicationIOServer implements ApplicationServer {
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
 
-    logger?.fine('Closing application.');
+    logger?.fine('Closing application...');
     await application.close();
-    logger?.info('Application closed.');
+    logger?.fine('Application closed.');
   }
 }
 

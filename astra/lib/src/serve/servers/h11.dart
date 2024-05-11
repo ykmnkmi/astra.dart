@@ -20,7 +20,7 @@ Future<void> _handleRequest(
   try {
     request = _fromHttpRequest(httpRequest);
   } on ArgumentError catch (error, stackTrace) {
-    if (error.name case 'method' || 'requestedUri') {
+    if (error.name == 'method' || error.name == 'requestedUri') {
       logger?.severe('Error parsing request.', error, stackTrace);
 
       var response = Response.badRequest(body: 'Bad Request');
@@ -108,8 +108,8 @@ Request _fromHttpRequest(HttpRequest request) {
 
   var context = <String, Object>{
     'shelf.io.connection_info': request.connectionInfo!,
-    if (request.certificate case var certificate?)
-      'astra.server.certificate': certificate,
+    if (request.certificate != null)
+      'astra.server.certificate': request.certificate!,
   };
 
   return Request(request.method, request.requestedUri,

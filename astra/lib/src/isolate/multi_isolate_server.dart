@@ -114,6 +114,7 @@ final class IsolateSupervisor {
     var sendPort = receivePort.sendPort;
 
     var isolate = await Isolate.spawn<SendPort>(spawn, sendPort, //
+        paused: true,
         onExit: sendPort,
         onError: sendPort,
         debugName: 'server/$identifier');
@@ -153,6 +154,11 @@ final class MultiIsolateServer implements Server {
         var supervisor =
             await IsolateSupervisor.spawn(this, spawn, isolate + 1);
         supervisors.add(supervisor);
+        await supervisor.resume();
+      }
+
+      for (var isolate = 0; isolate < isolates; isolate += 1) {
+        supervisors[isolate].sendPendingMessages();
       }
 
       isRunning = true;
