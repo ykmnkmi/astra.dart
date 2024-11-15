@@ -1,7 +1,8 @@
+import 'dart:async' show Future, FutureOr;
 import 'dart:convert' show Encoding;
-import 'dart:typed_data';
+import 'dart:typed_data' show Uint8List;
 
-import 'package:shelf/shelf.dart';
+import 'package:shelf/shelf.dart' show Request, Response;
 import 'package:shelf_client/src/client.dart';
 
 /// A base implementation of the [Client] interface, providing
@@ -117,15 +118,25 @@ abstract mixin class BaseClient implements Client {
   /// Creates a new [Request] instance with the given parameters.
   Request makeRequest(
     String method,
-    Uri url, {
+    Uri requestedUri, {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
-  });
+  }) {
+    var path = requestedUri.path;
+
+    return Request(method, requestedUri,
+        headers: headers,
+        body: body,
+        url: Uri(
+            path: path == '' ? '' : path.substring(1),
+            queryParameters: requestedUri.queryParameters),
+        encoding: encoding);
+  }
 
   /// Sends the given [request] and returns the response.
   Future<Response> send(Request request);
 
   @override
-  Future<void> close() async {}
+  FutureOr<void> close() {}
 }

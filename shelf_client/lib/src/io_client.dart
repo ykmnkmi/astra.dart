@@ -1,5 +1,4 @@
 import 'dart:async' show Future, FutureOr;
-import 'dart:convert' show Encoding;
 import 'dart:io' show HttpClient;
 
 import 'package:shelf/shelf.dart' show Pipeline, Request, Response;
@@ -12,7 +11,7 @@ Client createClient({Pipeline? pipeline}) {
 }
 
 /// A `dart:io`-based HTTP [Client].
-class IOClient extends BaseClient {
+base class IOClient extends BaseClient {
   IOClient({HttpClient? httpClient, Pipeline? pipeline})
       : _pipeline = pipeline,
         _client = httpClient ?? HttpClient();
@@ -22,23 +21,6 @@ class IOClient extends BaseClient {
 
   /// The underlying `dart:io` [HttpClient].
   HttpClient? _client;
-
-  @override
-  Request makeRequest(
-    String method,
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    return Request(
-      method,
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
-  }
 
   @override
   Future<Response> send(Request request) async {

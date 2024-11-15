@@ -1,9 +1,10 @@
-import 'dart:async' show Future;
+import 'dart:async' show Future, FutureOr;
 import 'dart:convert' show Encoding;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:shelf/shelf.dart' show Response;
 import 'package:shelf_client/src/client_stub.dart'
+    if (dart.library.js_interop) 'package:shelf_client/src/js_client.dart'
     if (dart.library.io) 'package:shelf_client/src/io_client.dart';
 
 /// Represents an HTTP client that can perform various HTTP requests.
@@ -61,5 +62,5 @@ abstract interface class Client {
   /// {@template astra_client_close}
   /// Closes the client and cleans up any associated resources.
   /// {@endtemplate}
-  Future<void> close();
+  FutureOr<void> close();
 }
