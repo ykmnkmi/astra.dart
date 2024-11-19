@@ -1,3 +1,7 @@
+// TODO(serve): add notes about isolate closure context leaks, tests and
+//  examples.
+library;
+
 import 'dart:async' show Future, FutureOr;
 import 'dart:io' show InternetAddress, Platform, SecurityContext;
 import 'dart:isolate' show SendPort;
@@ -7,7 +11,7 @@ import 'package:astra/isolate.dart';
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/devtools/register_extensions.dart';
-import 'package:astra/src/serve/banner.dart';
+import 'package:astra/src/logger.dart';
 import 'package:astra/src/serve/server.dart';
 import 'package:logging/logging.dart' show Logger;
 
@@ -15,6 +19,7 @@ import 'package:logging/logging.dart' show Logger;
 typedef SecurityContextFactory = FutureOr<SecurityContext> Function();
 
 /// A factory that creates a [Logger].
+// TODO(serve): add isolate `String sourse` argument.
 typedef LoggerFactory = FutureOr<Logger> Function();
 
 /// Extension on [Handler] to serve a HTTP server.
@@ -33,8 +38,6 @@ extension ServeHandlerExtension on FutureOr<Handler> {
     bool shared = false,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
-    bool showBanner = true,
-    bool showUrl = true,
   }) async {
     Future<Handler> handlerFactory() async {
       return await this;
@@ -47,9 +50,7 @@ extension ServeHandlerExtension on FutureOr<Handler> {
         requestClientCertificate: requestClientCertificate,
         shared: shared,
         isolates: isolates,
-        loggerFactory: loggerFactory,
-        showBanner: showBanner,
-        showUrl: showUrl);
+        loggerFactory: loggerFactory);
   }
 }
 
@@ -107,8 +108,6 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
     bool shared = false,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
-    bool showBanner = true,
-    bool showUrl = true,
   }) async {
     if (isolates < 0) {
       // TODO(serve): add error message.
@@ -155,26 +154,18 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
     }
 
     if (securityContextFactory != null) {
-      // check if securityContextFactory is error safe, not guaranteed.
+      // check if function is error safe, not guaranteed.
       await securityContextFactory();
     }
 
     Logger? logger;
 
     if (loggerFactory != null) {
-      // check if loggerFactory is error safe, not guaranteed.
+      // check if function is error safe, not guaranteed.
       logger = await loggerFactory();
     }
 
     var url = getUrl(address, port, securityContextFactory != null);
-
-    if (showBanner && logger != null) {
-      logBanner(logger);
-    }
-
-    if (showUrl && logger != null) {
-      logUrl(logger, url);
-    }
 
     Server server;
 
@@ -223,9 +214,7 @@ extension ServeApplicationExtension on FutureOr<Application> {
         requestClientCertificate: requestClientCertificate,
         shared: shared,
         isolates: isolates,
-        loggerFactory: loggerFactory,
-        showBanner: showBanner,
-        showUrl: showUrl);
+        loggerFactory: loggerFactory);
   }
 }
 
@@ -284,8 +273,6 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     bool shared = false,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
-    bool showBanner = true,
-    bool showUrl = true,
   }) async {
     if (isolates < 0) {
       // TODO(serve): add error message.
@@ -340,18 +327,11 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     Logger? logger;
 
     if (loggerFactory != null) {
+      // check if function is error safe, not guaranteed.
       logger = await loggerFactory();
     }
 
     var url = getUrl(address, port, securityContextFactory != null);
-
-    if (showBanner && logger != null) {
-      logBanner(logger);
-    }
-
-    if (showUrl && logger != null) {
-      logUrl(logger, url);
-    }
 
     Server server;
 

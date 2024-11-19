@@ -7,7 +7,7 @@ import 'package:astra/src/serve/server.dart';
 import 'package:shelf_client/io_client.dart';
 
 /// A test client for making HTTP requests to a server.
-class TestClient extends IOClient {
+base class TestClient extends IOClient {
   /// Creates instance of [TestClient].
   TestClient({
     this.host = 'localhost',
@@ -36,17 +36,17 @@ class TestClient extends IOClient {
   @override
   Request makeRequest(
     String method,
-    Uri url, {
+    Uri requestedUri, {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
   }) {
-    url = url.replace(
-        scheme: url.scheme.isEmpty ? 'http' : url.scheme,
-        host: url.host.isEmpty ? _server?.url.host : host,
-        port: url.port == 0 ? _server?.url.port : port);
+    requestedUri = requestedUri.replace(
+        scheme: requestedUri.scheme.isEmpty ? 'http' : requestedUri.scheme,
+        host: requestedUri.host.isEmpty ? _server?.url.host : host,
+        port: requestedUri.port == 0 ? _server?.url.port : port);
 
-    return Request(method, url, //
+    return Request(method, requestedUri, //
         headers: headers,
         body: body,
         encoding: encoding);
