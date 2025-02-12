@@ -12,6 +12,7 @@ import 'dart:js_interop'
         JSPromise,
         JSPromiseToFuture,
         JSString,
+        JSStringToString,
         JSUint8Array,
         JSUint8ArrayToUint8List,
         StringToJSString,
@@ -50,10 +51,6 @@ external JSArray<T> arrayFrom<T extends JSAny?>(JSAny? arrayLike);
 
 extension on web.Headers {
   external JSAny entries();
-}
-
-extension on JSArray<JSString> {
-  external String operator [](int index);
 }
 
 /// A `dart:js_interop`-based HTTP [Client].
@@ -159,8 +156,8 @@ base class JSClient extends BaseClient {
 
     for (var i = 0; i < entries.length; i += 1) {
       var entry = entries[i];
-      var name = entry[0];
-      var value = entry[1];
+      var name = entry[0].toDart;
+      var value = entry[1].toDart;
 
       if (value.contains(',')) {
         headers[name] = _parseHeaderValues(value);
@@ -188,22 +185,17 @@ List<String> _parseHeaderValues(String value) {
       continue;
     }
 
-    switch (value[offset]) {
-      case '"':
-        inQuote = !inQuote;
-        break;
+    var char = value[offset];
 
-      case '\\':
-        escapeNext = true;
-        break;
-
-      case ',':
-        if (!inQuote) {
-          values.add(value.substring(start, offset).trim());
-          start = offset + 1;
-        }
-
-        break;
+    if (char == '"') {
+      inQuote = !inQuote;
+    } else if (char == '\\') {
+      escapeNext = true;
+    } else if (char == ',') {
+      if (!inQuote) {
+        values.add(value.substring(start, offset).trim());
+        start = offset + 1;
+      }
     }
   }
 

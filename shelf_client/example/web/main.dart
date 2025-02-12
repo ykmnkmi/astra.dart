@@ -1,8 +1,11 @@
 import 'dart:convert';
 
 import 'package:shelf_client/shelf_client.dart';
+import 'package:web/web.dart' hide Client;
 
 Future<void> main(List<String> arguments) async {
+  var body = document.body!;
+
   var client = Client();
 
   var response = await client.get(
@@ -22,9 +25,9 @@ Future<void> main(List<String> arguments) async {
     var stringBody = await response.readAsString();
     var jsonResponse = jsonDecode(stringBody) as Map<String, Object?>;
     var totalCount = jsonResponse['total_count'];
-    print('Number of repositories: $totalCount.');
+    body.append(Text('Number of repositories: $totalCount.'));
   } else {
-    print('Request failed with status: ${response.statusCode}.');
+    body.append(Text('Request failed with status: ${response.statusCode}.'));
   }
 
   client.close();
