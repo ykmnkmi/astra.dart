@@ -6,6 +6,8 @@ homepage: https://github.com/ykmnkmi/astra.dart/tree/master/astra_cli
 repository: https://github.com/ykmnkmi/astra.dart
 issue_tracker: https://github.com/ykmnkmi/astra.dart/issues
 
+resolution: workspace
+
 environment:
   sdk: ">=3.6.0 <4.0.0"
 
