@@ -13,7 +13,7 @@ targets:
           compilers:
             dart2js:
               args:
-                # - -O0
+                - -O0
                 # - --disable-inlining
                 # - --disable-type-inference
                 # - --disable-rti-optimizations
@@ -29,7 +29,7 @@ targets:
                 # - --no-native-null-assertions
                 # - --omit-implicit-checks
 
-                - -O4
+                # - -O4
                 # - --trust-primitives
 
                 # - --csp
@@ -40,7 +40,7 @@ targets:
                 # - --verbose
             dart2wasm:
               args:
-                # - -O0
+                - -O0
                 # - --no-inlining
                 # - --no-minify
 
@@ -53,10 +53,10 @@ targets:
                 # - -O3
                 # - --omit-implicit-checks
 
-                - -O4
+                # - -O4
                 # - --omit-bounds-checks
 
                 # - --no-strip-wasm
                 # - --enable-asserts
-                - --no-source-maps
+                # - --no-source-maps
                 # - --verbose

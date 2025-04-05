@@ -1,21 +1,18 @@
+/// @docImport 'package:web/web.dart';
+library;
+
 import 'dart:async' show Completer, Future, FutureOr;
 import 'dart:convert' show ByteConversionSink;
 import 'dart:js_interop'
     show
+        FunctionToJSExportedDartFunction,
         JS,
-        JSAny,
-        JSArray,
-        JSArrayToList,
         JSFunction,
         JSFunctionUtilExtension,
         JSObject,
         JSPromise,
-        JSPromiseToFuture,
-        JSString,
-        JSStringToString,
         JSUint8Array,
         JSUint8ArrayToUint8List,
-        StringToJSString,
         Uint8ListToJSUint8Array;
 import 'dart:typed_data' show Uint8List;
 
@@ -30,12 +27,15 @@ Client createClient({Pipeline? pipeline}) {
 }
 
 @JS('Function')
-external JSFunction _createFetch(
-  String url,
-  String body,
-  String headers,
+external JSFunction _createFunction(String functionBody);
+
+@JS('_fetch')
+external JSPromise<_JSResponse> _fetch(
   String method,
-  String expression,
+  String url,
+  web.Headers headers,
+  JSUint8Array body,
+  web.AbortSignal signal,
 );
 
 extension type _JSResponse(JSObject _) implements JSObject {
@@ -46,19 +46,23 @@ extension type _JSResponse(JSObject _) implements JSObject {
   external JSUint8Array get body;
 }
 
-@JS('Array.from')
-external JSArray<T> arrayFrom<T extends JSAny?>(JSAny? arrayLike);
-
-extension on web.Headers {
-  external JSAny entries();
+extension on JSPromise<_JSResponse> {
+  external void then(JSFunction callback);
 }
 
-/// A `dart:js_interop`-based HTTP [Client].
+extension on web.Headers {
+  external void forEach(JSFunction fn);
+}
+
+/// A `dart:js_interop`-based HTTP [Client] backed by
+/// [`fetch`](https://fetch.spec.whatwg.org/).
 base class JSClient extends BaseClient {
-  static final _fetch = _createFetch('url', 'body', 'headers', 'method', '''
+  // TODO(fetch): Make it streaming and handle errors.
+  static final _init = _createFunction('''
+window._fetch ??= (method, url, headers, body, signal) => {
   method = method.toUpperCase();
 
-  const options = {headers: headers, method: method};
+  const options = {method, headers, signal};
 
   if (method != 'GET' && method != 'HEAD') {
     options.body = body;
@@ -73,14 +77,19 @@ base class JSClient extends BaseClient {
       };
     });
   });
-''');
+};''');
 
   JSClient({Pipeline? pipeline})
-      : _pipeline = pipeline,
-        _closed = false;
+    : _pipeline = pipeline,
+      _abortController = web.AbortController(),
+      _closed = false {
+    _init.callAsFunction();
+  }
 
   /// The underlying [Pipeline] used to handle requests.
   final Pipeline? _pipeline;
+
+  final web.AbortController _abortController;
 
   bool _closed;
 
@@ -92,36 +101,58 @@ base class JSClient extends BaseClient {
 
     Future<Response> handler(Request request) {
       var requestStream = request.read();
-      var requestBodyCompleter = Completer<Uint8List>.sync();
+      var requestBodyCompleter = Completer<Uint8List>();
 
       void onRequestBytes(List<int> bytes) {
         requestBodyCompleter.complete(Uint8List.fromList(bytes));
       }
 
       var sink = ByteConversionSink.withCallback(onRequestBytes);
-      requestStream.listen(sink.add,
-          onError: requestBodyCompleter.completeError,
-          onDone: sink.close,
-          cancelOnError: true);
+
+      requestStream.listen(
+        sink.add,
+        onError: requestBodyCompleter.completeError,
+        onDone: sink.close,
+        cancelOnError: true,
+      );
 
       Future<Response> onBytes(Uint8List bytes) {
-        var jsRequestBodyBytes = bytes.toJS;
-
         var jsHeaders = web.Headers();
 
-        request.headers.forEach((String name, String value) {
+        request.headers.forEach((name, value) {
           jsHeaders.set(name, value);
         });
 
-        var jsPromise = _fetch.callAsFunction(
-            null,
-            '${request.requestedUri}'.toJS,
-            jsRequestBodyBytes,
-            jsHeaders,
-            request.method.toJS);
+        var jsRequestBodyBytes = bytes.toJS;
 
-        var jsResponsePrmoise = jsPromise as JSPromise<_JSResponse>;
-        return jsResponsePrmoise.toDart.then<Response>(_onResponse);
+        var jsResponsePromise = _fetch(
+          request.method,
+          '${request.requestedUri}',
+          jsHeaders,
+          jsRequestBodyBytes,
+          _abortController.signal,
+        );
+
+        var responseCompleter = Completer<Response>();
+
+        void onResponse(_JSResponse jsResponse) {
+          var status = jsResponse.status;
+          var headers = <String, String>{};
+          var body = jsResponse.body.toDart;
+
+          jsResponse.headers.forEach(
+            (String value, String name) {
+              headers[name.toLowerCase()] = value;
+            }.toJS,
+          );
+
+          responseCompleter.complete(
+            Response(status, headers: headers, body: body),
+          );
+        }
+
+        jsResponsePromise.then(onResponse.toJS);
+        return responseCompleter.future;
       }
 
       return requestBodyCompleter.future.then<Response>(onBytes);
@@ -129,8 +160,8 @@ base class JSClient extends BaseClient {
 
     FutureOr<Response> Function(Request) handle;
 
-    if (_pipeline case var pipeline?) {
-      handle = pipeline.addHandler(handler);
+    if (_pipeline != null) {
+      handle = _pipeline.addHandler(handler);
     } else {
       handle = handler;
     }
@@ -143,66 +174,7 @@ base class JSClient extends BaseClient {
   /// Terminates all active connections.
   @override
   FutureOr<void> close() {
+    _abortController.abort();
     _closed = true;
   }
-
-  static Response _onResponse(_JSResponse jsResponse) {
-    var status = jsResponse.status;
-    var headers = <String, List<String>>{};
-    var body = jsResponse.body.toDart;
-
-    var jsEntries = arrayFrom<JSArray<JSString>>(jsResponse.headers.entries());
-    var entries = jsEntries.toDart;
-
-    for (var i = 0; i < entries.length; i += 1) {
-      var entry = entries[i];
-      var name = entry[0].toDart;
-      var value = entry[1].toDart;
-
-      if (value.contains(',')) {
-        headers[name] = _parseHeaderValues(value);
-      } else {
-        headers[name] = <String>[value];
-      }
-    }
-
-    return Response(status, headers: headers, body: body);
-  }
-}
-
-List<String> _parseHeaderValues(String value) {
-  var values = <String>[];
-
-  var inQuote = false;
-  var escapeNext = false;
-
-  var length = value.length;
-  var start = 0;
-
-  for (var offset = 0; offset < length; offset += 1) {
-    if (escapeNext) {
-      escapeNext = false;
-      continue;
-    }
-
-    var char = value[offset];
-
-    if (char == '"') {
-      inQuote = !inQuote;
-    } else if (char == '\\') {
-      escapeNext = true;
-    } else if (char == ',') {
-      if (!inQuote) {
-        values.add(value.substring(start, offset).trim());
-        start = offset + 1;
-      }
-    }
-  }
-
-  // Add the last value if exists
-  if (start < length) {
-    values.add(value.substring(start).trim());
-  }
-
-  return values;
 }

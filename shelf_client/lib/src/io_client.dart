@@ -13,8 +13,8 @@ Client createClient({Pipeline? pipeline}) {
 /// A `dart:io`-based HTTP [Client].
 base class IOClient extends BaseClient {
   IOClient({HttpClient? httpClient, Pipeline? pipeline})
-      : _pipeline = pipeline,
-        _client = httpClient ?? HttpClient();
+    : _pipeline = pipeline,
+      _client = httpClient ?? HttpClient();
 
   /// The underlying [Pipeline] used to handle requests.
   final Pipeline? _pipeline;

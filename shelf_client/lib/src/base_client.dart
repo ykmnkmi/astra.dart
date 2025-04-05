@@ -38,13 +38,15 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(makeRequest(
-      'POST',
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    ));
+    return send(
+      makeRequest(
+        'POST',
+        url,
+        headers: headers,
+        body: body,
+        encoding: encoding,
+      ),
+    );
   }
 
   @override
@@ -54,13 +56,9 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(makeRequest(
-      'PUT',
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    ));
+    return send(
+      makeRequest('PUT', url, headers: headers, body: body, encoding: encoding),
+    );
   }
 
   @override
@@ -70,13 +68,15 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(makeRequest(
-      'PATCH',
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    ));
+    return send(
+      makeRequest(
+        'PATCH',
+        url,
+        headers: headers,
+        body: body,
+        encoding: encoding,
+      ),
+    );
   }
 
   @override
@@ -86,13 +86,15 @@ abstract mixin class BaseClient implements Client {
     Object? body,
     Encoding? encoding,
   }) {
-    return send(makeRequest(
-      'DELETE',
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    ));
+    return send(
+      makeRequest(
+        'DELETE',
+        url,
+        headers: headers,
+        body: body,
+        encoding: encoding,
+      ),
+    );
   }
 
   @override
@@ -125,13 +127,17 @@ abstract mixin class BaseClient implements Client {
   }) {
     var path = requestedUri.path;
 
-    return Request(method, requestedUri,
-        headers: headers,
-        body: body,
-        url: Uri(
-            path: path == '' ? '' : path.substring(1),
-            queryParameters: requestedUri.queryParameters),
-        encoding: encoding);
+    return Request(
+      method,
+      requestedUri,
+      headers: headers,
+      body: body,
+      url: Uri(
+        path: path == '' ? '' : path.substring(1),
+        queryParameters: requestedUri.queryParameters,
+      ),
+      encoding: encoding,
+    );
   }
 
   /// Sends the given [request] and returns the response.
