@@ -7,11 +7,8 @@ import 'package:astra/src/serve/server.dart';
 import 'package:logging/logging.dart' show Logger;
 
 final class IsolateSupervisor {
-  IsolateSupervisor(
-    this.multiIsolateServer,
-    this.isolate,
-    this.receivePort,
-  ) : pendingMessageQueue = <MessageHubMessage>[];
+  IsolateSupervisor(this.multiIsolateServer, this.isolate, this.receivePort)
+    : pendingMessageQueue = <MessageHubMessage>[];
 
   final MultiIsolateServer multiIsolateServer;
 
@@ -113,11 +110,14 @@ final class IsolateSupervisor {
     var receivePort = ReceivePort();
     var sendPort = receivePort.sendPort;
 
-    var isolate = await Isolate.spawn<SendPort>(spawn, sendPort, //
-        paused: true,
-        onExit: sendPort,
-        onError: sendPort,
-        debugName: 'server/$identifier');
+    var isolate = await Isolate.spawn<SendPort>(
+      spawn,
+      sendPort,
+      paused: true,
+      onExit: sendPort,
+      onError: sendPort,
+      debugName: 'server/$identifier',
+    );
 
     return IsolateSupervisor(multiIsolateServer, isolate, receivePort);
   }
@@ -127,8 +127,8 @@ final class IsolateSupervisor {
 final class MultiIsolateServer implements Server {
   /// Creates an instance of [MultiIsolateServer].
   MultiIsolateServer(this.url, this.logger)
-      : supervisors = <IsolateSupervisor>[],
-        isRunning = false;
+    : supervisors = <IsolateSupervisor>[],
+      isRunning = false;
 
   @override
   final Uri url;
@@ -151,8 +151,12 @@ final class MultiIsolateServer implements Server {
 
     try {
       for (var isolate = 0; isolate < isolates; isolate += 1) {
-        var supervisor =
-            await IsolateSupervisor.spawn(this, spawn, isolate + 1);
+        var supervisor = await IsolateSupervisor.spawn(
+          this,
+          spawn,
+          isolate + 1,
+        );
+
         supervisors.add(supervisor);
         await supervisor.resume();
       }

@@ -76,16 +76,27 @@ Middleware logRequests({void Function(String message, bool isError)? logger}) {
       try {
         var response = await innerHandler(request);
 
-        var msg = _message(startTime, response.statusCode, request.requestedUri,
-            request.method, watch.elapsed);
+        var msg = _message(
+          startTime,
+          response.statusCode,
+          request.requestedUri,
+          request.method,
+          watch.elapsed,
+        );
 
         defaultLogger(msg, false);
         return response;
       } on HijackException {
         rethrow;
       } catch (error, stackTrace) {
-        var msg = _errorMessage(startTime, request.requestedUri, request.method,
-            watch.elapsed, error, stackTrace);
+        var msg = _errorMessage(
+          startTime,
+          request.requestedUri,
+          request.method,
+          watch.elapsed,
+          error,
+          stackTrace,
+        );
 
         defaultLogger(msg, true);
         rethrow;

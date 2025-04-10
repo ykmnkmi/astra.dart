@@ -77,25 +77,35 @@ abstract interface class Server {
     HttpServer httpServer;
 
     if (securityContext != null) {
-      httpServer = await HttpServer.bindSecure(address, port, securityContext,
-          backlog: backlog,
-          v6Only: v6Only,
-          requestClientCertificate: requestClientCertificate,
-          shared: shared);
+      httpServer = await HttpServer.bindSecure(
+        address,
+        port,
+        securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+      );
     } else {
-      httpServer = await HttpServer.bind(address, port, //
-          backlog: backlog,
-          v6Only: v6Only,
-          shared: shared);
+      httpServer = await HttpServer.bind(
+        address,
+        port,
+        backlog: backlog,
+        v6Only: v6Only,
+        shared: shared,
+      );
     }
 
     logger?.fine('Bound HTTP server.');
     logger?.fine('Listening for requests...');
     serveRequests(httpServer, handler, logger);
     logger?.fine('Server started.');
-    return IOServer(httpServer, //
-        isSecure: securityContext != null,
-        logger: logger);
+
+    return IOServer(
+      httpServer,
+      isSecure: securityContext != null,
+      logger: logger,
+    );
   }
 }
 
@@ -152,13 +162,17 @@ abstract interface class ApplicationServer implements Server {
     logger?.fine('Preparing application...');
     await application.prepare();
 
-    var server = await Server.bind(application.entryPoint, address, port, //
-        securityContext: securityContext,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-        logger: logger);
+    var server = await Server.bind(
+      application.entryPoint,
+      address,
+      port,
+      securityContext: securityContext,
+      backlog: backlog,
+      v6Only: v6Only,
+      requestClientCertificate: requestClientCertificate,
+      shared: shared,
+      logger: logger,
+    );
 
     return ApplicationIOServer(application, server);
   }

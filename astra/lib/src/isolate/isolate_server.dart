@@ -15,7 +15,7 @@ String get isolateName => Isolate.current.debugName ?? 'isolate';
 final class IsolateMessageHub extends Stream<Object?> implements MessageHub {
   /// Creates an instance of [IsolateMessageHub].
   IsolateMessageHub(this.sendPort)
-      : inbound = StreamController<Object?>.broadcast();
+    : inbound = StreamController<Object?>.broadcast();
 
   /// The [SendPort] to send messages to.
   final SendPort sendPort;
@@ -44,10 +44,12 @@ final class IsolateMessageHub extends Stream<Object?> implements MessageHub {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    return inbound.stream.listen(onData, //
-        onError: onError,
-        onDone: onDone,
-        cancelOnError: cancelOnError);
+    return inbound.stream.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
   }
 
   @override
@@ -61,10 +63,7 @@ final class IsolateMessageHub extends Stream<Object?> implements MessageHub {
 }
 
 final class IsolateServer implements Server {
-  IsolateServer(
-    this.server,
-    this.sendPort,
-  ) : receivePort = ReceivePort() {
+  IsolateServer(this.server, this.sendPort) : receivePort = ReceivePort() {
     receivePort.listen(listener);
     logger?.fine('$isolateName listening, sending port.');
     sendPort.send(receivePort.sendPort);
@@ -108,13 +107,17 @@ final class IsolateServer implements Server {
     bool shared = false,
     Logger? logger,
   }) async {
-    var server = await Server.bind(handler, address, port, //
-        securityContext: securityContext,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-        logger: logger);
+    var server = await Server.bind(
+      handler,
+      address,
+      port,
+      securityContext: securityContext,
+      backlog: backlog,
+      v6Only: v6Only,
+      requestClientCertificate: requestClientCertificate,
+      shared: shared,
+      logger: logger,
+    );
 
     return IsolateServer(server, sendPort);
   }
@@ -123,8 +126,8 @@ final class IsolateServer implements Server {
 final class ApplicationIsolateServer
     implements ApplicationServer, IsolateServer {
   ApplicationIsolateServer(this.server, this.sendPort)
-      : receivePort = ReceivePort(),
-        messageHub = IsolateMessageHub(sendPort) {
+    : receivePort = ReceivePort(),
+      messageHub = IsolateMessageHub(sendPort) {
     receivePort.listen(listener);
     logger?.fine('$isolateName listening, sending port.');
     sendPort.send(receivePort.sendPort);
@@ -197,13 +200,17 @@ final class ApplicationIsolateServer
     bool shared = false,
     Logger? logger,
   }) async {
-    var server = await ApplicationServer.bind(application, address, port, //
-        securityContext: securityContext,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-        logger: logger);
+    var server = await ApplicationServer.bind(
+      application,
+      address,
+      port,
+      securityContext: securityContext,
+      backlog: backlog,
+      v6Only: v6Only,
+      requestClientCertificate: requestClientCertificate,
+      shared: shared,
+      logger: logger,
+    );
 
     return ApplicationIsolateServer(server, sendPort);
   }

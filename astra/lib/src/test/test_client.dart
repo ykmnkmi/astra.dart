@@ -9,11 +9,9 @@ import 'package:shelf_client/io_client.dart';
 /// A test client for making HTTP requests to a server.
 base class TestClient extends IOClient {
   /// Creates instance of [TestClient].
-  TestClient({
-    this.host = 'localhost',
-    this.port = 8282,
-  })  : assert(host.isNotEmpty, 'host cannot be empty'),
-        assert(port != 0, 'port cannot be 0.');
+  TestClient({this.host = 'localhost', this.port = 8282})
+    : assert(host.isNotEmpty, 'host cannot be empty'),
+      assert(port != 0, 'port cannot be 0.');
 
   Server? _server;
 
@@ -42,14 +40,18 @@ base class TestClient extends IOClient {
     Encoding? encoding,
   }) {
     requestedUri = requestedUri.replace(
-        scheme: requestedUri.scheme.isEmpty ? 'http' : requestedUri.scheme,
-        host: requestedUri.host.isEmpty ? _server?.url.host : host,
-        port: requestedUri.port == 0 ? _server?.url.port : port);
+      scheme: requestedUri.scheme.isEmpty ? 'http' : requestedUri.scheme,
+      host: requestedUri.host.isEmpty ? _server?.url.host : host,
+      port: requestedUri.port == 0 ? _server?.url.port : port,
+    );
 
-    return Request(method, requestedUri, //
-        headers: headers,
-        body: body,
-        encoding: encoding);
+    return Request(
+      method,
+      requestedUri,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
   }
 
   @override

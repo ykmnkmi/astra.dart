@@ -50,8 +50,11 @@ Future<void> _handleRequest(
       return;
     }
 
-    logger?.severe("Caught HijackException, but the request wasn't hijacked.",
-        error, stackTrace);
+    logger?.severe(
+      "Caught HijackException, but the request wasn't hijacked.",
+      error,
+      stackTrace,
+    );
 
     response = Response.internalServerError();
   } catch (error, stackTrace) {
@@ -71,12 +74,13 @@ Future<void> _handleRequest(
     return;
   }
 
-  var message = StringBuffer('Got a response for hijacked request ')
-    ..write(request.method)
-    ..write(' ')
-    ..write(request.requestedUri)
-    ..writeln(':')
-    ..writeln(response.statusCode);
+  var message =
+      StringBuffer('Got a response for hijacked request ')
+        ..write(request.method)
+        ..write(' ')
+        ..write(request.requestedUri)
+        ..writeln(':')
+        ..writeln(response.statusCode);
 
   void writeHeader(String key, String value) {
     message.writeln('$key: $value');
@@ -112,12 +116,15 @@ Request _fromHttpRequest(HttpRequest request) {
       'astra.server.certificate': request.certificate!,
   };
 
-  return Request(request.method, request.requestedUri,
-      protocolVersion: request.protocolVersion,
-      headers: headers,
-      body: request,
-      onHijack: onHijack,
-      context: context);
+  return Request(
+    request.method,
+    request.requestedUri,
+    protocolVersion: request.protocolVersion,
+    headers: headers,
+    body: request,
+    onHijack: onHijack,
+    context: context,
+  );
 }
 
 Future<void> _writeResponse(

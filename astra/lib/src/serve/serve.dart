@@ -43,14 +43,17 @@ extension ServeHandlerExtension on FutureOr<Handler> {
       return await this;
     }
 
-    return handlerFactory.serve(address, port,
-        securityContextFactory: securityContextFactory,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-        isolates: isolates,
-        loggerFactory: loggerFactory);
+    return handlerFactory.serve(
+      address,
+      port,
+      securityContextFactory: securityContextFactory,
+      backlog: backlog,
+      v6Only: v6Only,
+      requestClientCertificate: requestClientCertificate,
+      shared: shared,
+      isolates: isolates,
+      loggerFactory: loggerFactory,
+    );
   }
 }
 
@@ -135,22 +138,31 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
       }
 
       if (sendPort == null) {
-        return await Server.bind(handler, address, port,
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared,
-            logger: logger);
-      } else {
-        return await IsolateServer.bind(sendPort, handler, address, port,
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared,
-            logger: logger);
+        return await Server.bind(
+          handler,
+          address,
+          port,
+          securityContext: securityContext,
+          backlog: backlog,
+          v6Only: v6Only,
+          requestClientCertificate: requestClientCertificate,
+          shared: shared,
+          logger: logger,
+        );
       }
+
+      return await IsolateServer.bind(
+        sendPort,
+        handler,
+        address,
+        port,
+        securityContext: securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+        logger: logger,
+      );
     }
 
     if (securityContextFactory != null) {
@@ -172,9 +184,12 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
     if (isolates == 1) {
       server = await create(null);
     } else {
-      server = await MultiIsolateServer.spawn(isolates, create, //
-          url: url,
-          logger: logger);
+      server = await MultiIsolateServer.spawn(
+        isolates,
+        create,
+        url: url,
+        logger: logger,
+      );
     }
 
     registerExtensions(server);
@@ -207,14 +222,17 @@ extension ServeApplicationExtension on FutureOr<Application> {
       return await applicationOrFuture;
     }
 
-    return applicationFactory.serve(address, port,
-        securityContextFactory: securityContextFactory,
-        backlog: backlog,
-        v6Only: v6Only,
-        requestClientCertificate: requestClientCertificate,
-        shared: shared,
-        isolates: isolates,
-        loggerFactory: loggerFactory);
+    return applicationFactory.serve(
+      address,
+      port,
+      securityContextFactory: securityContextFactory,
+      backlog: backlog,
+      v6Only: v6Only,
+      requestClientCertificate: requestClientCertificate,
+      shared: shared,
+      isolates: isolates,
+      loggerFactory: loggerFactory,
+    );
   }
 }
 
@@ -262,7 +280,7 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
   /// The optional argument [loggerFactory] specifies a logger factory that
   /// creates a [Logger] for this [Server] instance.
   /// {@endtemplate}
-  // TODO(serve): document isolates argument.
+  // TODO(serve): document `isolates` argument.
   Future<Server> serve(
     Object address,
     int port, {
@@ -300,23 +318,31 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
       }
 
       if (controlPort == null) {
-        return await ApplicationServer.bind(application, address, port,
-            securityContext: securityContext,
-            backlog: backlog,
-            v6Only: v6Only,
-            requestClientCertificate: requestClientCertificate,
-            shared: shared,
-            logger: logger);
-      }
-
-      return await ApplicationIsolateServer.bind(
-          controlPort, application, address, port,
+        return await ApplicationServer.bind(
+          application,
+          address,
+          port,
           securityContext: securityContext,
           backlog: backlog,
           v6Only: v6Only,
           requestClientCertificate: requestClientCertificate,
           shared: shared,
-          logger: logger);
+          logger: logger,
+        );
+      }
+
+      return await ApplicationIsolateServer.bind(
+        controlPort,
+        application,
+        address,
+        port,
+        securityContext: securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+        logger: logger,
+      );
     }
 
     if (securityContextFactory != null) {
@@ -338,9 +364,12 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     if (isolates == 1) {
       server = await create(null);
     } else {
-      server = await MultiIsolateServer.spawn(isolates, create, //
-          url: url,
-          logger: logger);
+      server = await MultiIsolateServer.spawn(
+        isolates,
+        create,
+        url: url,
+        logger: logger,
+      );
     }
 
     registerExtensions(server);

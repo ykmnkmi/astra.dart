@@ -37,7 +37,7 @@ String _renderTitle(Object error, Trace trace) {
 String _renderFrame(Frame frame, [bool full = false]) {
   var Frame(:library, :line, :column, :member) = frame;
 
-  var result = ''
+  var result =
       '<div class="frame">'
       '<span class="library">${library.replaceAll('\\', '/')}</span> '
       '$line:$column, '

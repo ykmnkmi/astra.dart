@@ -1,5 +1,3 @@
-library astra.core;
-
 export 'package:astra/src/core/application.dart';
 export 'package:astra/src/core/error.dart';
 export 'package:astra/src/core/handler.dart';
