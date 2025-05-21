@@ -7,7 +7,6 @@
       backlog: __BACKLOG__,
       v6Only: __V6ONLY__,
       shared: __SHARED__,
-      type: __SERVERTYPE__,
       isolates: __ISOLATES__,
       hotReload: __HOTRELOAD__,
       debug: __DEBUG__);

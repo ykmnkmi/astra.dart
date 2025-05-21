@@ -1,6 +1,6 @@
 import 'dart:io';
 
-final packageEntryRe = RegExp('^  (\\w+): (.+)\$', multiLine: true);
+final RegExp packageEntryRe = RegExp('^  (\\w+): (.+)\$', multiLine: true);
 
 void main() {
   var versionsUri = Uri.file('tool/package_versions.yaml');

@@ -15,7 +15,6 @@ import 'dart:io'
         stdout;
 import 'dart:math';
 
-import 'package:astra/serve.dart' show ServerType;
 import 'package:astra_cli/src/command.dart';
 import 'package:astra_cli/src/extension.dart';
 import 'package:astra_cli/src/version.dart';
@@ -33,58 +32,77 @@ bool isCloseExtensionAdded(Event event) {
 
 class ServeCommand extends CliCommand {
   ServeCommand()
-      : name = 'serve',
-        description = 'Serve Astra/Shelf application.',
-        invocation = 'astra serve [options]',
-        usageFooter = '',
-        takesArguments = false {
+    : name = 'serve',
+      description = 'Serve Astra/Shelf application.',
+      invocation = 'astra serve [options]',
+      usageFooter = '',
+      takesArguments = false {
     argParser
       // server
       ..addSeparator('Server options:')
-      ..addOption('address',
-          abbr: 'a',
-          help: 'Bind server to this address.\n'
-              'Bind will perform a InternetAddress.lookup and use the '
-              'first value in the list.',
-          valueHelp: 'localhost')
-      ..addOption('port',
-          abbr: 'p',
-          help: 'Bind server to this port.\n'
-              'If port has the value 0 an ephemeral port will be'
-              ' chosen by the system.\nThe actual port used can be'
-              ' retrieved using the port getter.',
-          valueHelp: '8080')
+      ..addOption(
+        'address',
+        abbr: 'a',
+        help:
+            'Bind server to this address.\n'
+            'Bind will perform a InternetAddress.lookup and use the '
+            'first value in the list.',
+        valueHelp: 'localhost',
+      )
+      ..addOption(
+        'port',
+        abbr: 'p',
+        help:
+            'Bind server to this port.\n'
+            'If port has the value 0 an ephemeral port will be'
+            ' chosen by the system.\nThe actual port used can be'
+            ' retrieved using the port getter.',
+        valueHelp: '8080',
+      )
       ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'file.key')
-      ..addOption('ssl-cert',
-          help: 'SSL certificate file.', valueHelp: 'file.crt')
-      ..addOption('ssl-key-password',
-          help: 'SSL keyfile password.', valueHelp: 'password')
-      ..addOption('backlog',
-          help: 'Number of connections to hold in backlog.\n'
-              'If it has the value of 0 a reasonable value will'
-              ' be chosen by the system.',
-          valueHelp: '0')
-      ..addFlag('v6Only',
-          help: 'Restrict IP addresses to version 6 (IPv6) only.\n'
-              'If an IP version 6 (IPv6) address is used, both IP'
-              ' version 6 (IPv6) and version 4 (IPv4) connections will'
-              ' be accepted.',
-          negatable: false)
-      ..addFlag('shared',
-          help: 'Specifies whether additional servers can bind'
-              ' to the same combination of address, port and v6Only.\n'
-              "If it's true and more servers are bound to the port,"
-              ' then the incoming connections will be distributed among'
-              ' all the bound servers.',
-          negatable: false)
-      ..addOption('server-type',
-          help: 'Server type.',
-          valueHelp: ServerType.defaultType.name,
-          allowed: ServerType.names,
-          allowedHelp: ServerType.descriptions)
-      ..addOption('isolates',
-          abbr: 'i', help: 'Number of isolates.', valueHelp: '1')
-
+      ..addOption(
+        'ssl-cert',
+        help: 'SSL certificate file.',
+        valueHelp: 'file.crt',
+      )
+      ..addOption(
+        'ssl-key-password',
+        help: 'SSL keyfile password.',
+        valueHelp: 'password',
+      )
+      ..addOption(
+        'backlog',
+        help:
+            'Number of connections to hold in backlog.\n'
+            'If it has the value of 0 a reasonable value will'
+            ' be chosen by the system.',
+        valueHelp: '0',
+      )
+      ..addFlag(
+        'v6Only',
+        help:
+            'Restrict IP addresses to version 6 (IPv6) only.\n'
+            'If an IP version 6 (IPv6) address is used, both IP'
+            ' version 6 (IPv6) and version 4 (IPv4) connections will'
+            ' be accepted.',
+        negatable: false,
+      )
+      ..addFlag(
+        'shared',
+        help:
+            'Specifies whether additional servers can bind'
+            ' to the same combination of address, port and v6Only.\n'
+            "If it's true and more servers are bound to the port,"
+            ' then the incoming connections will be distributed among'
+            ' all the bound servers.',
+        negatable: false,
+      )
+      ..addOption(
+        'isolates',
+        abbr: 'i',
+        help: 'Number of isolates.',
+        valueHelp: '1',
+      )
       // debug
       ..addSeparator('Debugging options:')
       ..addFlag('debug', help: '', negatable: false)
@@ -92,8 +110,12 @@ class ServeCommand extends CliCommand {
       ..addMultiOption('watch', abbr: 'w')
       ..addOption('service-port', valueHelp: '8181')
       ..addFlag('enable-asserts', negatable: false)
-      ..addFlag('verbose',
-          abbr: 'v', help: 'Print detailed logging.', negatable: false);
+      ..addFlag(
+        'verbose',
+        abbr: 'v',
+        help: 'Print detailed logging.',
+        negatable: false,
+      );
   }
 
   @override
@@ -127,9 +149,6 @@ class ServeCommand extends CliCommand {
 
   late final bool shared = getBoolean('shared') ?? false;
 
-  late final ServerType serverType = ServerType.values
-      .byName(getString('server-type') ?? ServerType.defaultType.name);
-
   late final int isolates = getInteger('isolates') ?? 1;
 
   late final bool debug = getBoolean('debug') ?? false;
@@ -138,10 +157,10 @@ class ServeCommand extends CliCommand {
 
   late final bool watch = watchList.isNotEmpty;
 
-  late final List<String> watchList = getStringList('watch')
-      .map<String>(normalize)
-      .map<String>(absolute)
-      .toList();
+  late final List<String> watchList =
+      getStringList(
+        'watch',
+      ).map<String>(normalize).map<String>(absolute).toList();
 
   late final int? servicePort = getInteger('service-port');
 
@@ -164,7 +183,6 @@ class ServeCommand extends CliCommand {
       'BACKLOG': '$backlog',
       'V6ONLY': '$v6Only',
       'SHARED': '${shared || isolates > 1}',
-      'SERVERTYPE': '$serverType',
       'ISOLATES': '$isolates',
       'HOTRELOAD': '$hotReload',
       'DEBUG': '$debug',
@@ -266,8 +284,9 @@ class ServeCommand extends CliCommand {
       ..writeAsStringSync(source);
 
     var hash = (Random().nextInt(9000) + 1000).toRadixString(16);
-    var serviceFileUri = Directory.systemTemp.uri
-        .resolveUri(Uri.file('dart-vm-service-$hash.json'));
+    var serviceFileUri = Directory.systemTemp.uri.resolveUri(
+      Uri.file('dart-vm-service-$hash.json'),
+    );
     var serviceInfoFile = File.fromUri(serviceFileUri);
 
     var arguments = <String>[
@@ -276,7 +295,7 @@ class ServeCommand extends CliCommand {
           : '--enable-vm-service=$servicePort',
       '--no-serve-devtools',
       '--no-warn-on-pause-with-no-debugger',
-      '--write-service-info=$serviceFileUri'
+      '--write-service-info=$serviceFileUri',
     ];
 
     if (debug) {
@@ -301,8 +320,12 @@ class ServeCommand extends CliCommand {
       ..addAll(<String>[for (var define in defineList) '-D$define'])
       ..add(scriptPath);
 
-    var process = await Process.start(Platform.executable, arguments,
-        workingDirectory: directory.path, runInShell: true);
+    var process = await Process.start(
+      Platform.executable,
+      arguments,
+      workingDirectory: directory.path,
+      runInShell: true,
+    );
 
     var stdoutSubscription = process.stdout.listen(stdout.add);
     var stderrSubscription = process.stderr.listen(stderr.add);
@@ -342,11 +365,12 @@ class ServeCommand extends CliCommand {
     await service.streamListen(EventStreams.kIsolate);
     await service.onIsolateEvent.firstWhere(isCloseExtensionAdded);
 
-    var group = StreamGroup<Object>()
-      ..add(process.exitCode.asStream())
-      ..add(ProcessSignal.sigint.watch())
-      ..add(ProcessSignal.sigterm.watch())
-      ..add(utf8.decoder.bind(stdin));
+    var group =
+        StreamGroup<Object>()
+          ..add(process.exitCode.asStream())
+          ..add(ProcessSignal.sigint.watch())
+          ..add(ProcessSignal.sigterm.watch())
+          ..add(utf8.decoder.bind(stdin));
 
     var vm = await service.getVM();
 

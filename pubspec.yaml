@@ -4,10 +4,10 @@ version: 1.0.0+4
 publish_to: none
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
+  sdk: ">=3.7.0 <4.0.0"
 
 dev_dependencies:
-  lints: ^5.1.0
+  lints: ^5.1.1
 
 workspace:
   - astra
