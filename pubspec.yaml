@@ -13,5 +13,3 @@ workspace:
   - astra
   - astra/example
   - astra_cli
-  - shelf_client
-  - shelf_client/example
