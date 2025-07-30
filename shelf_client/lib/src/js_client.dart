@@ -62,7 +62,7 @@ base class JSClient extends BaseClient {
 window._fetch ??= (method, url, headers, body, signal) => {
   method = method.toUpperCase();
 
-  const options = {method, headers, signal};
+  const options = { method, headers, signal };
 
   if (method != 'GET' && method != 'HEAD') {
     options.body = body;
