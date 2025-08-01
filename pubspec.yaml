@@ -1,13 +1,13 @@
 name: astra_repo
 description: Astra GitHub repository.
-version: 1.0.0+4
+version: 1.0.0+5
 publish_to: none
 
 environment:
-  sdk: ">=3.6.0 <4.0.0"
+  sdk: ">=3.8.2 <4.0.0"
 
 dev_dependencies:
-  lints: ^5.1.0
+  lints: ^6.0.0
 
 workspace:
   - astra
