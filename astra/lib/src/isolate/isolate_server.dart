@@ -6,6 +6,7 @@ import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/isolate/message_hub_message.dart';
 import 'package:astra/src/serve/server.dart';
+import 'package:astra/src/serve/type.dart';
 import 'package:logging/logging.dart' show Logger;
 
 /// Current [Isolate] debug name.
@@ -105,6 +106,7 @@ final class IsolateServer implements Server {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     Logger? logger,
   }) async {
     var server = await Server.bind(
@@ -117,6 +119,7 @@ final class IsolateServer implements Server {
       requestClientCertificate: requestClientCertificate,
       shared: shared,
       logger: logger,
+      type: type,
     );
 
     return IsolateServer(server, sendPort);
@@ -198,6 +201,7 @@ final class ApplicationIsolateServer
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     Logger? logger,
   }) async {
     var server = await ApplicationServer.bind(
@@ -209,6 +213,7 @@ final class ApplicationIsolateServer
       v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
       shared: shared,
+      type: type,
       logger: logger,
     );
 

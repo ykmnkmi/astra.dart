@@ -1,10 +1,10 @@
 import 'dart:async' show Future;
-import 'dart:io'
-    show HttpServer, InternetAddress, InternetAddressType, SecurityContext;
+import 'dart:io' show InternetAddress, InternetAddressType, SecurityContext;
 
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/serve/servers/h11.dart';
+import 'package:astra/src/serve/servers/shelf.dart';
+import 'package:astra/src/serve/type.dart';
 import 'package:logging/logging.dart' show Logger;
 
 /// A running HTTP server with a concrete URL.
@@ -61,6 +61,7 @@ abstract interface class Server {
   /// The optional argument [logger] specifies a logger for this [Server]
   /// instance.
   /// {@endtemplate}
+  // TODO(serve): document `type` argument.
   static Future<Server> bind(
     Handler handler,
     Object address,
@@ -70,67 +71,22 @@ abstract interface class Server {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     Logger? logger,
   }) async {
-    logger?.fine('Binding HTTP server...');
-
-    HttpServer httpServer;
-
-    if (securityContext != null) {
-      httpServer = await HttpServer.bindSecure(
+    return switch (type) {
+      ServerType.shelf => await ShelfServer.bind(
+        handler,
         address,
         port,
-        securityContext,
+        securityContext: securityContext,
         backlog: backlog,
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
-      );
-    } else {
-      httpServer = await HttpServer.bind(
-        address,
-        port,
-        backlog: backlog,
-        v6Only: v6Only,
-        shared: shared,
-      );
-    }
-
-    logger?.fine('Bound HTTP server.');
-    logger?.fine('Listening for requests...');
-    serveRequests(httpServer, handler, logger);
-    logger?.fine('Server started.');
-
-    return IOServer(
-      httpServer,
-      isSecure: securityContext != null,
-      logger: logger,
-    );
-  }
-}
-
-/// A running HTTP server with a concrete URL.
-final class IOServer implements Server {
-  /// Creates an instance of [IOServer].
-  IOServer(this.httpServer, {this.isSecure = false, this.logger});
-
-  /// The underlying [HttpServer] instance.
-  final HttpServer httpServer;
-
-  /// Whether the server is secure.
-  final bool isSecure;
-
-  @override
-  final Logger? logger;
-
-  @override
-  late final Uri url = getUrl(httpServer.address, httpServer.port, isSecure);
-
-  @override
-  Future<void> close({bool force = false}) async {
-    logger?.fine('Closing server...');
-    await httpServer.close(force: force);
-    logger?.fine('Server closed.');
+        logger: logger,
+      ),
+    };
   }
 }
 
@@ -156,6 +112,7 @@ abstract interface class ApplicationServer implements Server {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     String? identifier,
     Logger? logger,
   }) async {
@@ -171,17 +128,18 @@ abstract interface class ApplicationServer implements Server {
       v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
       shared: shared,
+      type: type,
       logger: logger,
     );
 
-    return ApplicationIOServer(application, server);
+    return _ApplicationServer(application, server);
   }
 }
 
 /// A running application HTTP server with a concrete URL.
-final class ApplicationIOServer implements ApplicationServer {
-  /// Creates an instance of [ApplicationIOServer].
-  ApplicationIOServer(this.application, this.server) {
+final class _ApplicationServer implements ApplicationServer {
+  /// Creates an instance of [_ApplicationServer].
+  _ApplicationServer(this.application, this.server) {
     application.server = server;
   }
 
@@ -207,7 +165,6 @@ final class ApplicationIOServer implements ApplicationServer {
   @override
   Future<void> close({bool force = false}) async {
     await server.close(force: force);
-
     logger?.fine('Closing application...');
     await application.close();
     logger?.fine('Application closed.');

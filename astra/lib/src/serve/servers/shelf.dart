@@ -1,14 +1,91 @@
 import 'dart:async' show FutureOr, Zone, runZonedGuarded;
-import 'dart:io' show HttpHeaders, HttpRequest, HttpResponse, Socket;
+import 'dart:io'
+    show
+        HttpHeaders,
+        HttpRequest,
+        HttpResponse,
+        HttpServer,
+        SecurityContext,
+        Socket;
 
-import 'package:astra/src/core/error.dart';
-import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/core/request.dart';
-import 'package:astra/src/core/response.dart';
+import 'package:astra/core.dart';
+import 'package:astra/src/serve/server.dart';
 import 'package:collection/collection.dart' show equalsIgnoreAsciiCase;
 import 'package:http_parser/http_parser.dart' show chunkedCoding;
 import 'package:logging/logging.dart' show Logger;
 import 'package:stream_channel/stream_channel.dart' show StreamChannel;
+
+/// A running HTTP server with a concrete URL.
+final class ShelfServer implements Server {
+  /// Creates an instance of [ShelfServer].
+  ShelfServer(this.httpServer, {this.isSecure = false, this.logger});
+
+  /// The underlying [HttpServer] instance.
+  final HttpServer httpServer;
+
+  /// Whether the server is secure.
+  final bool isSecure;
+
+  @override
+  final Logger? logger;
+
+  @override
+  late final Uri url = getUrl(httpServer.address, httpServer.port, isSecure);
+
+  @override
+  Future<void> close({bool force = false}) async {
+    logger?.fine('Closing server...');
+    await httpServer.close(force: force);
+    logger?.fine('Server closed.');
+  }
+
+  static Future<ShelfServer> bind(
+    Handler handler,
+    Object address,
+    int port, {
+    SecurityContext? securityContext,
+    int backlog = 0,
+    bool v6Only = false,
+    bool requestClientCertificate = false,
+    bool shared = false,
+    Logger? logger,
+  }) async {
+    logger?.fine('Binding server...');
+
+    HttpServer httpServer;
+
+    if (securityContext != null) {
+      httpServer = await HttpServer.bindSecure(
+        address,
+        port,
+        securityContext,
+        backlog: backlog,
+        v6Only: v6Only,
+        requestClientCertificate: requestClientCertificate,
+        shared: shared,
+      );
+    } else {
+      httpServer = await HttpServer.bind(
+        address,
+        port,
+        backlog: backlog,
+        v6Only: v6Only,
+        shared: shared,
+      );
+    }
+
+    logger?.fine('Bound server.');
+    logger?.fine('Listening for requests...');
+    serveRequests(httpServer, handler, logger);
+    logger?.fine('Server started.');
+
+    return ShelfServer(
+      httpServer,
+      isSecure: securityContext != null,
+      logger: logger,
+    );
+  }
+}
 
 Future<void> _handleRequest(
   HttpRequest httpRequest,
@@ -74,13 +151,12 @@ Future<void> _handleRequest(
     return;
   }
 
-  var message =
-      StringBuffer('Got a response for hijacked request ')
-        ..write(request.method)
-        ..write(' ')
-        ..write(request.requestedUri)
-        ..writeln(':')
-        ..writeln(response.statusCode);
+  var message = StringBuffer('Got a response for hijacked request ')
+    ..write(request.method)
+    ..write(' ')
+    ..write(request.requestedUri)
+    ..writeln(':')
+    ..writeln(response.statusCode);
 
   void writeHeader(String key, String value) {
     message.writeln('$key: $value');

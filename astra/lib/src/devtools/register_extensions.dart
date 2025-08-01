@@ -4,7 +4,8 @@ import 'dart:developer' show ServiceExtensionResponse, registerExtension;
 import 'package:astra/src/isolate/multi_isolate_server.dart';
 import 'package:astra/src/serve/server.dart';
 
-/// Registers useful extensions for the CLI and Dart DevTools.
+/// Registers [Server] controller for the CLI and Dart DevTools.
+// TODO(devtools): separate server control.
 void registerExtensions(Server server) {
   Future<ServiceExtensionResponse> reload(
     String method,

@@ -1,11 +1,10 @@
-// TODO(serve): add notes about isolate closure context leaks, tests and
-//  examples.
 library;
 
 import 'dart:async' show Future, FutureOr;
+import 'dart:developer' show Service;
 import 'dart:io' show InternetAddress, Platform, SecurityContext;
 import 'dart:isolate' show SendPort;
-import 'dart:math' show min;
+import 'dart:math' show max;
 
 import 'package:astra/isolate.dart';
 import 'package:astra/src/core/application.dart';
@@ -13,6 +12,7 @@ import 'package:astra/src/core/handler.dart';
 import 'package:astra/src/devtools/register_extensions.dart';
 import 'package:astra/src/logger.dart';
 import 'package:astra/src/serve/server.dart';
+import 'package:astra/src/serve/type.dart';
 import 'package:logging/logging.dart' show Logger;
 
 /// A factory that creates a [SecurityContext].
@@ -36,6 +36,7 @@ extension ServeHandlerExtension on FutureOr<Handler> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
   }) async {
@@ -51,6 +52,7 @@ extension ServeHandlerExtension on FutureOr<Handler> {
       v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
       shared: shared,
+      type: type,
       isolates: isolates,
       loggerFactory: loggerFactory,
     );
@@ -97,10 +99,22 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
   /// be distributed among all the bound [Server]s. Connections can be
   /// distributed over multiple isolates this way.
   ///
+  /// The optional argument [type] specifies the server implementation type
+  /// to use. Defaults to [ServerType.shelf] (HTTP/1.x shelf server). See
+  /// [ServerType] for available options.
+  ///
+  /// The optional argument [isolates] specifies the number of isolates to use
+  /// for handling requests. If set to `0`, defaults to half the number of
+  /// processor cores (minimum 1). Multiple isolates enable concurrent
+  /// request processing and automatically set [shared] to `true`. Each isolate
+  /// runs independently with its own copy of the application and context.
+  ///
   /// The optional argument [loggerFactory] specifies a logger factory that
   /// creates a [Logger] for this [Server] instance.
   /// {@endtemplate}
-  // TODO(serve): document isolates argument.
+  ///
+  /// Factory functions ([HandlerFactory], [SecurityContextFactory],
+  /// [LoggerFactory]) should avoid capturing large objects in their closures.
   Future<Server> serve(
     Object address,
     int port, {
@@ -109,14 +123,14 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
   }) async {
     if (isolates < 0) {
-      // TODO(serve): add error message.
-      throw ArgumentError.value(isolates, 'isolates');
+      throw RangeError.range(isolates, 0, null, 'isolates');
     } else if (isolates == 0) {
-      isolates = min(1, Platform.numberOfProcessors - 1);
+      isolates = max(1, Platform.numberOfProcessors ~/ 2 - 1);
     }
 
     shared = shared || isolates > 1;
@@ -147,6 +161,7 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
           v6Only: v6Only,
           requestClientCertificate: requestClientCertificate,
           shared: shared,
+          type: type,
           logger: logger,
         );
       }
@@ -161,19 +176,20 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
         v6Only: v6Only,
         requestClientCertificate: requestClientCertificate,
         shared: shared,
+        type: type,
         logger: logger,
       );
     }
 
     if (securityContextFactory != null) {
-      // check if function is error safe, not guaranteed.
+      // Check if the function is error-safe in the main isolate before spawning.
       await securityContextFactory();
     }
 
     Logger? logger;
 
     if (loggerFactory != null) {
-      // check if function is error safe, not guaranteed.
+      // Same check. We need a logger anyway.
       logger = await loggerFactory();
     }
 
@@ -211,10 +227,9 @@ extension ServeApplicationExtension on FutureOr<Application> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
-    bool showBanner = true,
-    bool showUrl = true,
   }) async {
     var applicationOrFuture = this;
 
@@ -230,6 +245,7 @@ extension ServeApplicationExtension on FutureOr<Application> {
       v6Only: v6Only,
       requestClientCertificate: requestClientCertificate,
       shared: shared,
+      type: type,
       isolates: isolates,
       loggerFactory: loggerFactory,
     );
@@ -277,10 +293,22 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
   /// connections will be distributed among all the bound [Server]s. Connections
   /// can be distributed over multiple isolates this way.
   ///
+  /// The optional argument [type] specifies the server implementation type
+  /// to use. Defaults to [ServerType.shelf] (HTTP/1.x shelf server). See
+  /// [ServerType] for available options.
+  ///
+  /// The optional argument [isolates] specifies the number of isolates to use
+  /// for handling requests. If set to `0`, defaults to half the number of
+  /// processor cores (minimum 1). Multiple isolates enable concurrent
+  /// request processing and automatically set [shared] to `true`. Each isolate
+  /// runs independently with its own copy of the application and context.
+  ///
   /// The optional argument [loggerFactory] specifies a logger factory that
   /// creates a [Logger] for this [Server] instance.
   /// {@endtemplate}
-  // TODO(serve): document `isolates` argument.
+  ///
+  /// Factory functions ([ApplicationFactory], [SecurityContextFactory],
+  /// [LoggerFactory]) should avoid capturing large objects in their closures.
   Future<Server> serve(
     Object address,
     int port, {
@@ -289,14 +317,14 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     bool v6Only = false,
     bool requestClientCertificate = false,
     bool shared = false,
+    ServerType type = ServerType.defaultType,
     int isolates = 1,
     LoggerFactory? loggerFactory = defaultLoggerFactory,
   }) async {
     if (isolates < 0) {
-      // TODO(serve): add error message.
-      throw ArgumentError.value(isolates, 'isolates');
+      throw RangeError.range(isolates, 0, null, 'isolates');
     } else if (isolates == 0) {
-      isolates = min(1, Platform.numberOfProcessors - 1);
+      isolates = max(1, Platform.numberOfProcessors ~/ 2 - 1);
     }
 
     shared = shared || isolates > 1;
@@ -346,14 +374,14 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
     }
 
     if (securityContextFactory != null) {
-      // check if securityContextFactory is error safe, not guaranteed.
+      // Check if the function is error-safe in the main isolate before spawning.
       await securityContextFactory();
     }
 
     Logger? logger;
 
     if (loggerFactory != null) {
-      // check if function is error safe, not guaranteed.
+      // Same check. We need a logger anyway.
       logger = await loggerFactory();
     }
 
@@ -372,7 +400,12 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
       );
     }
 
-    registerExtensions(server);
+    var info = await Service.getInfo();
+
+    if (info.serverUri != null) {
+      registerExtensions(server);
+    }
+
     return server;
   }
 }
