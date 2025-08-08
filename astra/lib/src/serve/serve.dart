@@ -19,7 +19,6 @@ import 'package:logging/logging.dart' show Logger;
 typedef SecurityContextFactory = FutureOr<SecurityContext> Function();
 
 /// A factory that creates a [Logger].
-// TODO(serve): add isolate `String sourse` argument.
 typedef LoggerFactory = FutureOr<Logger> Function();
 
 /// Extension on [Handler] to serve a HTTP server.
@@ -111,10 +110,10 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
   ///
   /// The optional argument [loggerFactory] specifies a logger factory that
   /// creates a [Logger] for this [Server] instance.
-  /// {@endtemplate}
   ///
   /// Factory functions ([HandlerFactory], [SecurityContextFactory],
   /// [LoggerFactory]) should avoid capturing large objects in their closures.
+  /// {@endtemplate}
   Future<Server> serve(
     Object address,
     int port, {
@@ -305,10 +304,10 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
   ///
   /// The optional argument [loggerFactory] specifies a logger factory that
   /// creates a [Logger] for this [Server] instance.
-  /// {@endtemplate}
   ///
   /// Factory functions ([ApplicationFactory], [SecurityContextFactory],
   /// [LoggerFactory]) should avoid capturing large objects in their closures.
+  /// {@endtemplate}
   Future<Server> serve(
     Object address,
     int port, {

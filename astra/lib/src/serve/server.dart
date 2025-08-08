@@ -58,10 +58,13 @@ abstract interface class Server {
   /// be distributed among all the bound [Server]s. Connections can be
   /// distributed over multiple isolates this way.
   ///
+  /// The optional argument [type] specifies the server implementation type
+  /// to use. Defaults to [ServerType.shelf] (HTTP/1.x shelf server). See
+  /// [ServerType] for available options.
+  ///
   /// The optional argument [logger] specifies a logger for this [Server]
   /// instance.
   /// {@endtemplate}
-  // TODO(serve): document `type` argument.
   static Future<Server> bind(
     Handler handler,
     Object address,
