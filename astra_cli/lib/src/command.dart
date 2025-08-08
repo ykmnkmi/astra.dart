@@ -5,7 +5,7 @@ import 'package:args/args.dart' show ArgResults;
 import 'package:args/command_runner.dart' show Command;
 import 'package:astra_cli/src/extension.dart';
 import 'package:path/path.dart' show absolute, isWithin, join, normalize;
-import 'package:pubspec/pubspec.dart' show PubSpec;
+import 'package:pubspec_parse/pubspec_parse.dart' show Pubspec;
 
 /// A exception thrown by command line interfaces.
 class CliException implements Exception {
@@ -26,29 +26,46 @@ abstract class CliCommand extends Command<int> {
     argParser
       // application
       ..addSeparator('Application options:')
-      ..addOption('target',
-          abbr: 't', help: 'Application target.', valueHelp: 'application')
-      ..addOption('target-path',
-          help: 'Application target location.\n'
-              'Must be within application root folder.',
-          valueHelp: 'lib/[package].dart')
-      ..addOption('directory',
-          abbr: 'C', help: 'Application root folder.', valueHelp: '.')
-      ..addMultiOption('define',
-          abbr: 'D',
-          help: 'Define an environment declaration.',
-          valueHelp: 'key=value');
+      ..addOption(
+        'target',
+        abbr: 't',
+        help: 'Application target.',
+        valueHelp: 'application',
+      )
+      ..addOption(
+        'target-path',
+        help:
+            'Application target location.\n'
+            'Must be within application root folder.',
+        valueHelp: 'lib/[package].dart',
+      )
+      ..addOption(
+        'directory',
+        abbr: 'C',
+        help: 'Application root folder.',
+        valueHelp: '.',
+      )
+      ..addMultiOption(
+        'define',
+        abbr: 'D',
+        help: 'Define an environment declaration.',
+        valueHelp: 'key=value',
+      );
   }
 
   late final String target = getString('target') ?? 'application';
 
-  late final String targetPath = absolute(normalize(
-      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart')));
+  late final String targetPath = absolute(
+    normalize(
+      getString('target-path') ?? join(directoryPath, 'lib', '$package.dart'),
+    ),
+  );
 
   late final File targetFile = File(targetPath);
 
-  late final String directoryPath =
-      absolute(normalize(getString('directory') ?? '.'));
+  late final String directoryPath = absolute(
+    normalize(getString('directory') ?? '.'),
+  );
 
   late final List<String> defineList = getStringList('define');
 
@@ -67,10 +84,12 @@ abstract class CliCommand extends Command<int> {
 
   late final File pubspecFile = File(join(directoryPath, 'pubspec.yaml'));
 
-  late final PubSpec pubspec =
-      PubSpec.fromYamlString(pubspecFile.readAsStringSync());
+  late final Pubspec pubspec = Pubspec.parse(
+    pubspecFile.readAsStringSync(),
+    sourceUrl: pubspecFile.uri,
+  );
 
-  late final String package = pubspec.name!;
+  late final String package = pubspec.name;
 
   Future<String> renderTemplate(String name, Map<String, String> data) async {
     var templateUri = Uri(

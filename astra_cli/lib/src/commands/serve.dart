@@ -9,7 +9,6 @@ import 'dart:io'
         Platform,
         Process,
         ProcessSignal,
-        Stdin,
         stderr,
         stdin,
         stdout;
@@ -33,67 +32,100 @@ bool isCloseExtensionAdded(Event event) {
 
 class ServeCommand extends CliCommand {
   ServeCommand()
-      : name = 'serve',
-        description = 'Serve Astra/Shelf application.',
-        invocation = 'astra serve [options]',
-        usageFooter = '',
-        takesArguments = false {
+    : name = 'serve',
+      description = 'Serve Astra/Shelf application.',
+      invocation = 'astra serve [options]',
+      usageFooter = '',
+      takesArguments = false {
     argParser
       // server
       ..addSeparator('Server options:')
-      ..addOption('address',
-          abbr: 'a',
-          help: 'Bind server to this address.\n'
-              'Bind will perform a InternetAddress.lookup and use the '
-              'first value in the list.',
-          valueHelp: 'localhost')
-      ..addOption('port',
-          abbr: 'p',
-          help: 'Bind server to this port.\n'
-              'If port has the value 0 an ephemeral port will be'
-              ' chosen by the system.\nThe actual port used can be'
-              ' retrieved using the port getter.',
-          valueHelp: '8080')
+      ..addOption(
+        'address',
+        abbr: 'a',
+        help:
+            'Bind server to this address.\n'
+            'Bind will perform a InternetAddress.lookup and use the first '
+            'value in the list.',
+        valueHelp: 'localhost',
+      )
+      ..addOption(
+        'port',
+        abbr: 'p',
+        help:
+            'Bind server to this port.\n'
+            'If port has the value 0 an ephemeral port will be  chosen by the '
+            'system.',
+        valueHelp: '8080',
+      )
       ..addOption('ssl-key', help: 'SSL key file.', valueHelp: 'file.key')
-      ..addOption('ssl-cert',
-          help: 'SSL certificate file.', valueHelp: 'file.crt')
-      ..addOption('ssl-key-password',
-          help: 'SSL keyfile password.', valueHelp: 'password')
-      ..addOption('backlog',
-          help: 'Number of connections to hold in backlog.\n'
-              'If it has the value of 0 a reasonable value will'
-              ' be chosen by the system.',
-          valueHelp: '0')
-      ..addFlag('v6Only',
-          help: 'Restrict IP addresses to version 6 (IPv6) only.\n'
-              'If an IP version 6 (IPv6) address is used, both IP'
-              ' version 6 (IPv6) and version 4 (IPv4) connections will'
-              ' be accepted.',
-          negatable: false)
-      ..addFlag('shared',
-          help: 'Specifies whether additional servers can bind'
-              ' to the same combination of address, port and v6Only.\n'
-              "If it's true and more servers are bound to the port,"
-              ' then the incoming connections will be distributed among'
-              ' all the bound servers.',
-          negatable: false)
-      ..addOption('server-type',
-          help: 'Server type.',
-          valueHelp: ServerType.defaultType.name,
-          allowed: ServerType.names,
-          allowedHelp: ServerType.descriptions)
-      ..addOption('isolates',
-          abbr: 'i', help: 'Number of isolates.', valueHelp: '1')
-
+      ..addOption(
+        'ssl-cert',
+        help: 'SSL certificate file.',
+        valueHelp: 'file.crt',
+      )
+      ..addOption(
+        'ssl-key-password',
+        help: 'SSL keyfile password.',
+        valueHelp: 'password',
+      )
+      ..addOption(
+        'backlog',
+        help:
+            'Number of connections to hold in backlog.\n'
+            'If backlog has the value of 0 (the default) a reasonable value '
+            'will be chosen by the system.',
+        valueHelp: '0',
+      )
+      ..addFlag(
+        'v6Only',
+        help:
+            'Restrict IP addresses to version 6 (IPv6) only.\n'
+            'If an IP version 6 (IPv6) address is used, both IP'
+            ' version 6 (IPv6) and version 4 (IPv4) connections will'
+            ' be accepted.',
+        negatable: false,
+      )
+      ..addFlag(
+        'shared',
+        help:
+            'Specifies whether additional servers can bind'
+            ' to the same combination of address, port and v6Only.\n'
+            "If it's true and more servers are bound to the port,"
+            ' then the incoming connections will be distributed among'
+            ' all the bound servers.',
+        negatable: false,
+      )
+      ..addOption(
+        'server-type',
+        help: 'Server type.',
+        valueHelp: ServerType.defaultType.name,
+        allowed: ServerType.names,
+        allowedHelp: ServerType.descriptions,
+      )
+      ..addOption(
+        'isolates',
+        abbr: 'i',
+        help: 'Number of isolates.',
+        valueHelp: '1',
+      )
       // debug
       ..addSeparator('Debugging options:')
       ..addFlag('debug', help: '', negatable: false)
-      ..addFlag('hot-reload', help: '', negatable: false)
+      ..addFlag('hot-reload', help: 'Enable hot-reload.', negatable: false)
       ..addMultiOption('watch', abbr: 'w')
       ..addOption('service-port', valueHelp: '8181')
-      ..addFlag('enable-asserts', negatable: false)
-      ..addFlag('verbose',
-          abbr: 'v', help: 'Print detailed logging.', negatable: false);
+      ..addFlag(
+        'enable-asserts',
+        negatable: false,
+        help: 'Enable assert statements.',
+      )
+      ..addFlag(
+        'verbose',
+        abbr: 'v',
+        help: 'Print detailed logging.',
+        negatable: false,
+      );
   }
 
   @override
@@ -113,7 +145,7 @@ class ServeCommand extends CliCommand {
 
   late final String address = getString('address') ?? 'localhost';
 
-  late final int port = getInteger('port') ?? 8080;
+  late final int port = getInteger('port', 0) ?? 8080;
 
   late final String? sslCert = getString('ssl-cert');
 
@@ -121,16 +153,17 @@ class ServeCommand extends CliCommand {
 
   late final String? sslKeyPass = getString('ssl-key-password');
 
-  late final int backlog = getInteger('backlog') ?? 0;
+  late final int backlog = getInteger('backlog', 0) ?? 0;
 
   late final bool v6Only = getBoolean('v6Only') ?? false;
 
   late final bool shared = getBoolean('shared') ?? false;
 
-  late final ServerType serverType = ServerType.values
-      .byName(getString('server-type') ?? ServerType.defaultType.name);
+  late final ServerType serverType = ServerType.values.byName(
+    getString('server-type') ?? ServerType.defaultType.name,
+  );
 
-  late final int isolates = getInteger('isolates') ?? 1;
+  late final int isolates = getInteger('isolates', 0) ?? 1;
 
   late final bool debug = getBoolean('debug') ?? false;
 
@@ -138,12 +171,11 @@ class ServeCommand extends CliCommand {
 
   late final bool watch = watchList.isNotEmpty;
 
-  late final List<String> watchList = getStringList('watch')
-      .map<String>(normalize)
-      .map<String>(absolute)
-      .toList();
+  late final List<String> watchList = getStringList(
+    'watch',
+  ).map<String>(normalize).map<String>(absolute).toList();
 
-  late final int? servicePort = getInteger('service-port');
+  late final int? servicePort = getInteger('service-port', 0);
 
   late final bool enableAsserts = getBoolean('enable-asserts') ?? false;
 
@@ -219,11 +251,6 @@ class ServeCommand extends CliCommand {
   void clearScreen() {
     if (stdout.supportsAnsiEscapes) {
       stdout.write('\x1b[2J\x1b[H');
-    } else if (Platform.isWindows) {
-      // TODO(cli): windows: reset buffer
-      print('Not supported yet.');
-    } else {
-      print('Not supported.');
     }
   }
 
@@ -247,12 +274,12 @@ class ServeCommand extends CliCommand {
     }
 
     if (sslCert != null && sslKey == null) {
-      // TODO(cli): update error message
+      // TODO(cli): update error message.
       throw CliException('');
     }
 
     if (sslKey != null) {
-      // TODO(cli): add warn message
+      // TODO(cli): add warning message.
     }
   }
 
@@ -266,8 +293,8 @@ class ServeCommand extends CliCommand {
       ..writeAsStringSync(source);
 
     var hash = (Random().nextInt(9000) + 1000).toRadixString(16);
-    var serviceFileUri = Directory.systemTemp.uri
-        .resolveUri(Uri.file('dart-vm-service-$hash.json'));
+    var fileUri = Uri.file('dart-vm-service-$hash.json');
+    var serviceFileUri = Directory.systemTemp.uri.resolveUri(fileUri);
     var serviceInfoFile = File.fromUri(serviceFileUri);
 
     var arguments = <String>[
@@ -276,7 +303,7 @@ class ServeCommand extends CliCommand {
           : '--enable-vm-service=$servicePort',
       '--no-serve-devtools',
       '--no-warn-on-pause-with-no-debugger',
-      '--write-service-info=$serviceFileUri'
+      '--write-service-info=$serviceFileUri',
     ];
 
     if (debug) {
@@ -301,8 +328,12 @@ class ServeCommand extends CliCommand {
       ..addAll(<String>[for (var define in defineList) '-D$define'])
       ..add(scriptPath);
 
-    var process = await Process.start(Platform.executable, arguments,
-        workingDirectory: directory.path, runInShell: true);
+    var process = await Process.start(
+      Platform.executable,
+      arguments,
+      workingDirectory: directory.path,
+      runInShell: true,
+    );
 
     var stdoutSubscription = process.stdout.listen(stdout.add);
     var stderrSubscription = process.stderr.listen(stderr.add);
@@ -321,7 +352,7 @@ class ServeCommand extends CliCommand {
               serviceInfoUriCompleter.complete(Uri.parse(uri));
               serviceInfoFile.deleteSync();
             } else {
-              // TODO(serve): update exception
+              // TODO(serve): update exception.
               serviceInfoUriCompleter.completeError(Exception());
             }
 
@@ -337,7 +368,9 @@ class ServeCommand extends CliCommand {
 
     Timer.periodic(const Duration(milliseconds: 50), poll);
 
-    var Uri(:host, :port, :path) = await serviceInfoUriCompleter.future;
+    var serviceInfoUri = await serviceInfoUriCompleter.future;
+    var host = serviceInfoUri.host;
+    var path = serviceInfoUri.path;
     service = await vmServiceConnectUri('ws://$host:$port${path}ws');
     await service.streamListen(EventStreams.kIsolate);
     await service.onIsolateEvent.firstWhere(isCloseExtensionAdded);
@@ -353,11 +386,12 @@ class ServeCommand extends CliCommand {
     if (vm.isolates case [IsolateRef(id: var id?), ...]) {
       isolateId = id;
     } else {
-      // TODO(serve): update exception
+      // TODO(serve): update exception.
       throw Exception();
     }
 
-    var Stdin(:echoMode, :lineMode) = stdin;
+    var echoMode = stdin.echoMode;
+    var lineMode = stdin.lineMode;
 
     stdin
       ..echoMode = false
@@ -378,19 +412,19 @@ class ServeCommand extends CliCommand {
     var closed = false;
 
     await for (var event in group.stream) {
-      if (event case int()) {
+      if (event is int) {
         restoreInput();
         break;
-      } else if (event case ProcessSignal signal) {
-        killProcess(process, signal);
+      } else if (event is ProcessSignal) {
+        killProcess(process, event);
         restoreInput();
         break;
-      } else if (event case String key) {
-        if (key case 'r' when !closed) {
+      } else if (event is String) {
+        if (event == 'r' && !closed) {
           await reloadServer();
-        } else if (key case 'R' when !closed) {
+        } else if (event == 'R' && !closed) {
           await restartServer();
-        } else if (key case 'c' || 'C') {
+        } else if (event == 'c' || event == 'C') {
           if (closed) {
             restoreInput();
             killProcess(process);
@@ -407,15 +441,15 @@ class ServeCommand extends CliCommand {
             restoreInput();
             break;
           }
-        } else if (key case 'q' || 'Q') {
+        } else if (event == 'q' || event == 'Q') {
           print('Force closing ...');
           await closeServer(force: true);
           restoreInput();
           killProcess(process);
           break;
-        } else if (key case 'h' || 'H') {
+        } else if (event == 'h' || event == 'H') {
           printServeModeUsage(hotReload: hotReload);
-        } else if (key case 's' || 'S') {
+        } else if (event == 's' || event == 'S') {
           clearScreen();
         }
       }

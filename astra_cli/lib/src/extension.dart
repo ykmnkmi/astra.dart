@@ -5,7 +5,7 @@ extension CliCommandExtension on CliCommand {
     return argResults[name] as bool?;
   }
 
-  int? getInteger(String name) {
+  int? getInteger(String name, [int? minValue]) {
     var value = argResults[name] as String?;
 
     if (value == null) {
@@ -15,7 +15,12 @@ extension CliCommandExtension on CliCommand {
     var parsed = int.tryParse(value);
 
     if (parsed == null) {
-      usageException("'$name' must be integer");
+      usageException("'$name' must be integer.");
+    }
+
+    if (minValue != null && parsed < minValue) {
+      // TODO(cli): replace with CLI excpetion.
+      throw ArgumentError.value(parsed, 'isolates');
     }
 
     return parsed;
