@@ -9,7 +9,7 @@ environment:
   sdk: ">=3.8.2 <4.0.0"
 
 dependencies:
-  astra: ^1.0.0-dev.163
+  astra: ^1.0.0-dev.166
 
 dev_dependencies:
   lints: ^6.0.0
