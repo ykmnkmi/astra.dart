@@ -1,12 +1,12 @@
 [![Pub Package](https://img.shields.io/pub/v/astra.svg)](https://pub.dev/packages/astra)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A ~~robust~~, multi-threaded [shelf][shelf] web server adapter designed for
+A ~~robust~~, multi-threaded web server adapter designed for
 ~~high performance~~ and concurrent handling of multiple requests.
 
 Inspired by [aqueduct][aqueduct], [uvicorn][uvicorn] and [starlette][starlette].
 
-**WORK IN PROGRESS**
+**WORK IN PROGRESS, API CAN CHANGE**
 
 ### ToDo
 - Enhance API documentation 🔥
