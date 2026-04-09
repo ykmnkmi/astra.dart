@@ -6,7 +6,7 @@ A ~~robust~~, multi-threaded [shelf][shelf] web server adapter designed for
 
 Inspired by [aqueduct][aqueduct], [uvicorn][uvicorn] and [starlette][starlette].
 
-**WORK IN PROGRESS**
+**WORK IN PROGRESS, API CAN CHANGE**
 
 ### ToDo
 - Enhance API documentation 🔥

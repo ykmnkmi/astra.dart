@@ -372,11 +372,6 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
       );
     }
 
-    if (securityContextFactory != null) {
-      // Check if the function is error-safe in the main isolate before spawning.
-      await securityContextFactory();
-    }
-
     Logger? logger;
 
     if (loggerFactory != null) {
