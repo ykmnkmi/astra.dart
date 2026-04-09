@@ -19,7 +19,6 @@ linter:
     directives_ordering: true
     library_prefixes: false
     prefer_single_quotes: true
-    # public_member_api_docs: true
     unnecessary_final: true
     unnecessary_lambdas: true
     unnecessary_parenthesis: true
