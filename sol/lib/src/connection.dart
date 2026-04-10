@@ -1,0 +1,108 @@
+part of '/sol.dart';
+
+/// A TCP connection to a remote peer.
+///
+/// Obtained either by calling [Connection.connect] to initiate an outbound
+/// connection, or from [Listener.accept] to receive an inbound connection.
+///
+/// All I/O methods are asynchronous and return futures that complete when the
+/// native event loop finishes the operation. Property accessors ([address],
+/// [port], [remoteAddress], [remotePort], [keepAlive], [noDelay]) are
+/// synchronous and query native state directly.
+///
+/// ```dart
+/// var connection = await Connection.connect(InternetAddress.loopbackIPv4, 8080);
+///
+/// await connection.write(utf8.encode('GET / HTTP/1.0\r\n\r\n'));
+///
+/// while (true) {
+///   var data = await connection.read();
+///   if (data == null) break; // peer closed
+///   stdout.add(data);
+/// }
+///
+/// await connection.close();
+/// ```
+abstract interface class Connection {
+  /// The local address this connection is bound to.
+  InternetAddress get address;
+
+  /// The local port number.
+  int get port;
+
+  /// The remote peer's address.
+  InternetAddress get remoteAddress;
+
+  /// The remote peer's port number.
+  int get remotePort;
+
+  /// Whether TCP keep-alive is enabled.
+  abstract bool keepAlive;
+
+  /// Whether Nagle's algorithm is disabled (`TCP_NODELAY`).
+  abstract bool noDelay;
+
+  /// Read data from the connection.
+  ///
+  /// Returns the received bytes, or `null` if the peer closed the
+  /// connection (EOF). The returned [Uint8List] is backed by native memory
+  /// that Dart's GC will free automatically via a finalizer.
+  ///
+  /// Only one read should be outstanding at a time. Issuing concurrent
+  /// reads on the same connection is not supported.
+  ///
+  /// ```dart
+  /// var data = await connection.read();
+  /// if (data == null) print('connection closed');
+  /// ```
+  Future<Uint8List?> read();
+
+  /// Write [data] to the connection.
+  ///
+  /// The data is copied to native memory immediately, so the caller's
+  /// buffer can be reused or freed after this method returns. Partial
+  /// writes are handled transparently by the native event loop - the
+  /// returned future completes only after all bytes have been sent.
+  ///
+  /// Returns the total number of bytes written.
+  ///
+  /// ```dart
+  /// var bytes = await connection.write(utf8.encode('hello'));
+  /// assert(bytes == 5);
+  /// ```
+  Future<int> write(Uint8List data, [int offset = 0, int? count]);
+
+  /// Shut down the write side of the connection (send FIN).
+  ///
+  /// The peer's read will return EOF / null. The connection remains open
+  /// for reading from the peer until [close] is called.
+  Future<void> closeWrite();
+
+  /// Close the connection entirely.
+  ///
+  /// Cancels any pending read or write operations on this handle. The
+  /// returned future completes when the socket has been closed.
+  Future<void> close();
+
+  /// Connect to [address] on [port].
+  ///
+  /// The [address] must be a resolved [InternetAddress] (numeric IPv4 or
+  /// IPv6). If [sourceAddress] is provided, the local socket is bound to
+  /// it before connecting; otherwise the OS assigns an ephemeral address.
+  ///
+  /// Returns a future that completes with the connected [Connection], or
+  /// fails with [ConnectFailed], [BindFailed], or another
+  /// [SocketException].
+  ///
+  /// ```dart
+  /// var connection = await Connection.connect(InternetAddress('93.184.216.34'), 80);
+  /// ```
+  static Future<Connection> connect(
+    InternetAddress address,
+    int port, {
+    InternetAddress? sourceAddress,
+    int sourcePort = 0,
+  }) async {
+    throw UnimplementedError();
+  }
+}

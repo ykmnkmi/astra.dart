@@ -1,0 +1,241 @@
+// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+library;
+
+import 'dart:ffi';
+import 'dart:isolate';
+
+/// Initialize the TCP socket library with Dart API.
+///
+/// Idempotent — safe to call from multiple isolates; only the first call starts
+/// the event loop. Must be called before any other functions.
+///
+/// Returns 0 on success, or a negative error code if initialization failed
+/// (e.g. could not create the event loop or spawn the background thread).
+///
+/// * [dart_api_dl]\: pointer to Dart API DL structure.
+@Native<Int64 Function(Pointer<Void>)>()
+external int tcp_init(Pointer<Void> dart_api_dl);
+
+/// Shut down the library: stops the event loop thread, closes all sockets, and
+/// frees all resources. Must be called before process exit.
+@Native<Void Function()>()
+external void tcp_destroy();
+
+/// Asynchronously connect to a remote address.
+///
+/// This function initiates a connection and returns immediately. The actual
+/// connection happens on the background thread. When complete, a message is
+/// posted to [send_port] with the connection handle or error code.
+///
+/// * [send_port]\: Dart native port for posting results (`receivePort.sendPort.nativePort`).
+/// * [request_id]\: unique ID for this request (returned in callback).
+/// * [addr]\: pointer to address bytes (4 bytes for IPv4, 16 for IPv6).
+/// * [addr_len]\: length of address (4 or 16).
+/// * [port]\: remote port number.
+/// * [source_addr]\: source address bytes (NULL for any).
+/// * [source_addr_len]\: source address length.
+/// * [source_port]\: source port (0 for any).
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<
+  Int64 Function(
+    Int64,
+    Int64,
+    Pointer<Uint8>,
+    Int64,
+    Int64,
+    Pointer<Uint8>,
+    Int64,
+    Int64,
+  )
+>()
+external int tcp_connect(
+  int send_port,
+  int request_id,
+  Pointer<Uint8> addr,
+  int addr_len,
+  int port,
+  Pointer<Uint8> source_addr,
+  int source_addr_len,
+  int source_port,
+);
+
+/// Asynchronously read data from a connection.
+///
+/// Returns immediately after queuing the read request. When data is available,
+/// it's posted to the connection's send_port as an external typed data array
+/// that Dart takes ownership of via a finalizer.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [handle]\: connection handle.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64)>()
+external int tcp_read(int request_id, int handle);
+
+/// Asynchronously write data to a connection.
+///
+/// The data is copied immediately, so the caller's buffer can be freed after
+/// this function returns. Handles partial writes internally — the completion
+/// message reports the total bytes written only after all data is sent.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [handle]\: connection handle.
+/// * [data]\: pointer to data to write.
+/// * [offset]\: offset in data buffer to start from.
+/// * [count]\: number of bytes to write.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64, Pointer<Uint8>, Int64, Int64)>()
+external int tcp_write(
+  int request_id,
+  int handle,
+  Pointer<Uint8> data,
+  int offset,
+  int count,
+);
+
+/// Asynchronously shutdown the write side of a connection.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [handle]\: connection handle.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64)>()
+external int tcp_close_write(int request_id, int handle);
+
+/// Asynchronously close a connection.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [handle]\: connection handle.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64)>()
+external int tcp_close(int request_id, int handle);
+
+/// Asynchronously create a listening socket.
+///
+/// * [send_port]\: Dart native port for posting results (`receivePort.sendPort.nativePort`).
+/// * [request_id]\: unique ID for this request.
+/// * [addr]\: pointer to address bytes.
+/// * [addr_len]\: length of address (4 or 16).
+/// * [port]\: port to listen on (0 for ephemeral).
+/// * [v6_only]\: IPv6 only flag (only relevant for IPv6 addresses).
+/// * [backlog]\: listen backlog (0 for system default).
+/// * [shared]\: allow address reuse (SO_REUSEADDR + SO_REUSEPORT).
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<
+  Int64 Function(Int64, Int64, Pointer<Uint8>, Int64, Int64, Bool, Int64, Bool)
+>()
+external int tcp_listen(
+  int send_port,
+  int request_id,
+  Pointer<Uint8> addr,
+  int addr_len,
+  int port,
+  bool v6_only,
+  int backlog,
+  bool shared,
+);
+
+/// Asynchronously accept a connection from a listener.
+///
+/// The accepted connection inherits the listener's send_port, so results are
+/// posted to the isolate that owns the listener.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [listener_handle]\: listener handle.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64)>()
+external int tcp_accept(int request_id, int listener_handle);
+
+/// Start a continuous accept loop on a listener.
+///
+/// Unlike [tcp_accept] which accepts ONE connection and posts a
+/// `[request_id, handle, null]` triple, this function continuously accepts
+/// connections and posts each one as a **single int64** to a dedicated Dart
+/// [RawReceivePort]. This enables a push-based `Stream<Connection>` without
+/// polling from Dart.
+///
+/// Message protocol (bare int64, not the `[id, result, data]` triple):
+///   * Positive int64 → connection handle (1-based)
+///   * Negative int64 → error code (from `TCP_ERR_*` constants)
+///
+/// The loop stops automatically when the listener socket is closed (accept
+/// returns error) or the Dart [RawReceivePort] is closed (`Dart_PostCObject_DL`
+/// returns false).
+///
+/// * [send_port]\: Dart native port of the dedicated [RawReceivePort].
+/// * [listener_handle]\: listener handle from [tcp_listen].
+/// * Returns 0 on successful start, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64)>()
+external int tcp_accept_loop(int send_port, int listener_handle);
+
+/// Asynchronously close a listener.
+///
+/// * [request_id]\: unique ID for this request.
+/// * [listener_handle]\: listener handle.
+/// * [force]\: if true, close active connections immediately.
+/// * Returns 0 on successful queue, negative error code on immediate failure.
+@Native<Int64 Function(Int64, Int64, Bool)>()
+external int tcp_listener_close(
+  int request_id,
+  int listener_handle,
+  bool force,
+);
+
+/// Get local address of a connection or listener.
+///
+/// * [handle]\: connection or listener handle.
+/// * [out_addr]\: buffer to write address bytes (must be at least 16 bytes).
+/// * Returns address length (4 for IPv4, 16 for IPv6), or negative error code.
+@Native<Int64 Function(Int64, Pointer<Uint8>)>()
+external int tcp_get_local_address(int handle, Pointer<Uint8> out_addr);
+
+/// Get local port of a connection or listener.
+///
+/// * [handle]\: connection or listener handle.
+/// * Returns port number (positive), or negative error code.
+@Native<Int64 Function(Int64)>()
+external int tcp_get_local_port(int handle);
+
+/// Get remote address of a connection.
+///
+/// * [handle]\: connection handle.
+/// * [out_addr]\: buffer to write address bytes (must be at least 16 bytes).
+/// * Returns address length (4 for IPv4, 16 for IPv6), or negative error code.
+@Native<Int64 Function(Int64, Pointer<Uint8>)>()
+external int tcp_get_remote_address(int handle, Pointer<Uint8> out_addr);
+
+/// Get remote port of a connection.
+///
+/// * [handle]\: connection handle.
+/// * Returns port number (positive), or negative error code.
+@Native<Int64 Function(Int64)>()
+external int tcp_get_remote_port(int handle);
+
+/// Get TCP keep-alive setting.
+///
+/// * [handle]\: connection handle.
+/// * Returns 1 if enabled, 0 if disabled, negative error code on failure.
+@Native<Int64 Function(Int64)>()
+external int tcp_get_keep_alive(int handle);
+
+/// Set TCP keep-alive.
+///
+/// * [handle]\: connection handle.
+/// * [enabled]\: true to enable, false to disable.
+/// * Returns 0 on success, negative error code on failure.
+@Native<Int64 Function(Int64, Bool)>()
+external int tcp_set_keep_alive(int handle, bool enabled);
+
+/// Get `TCP_NODELAY` setting (Nagle's algorithm).
+///
+/// * [handle]\: connection handle.
+/// * Returns 1 if no-delay enabled, 0 if disabled, negative error code on
+/// failure.
+@Native<Int64 Function(Int64)>()
+external int tcp_get_no_delay(int handle);
+
+/// Set `TCP_NODELAY` (disable Nagle's algorithm).
+///
+/// * [handle]\: connection handle.
+/// * [enabled]\: true to enable no-delay, false to disable.
+/// * Returns 0 on success, negative error code on failure.
+@Native<Int64 Function(Int64, Bool)>()
+external int tcp_set_no_delay(int handle, bool enabled);

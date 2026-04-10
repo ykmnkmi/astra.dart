@@ -13,3 +13,4 @@ workspace:
   - astra
   - astra/example
   - astra_cli
+  - sol
