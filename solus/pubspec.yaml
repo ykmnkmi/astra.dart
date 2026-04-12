@@ -1,9 +1,9 @@
-name: sol
+name: solus
 description: >
   A robust, multi-threaded shelf web server adapter designed for high
   performance and concurrent handling of multiple requests.
 version: 0.0.1
-homepage: https://github.com/ykmnkmi/astra.dart/tree/master/sol
+homepage: https://github.com/ykmnkmi/astra.dart/tree/master/solus
 repository: https://github.com/ykmnkmi/astra.dart
 
 topics:

@@ -1,4 +1,4 @@
-part of '/sol.dart';
+part of '/solus.dart';
 
 /// A TCP server socket that listens for incoming connections.
 ///

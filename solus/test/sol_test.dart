@@ -1,4 +1,4 @@
-import 'package:sol/sol.dart';
+import 'package:solus/solus.dart';
 import 'package:test/test.dart';
 
 void main() {

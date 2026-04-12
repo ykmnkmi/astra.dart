@@ -1,4 +1,4 @@
-part of '/sol.dart';
+part of '/solus.dart';
 
 extension type const ErrorCode._(int _) {
   /// Invalid or closed handle

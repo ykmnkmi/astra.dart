@@ -1,4 +1,4 @@
-part of '/sol.dart';
+part of '/solus.dart';
 
 /// A TCP connection to a remote peer.
 ///

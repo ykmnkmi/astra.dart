@@ -1,4 +1,4 @@
-part of '/sol.dart';
+part of '/solus.dart';
 
 /// Base class for all TCP socket errors.
 ///
