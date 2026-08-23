@@ -103,6 +103,166 @@ abstract interface class Connection {
     InternetAddress? sourceAddress,
     int sourcePort = 0,
   }) async {
-    throw UnimplementedError();
+    var service = _IOService();
+
+    var response = await service.request((id) {
+      var rawAddress = address.rawAddress;
+      var length = rawAddress.length;
+      var pointer = calloc<Uint8>(length);
+
+      Pointer<Uint8> sourcePointer = nullptr;
+      var sourceLength = 0;
+
+      try {
+        for (var i = 0; i < length; i++) {
+          pointer[i] = rawAddress[i];
+        }
+
+        if (sourceAddress != null) {
+          rawAddress = sourceAddress.rawAddress;
+          sourceLength = rawAddress.length;
+          sourcePointer = calloc<Uint8>(sourceLength);
+
+          for (var i = 0; i < sourceLength; i++) {
+            sourcePointer[i] = rawAddress[i];
+          }
+        }
+
+        var code = tcp_connect(
+          service.nativePort,
+          id,
+          pointer,
+          length,
+          port,
+          sourcePointer,
+          sourceLength,
+          sourcePort,
+        );
+
+        SocketException.checkResult(code);
+      } finally {
+        calloc.free(pointer);
+
+        if (sourcePointer != nullptr) {
+          calloc.free(sourcePointer);
+        }
+      }
+    });
+
+    return _Connection(response.result, service);
+  }
+}
+
+final class _Connection implements Connection, _NativeHandle {
+  _Connection(this.handle, this.service) : closed = false {
+    service.register(this);
+  }
+
+  @override
+  final int handle;
+
+  final _IOService service;
+
+  bool closed;
+
+  _Listener? _listener;
+
+  @override
+  late final InternetAddress address = _getLocalAddress(handle);
+
+  @override
+  late final int port = _getLocalPort(handle);
+
+  @override
+  late final InternetAddress remoteAddress = _getRemoteAddress(handle);
+
+  @override
+  late final int remotePort = _getRemotePort(handle);
+
+  @override
+  bool get keepAlive {
+    var result = tcp_get_keep_alive(handle);
+    SocketException.checkResult(result);
+    return result != 0;
+  }
+
+  @override
+  set keepAlive(bool enabled) {
+    var code = tcp_set_keep_alive(handle, enabled);
+    SocketException.checkResult(code);
+  }
+
+  @override
+  bool get noDelay {
+    var result = tcp_get_no_delay(handle);
+    SocketException.checkResult(result);
+    return result != 0;
+  }
+
+  @override
+  set noDelay(bool enabled) {
+    var code = tcp_set_no_delay(handle, enabled);
+    SocketException.checkResult(code);
+  }
+
+  @override
+  Future<Uint8List?> read() async {
+    try {
+      var response = await service.request((id) {
+        var code = tcp_read(id, handle);
+        SocketException.checkResult(code);
+      });
+
+      return response.data;
+    } on ConnectionClosed {
+      return null;
+    }
+  }
+
+  @override
+  Future<int> write(Uint8List data, [int offset = 0, int? count]) async {
+    var effectiveCount = count ?? data.length - offset;
+
+    var response = await service.request((id) {
+      var pointer = calloc<Uint8>(effectiveCount);
+
+      try {
+        pointer
+            .asTypedList(effectiveCount)
+            .setRange(0, effectiveCount, data, offset);
+
+        var code = tcp_write(id, handle, pointer, 0, effectiveCount);
+        SocketException.checkResult(code);
+      } finally {
+        calloc.free(pointer);
+      }
+    });
+
+    return response.result;
+  }
+
+  @override
+  Future<void> closeWrite() async {
+    await service.request((id) {
+      var code = tcp_close_write(id, handle);
+      SocketException.checkResult(code);
+    });
+  }
+
+  @override
+  Future<void> close() async {
+    if (closed) {
+      return;
+    }
+
+    closed = true;
+
+    await service.request((id) {
+      var code = tcp_close(id, handle);
+      SocketException.checkResult(code);
+    });
+
+    _listener?.connections.remove(this);
+    service.unregister(this);
   }
 }

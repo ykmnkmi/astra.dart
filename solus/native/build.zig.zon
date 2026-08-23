@@ -1,13 +1,9 @@
 .{
-    .name = .zig_tcp,
-    .version = "0.1.0",
+    .name = .solus,
+    .version = "0.0.1",
     .minimum_zig_version = "0.15.0",
-    .fingerprint = 0xfde33f42744e005,
-    .dependencies = .{
-        .libxev = .{
-            .path = "libxev",
-        },
-    },
+    .fingerprint = 0xc19c15268a48660f,
+    .dependencies = .{},
     .paths = .{
         "include",
         "src",

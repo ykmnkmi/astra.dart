@@ -9,6 +9,10 @@ environment:
 dev_dependencies:
   lints: ^6.1.0
 
+dependency_overrides:
+  native_toolchain_zig:
+    path: ../native_toolchain_zig.dart
+
 workspace:
   - astra
   - astra/example

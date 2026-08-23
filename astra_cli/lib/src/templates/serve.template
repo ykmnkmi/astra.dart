@@ -8,10 +8,10 @@ import 'package:astra/core.dart';
 import 'package:astra/devtools.dart';
 import 'package:astra/serve.dart';
 
-import '__PACKAGE__' as _ show __TARGET__;
+import '__PACKAGE__' as $ show __TARGET__;
 
 Future<void> main() async {
-  var serve = switch (_.__TARGET__) {
+  var serve = switch ($.__TARGET__) {
     FutureOr<HandlerFactory> handlerFactory => handlerFactory.serve,
     FutureOr<Handler> handler => handler.serve,
     FutureOr<ApplicationFactory> applicationFactory => applicationFactory.serve,

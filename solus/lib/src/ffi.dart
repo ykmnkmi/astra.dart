@@ -15,7 +15,7 @@ import 'dart:isolate';
 /// (e.g. could not create the event loop or spawn the background thread).
 ///
 /// * [api_dl_data]\: pointer to Dart API DL structure.
-@Native<Int64 Function(Pointer<Void> api_dl_data)>()
+@Native<IntPtr Function(Pointer<Void> api_dl_data)>()
 external int tcp_init(Pointer<Void> api_dl_data);
 
 /// Shut down the library: stops the event loop thread, closes all sockets, and
@@ -39,14 +39,14 @@ external void tcp_destroy();
 /// * [source_port]\: source port (0 for any).
 /// * Returns 0 on successful queue, negative error code on immediate failure.
 @Native<Int64 Function(
-  Int64 send_port,
-  Int64 request_id,
-  Pointer<Uint8> addr,
-  Int64 addr_len,
-  Int64 port,
-  Pointer<Uint8> source_addr,
-  Int64 source_add_len,
-  Int64 source_port,
+  Int64,
+  Int64,
+  Pointer<Uint8>,
+  Int64,
+  Int64,
+  Pointer<Uint8>,
+  Int64,
+  Int64,
 )>()
 external int tcp_connect(
   int send_port,
@@ -68,7 +68,7 @@ external int tcp_connect(
 /// * [request_id]\: unique ID for this request.
 /// * [handle]\: connection handle.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64 request_id, Int64 handle)>()
+@Native<Int64 Function(Int64, Int64)>()
 external int tcp_read(int request_id, int handle);
 
 /// Asynchronously write data to a connection.
@@ -83,13 +83,7 @@ external int tcp_read(int request_id, int handle);
 /// * [offset]\: offset in data buffer to start from.
 /// * [count]\: number of bytes to write.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(
-  Int64 request_id,
-  Int64 handle,
-  Pointer<Uint8> data,
-  Int64 offset,
-  Int64 count,
-)>()
+@Native<Int64 Function(Int64, Int64, Pointer<Uint8>, Int64, Int64, )>()
 external int tcp_write(
   int request_id,
   int handle,
@@ -116,7 +110,8 @@ external int tcp_close(int request_id, int handle);
 
 /// Asynchronously create a listening socket.
 ///
-/// * [send_port]\: Dart native port for posting results (`receivePort.sendPort.nativePort`).
+/// * [send_port]\: Dart native port for posting results
+///   (`receivePort.sendPort.nativePort`).
 /// * [request_id]\: unique ID for this request.
 /// * [addr]\: pointer to address bytes.
 /// * [addr_len]\: length of address (4 or 16).
@@ -126,14 +121,14 @@ external int tcp_close(int request_id, int handle);
 /// * [shared]\: allow address reuse (SO_REUSEADDR + SO_REUSEPORT).
 /// * Returns 0 on successful queue, negative error code on immediate failure.
 @Native<Int64 Function(
-  Int64 send_port,
-  Int64 request_id,
-  Pointer<Uint8> addr,
-  Int64 addr_len,
-  Int64 port,
-  Bool v6_only,
-  Int64 backlog,
-  Bool shared,
+  Int64,
+  Int64,
+  Pointer<Uint8>,
+  Int64,
+  Int64,
+  Bool,
+  Int64,
+  Bool,
 )>()
 external int tcp_listen(
   int send_port,
@@ -185,7 +180,7 @@ external int tcp_accept_loop(int send_port, int listener_handle);
 /// * [listener_handle]\: listener handle.
 /// * [force]\: if true, close active connections immediately.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64, Int64, Bool)>()
+@Native<Int64 Function(Int64, IntPtr, Bool)>()
 external int tcp_listener_close(
   int request_id,
   int listener_handle,

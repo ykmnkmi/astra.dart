@@ -1,7 +1,6 @@
 library;
 
 import 'dart:async' show Future, FutureOr;
-import 'dart:developer' show Service;
 import 'dart:io' show InternetAddress, Platform, SecurityContext;
 import 'dart:isolate' show SendPort;
 import 'dart:math' show max;
@@ -9,7 +8,6 @@ import 'dart:math' show max;
 import 'package:astra/isolate.dart';
 import 'package:astra/src/core/application.dart';
 import 'package:astra/src/core/handler.dart';
-import 'package:astra/src/devtools/register_extensions.dart';
 import 'package:astra/src/logger.dart';
 import 'package:astra/src/serve/server.dart';
 import 'package:astra/src/serve/type.dart';
@@ -207,7 +205,6 @@ extension ServeHandlerFactoryExtension on FutureOr<HandlerFactory> {
       );
     }
 
-    registerExtensions(server);
     return server;
   }
 }
@@ -392,12 +389,6 @@ extension ServeApplicationFactoryExtension on FutureOr<ApplicationFactory> {
         url: url,
         logger: logger,
       );
-    }
-
-    var info = await Service.getInfo();
-
-    if (info.serverUri != null) {
-      registerExtensions(server);
     }
 
     return server;
