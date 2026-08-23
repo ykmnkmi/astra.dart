@@ -1,8 +1,10 @@
-// ignore_for_file: constant_identifier_names, non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names
 library;
 
 import 'dart:ffi';
 import 'dart:isolate';
+
+// dart format off
 
 /// Initialize the TCP socket library with Dart API.
 ///
@@ -12,9 +14,9 @@ import 'dart:isolate';
 /// Returns 0 on success, or a negative error code if initialization failed
 /// (e.g. could not create the event loop or spawn the background thread).
 ///
-/// * [dart_api_dl]\: pointer to Dart API DL structure.
-@Native<Int64 Function(Pointer<Void>)>()
-external int tcp_init(Pointer<Void> dart_api_dl);
+/// * [api_dl_data]\: pointer to Dart API DL structure.
+@Native<Int64 Function(Pointer<Void> api_dl_data)>()
+external int tcp_init(Pointer<Void> api_dl_data);
 
 /// Shut down the library: stops the event loop thread, closes all sockets, and
 /// frees all resources. Must be called before process exit.
@@ -36,18 +38,16 @@ external void tcp_destroy();
 /// * [source_addr_len]\: source address length.
 /// * [source_port]\: source port (0 for any).
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<
-  Int64 Function(
-    Int64,
-    Int64,
-    Pointer<Uint8>,
-    Int64,
-    Int64,
-    Pointer<Uint8>,
-    Int64,
-    Int64,
-  )
->()
+@Native<Int64 Function(
+  Int64 send_port,
+  Int64 request_id,
+  Pointer<Uint8> addr,
+  Int64 addr_len,
+  Int64 port,
+  Pointer<Uint8> source_addr,
+  Int64 source_add_len,
+  Int64 source_port,
+)>()
 external int tcp_connect(
   int send_port,
   int request_id,
@@ -68,7 +68,7 @@ external int tcp_connect(
 /// * [request_id]\: unique ID for this request.
 /// * [handle]\: connection handle.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64, Int64)>()
+@Native<Int64 Function(Int64 request_id, Int64 handle)>()
 external int tcp_read(int request_id, int handle);
 
 /// Asynchronously write data to a connection.
@@ -83,7 +83,13 @@ external int tcp_read(int request_id, int handle);
 /// * [offset]\: offset in data buffer to start from.
 /// * [count]\: number of bytes to write.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64, Int64, Pointer<Uint8>, Int64, Int64)>()
+@Native<Int64 Function(
+  Int64 request_id,
+  Int64 handle,
+  Pointer<Uint8> data,
+  Int64 offset,
+  Int64 count,
+)>()
 external int tcp_write(
   int request_id,
   int handle,
@@ -97,7 +103,7 @@ external int tcp_write(
 /// * [request_id]\: unique ID for this request.
 /// * [handle]\: connection handle.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64, Int64)>()
+@Native<Int64 Function(Int64 request_id, Int64 handle)>()
 external int tcp_close_write(int request_id, int handle);
 
 /// Asynchronously close a connection.
@@ -105,7 +111,7 @@ external int tcp_close_write(int request_id, int handle);
 /// * [request_id]\: unique ID for this request.
 /// * [handle]\: connection handle.
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<Int64 Function(Int64, Int64)>()
+@Native<Int64 Function(Int64 request_id, Int64 handle)>()
 external int tcp_close(int request_id, int handle);
 
 /// Asynchronously create a listening socket.
@@ -119,9 +125,16 @@ external int tcp_close(int request_id, int handle);
 /// * [backlog]\: listen backlog (0 for system default).
 /// * [shared]\: allow address reuse (SO_REUSEADDR + SO_REUSEPORT).
 /// * Returns 0 on successful queue, negative error code on immediate failure.
-@Native<
-  Int64 Function(Int64, Int64, Pointer<Uint8>, Int64, Int64, Bool, Int64, Bool)
->()
+@Native<Int64 Function(
+  Int64 send_port,
+  Int64 request_id,
+  Pointer<Uint8> addr,
+  Int64 addr_len,
+  Int64 port,
+  Bool v6_only,
+  Int64 backlog,
+  Bool shared,
+)>()
 external int tcp_listen(
   int send_port,
   int request_id,
