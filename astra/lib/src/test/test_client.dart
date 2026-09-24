@@ -15,7 +15,7 @@ import 'package:http/io_client.dart' show IOClient;
 /// A test client for making HTTP requests to a server.
 base class TestClient extends BaseClient {
   /// Creates instance of [TestClient].
-  TestClient({this.host = 'localhost', this.port = 8282})
+  new({this.host = 'localhost', this.port = 8282})
     : assert(host.isNotEmpty, 'host cannot be empty'),
       assert(port != 0, 'port cannot be 0.'),
       _client = IOClient();

@@ -12,7 +12,7 @@ import 'package:logging/logging.dart' show Logger;
 /// the isolate lifecycle, and facilitates message passing between isolates.
 final class IsolateSupervisor {
   /// Creates an [IsolateSupervisor] for the given isolate and communication ports.
-  IsolateSupervisor(this.multiIsolateServer, this.isolate, this.receivePort)
+  new(this.multiIsolateServer, this.isolate, this.receivePort)
     : pendingMessageQueue = <MessageHubMessage>[];
 
   /// The parent [MultiIsolateServer] managing this supervisor.
@@ -165,7 +165,7 @@ final class MultiIsolateServer implements Server {
   /// Creates a [MultiIsolateServer] with the specified URL and logger.
   ///
   /// The server is not running until [start] is called.
-  MultiIsolateServer(this.url, this.logger)
+  new(this.url, this.logger)
     : supervisors = <IsolateSupervisor>[],
       isRunning = false;
 

@@ -18,7 +18,7 @@ typedef ApplicationFactory = FutureOr<Application> Function();
 /// Override [prepare] to read configuration values and initialize services.
 abstract base class Application {
   /// Creates an instance of [Application].
-  Application();
+  new();
 
   /// Implement this accsessor to define how HTTP requests are handled by
   /// application.

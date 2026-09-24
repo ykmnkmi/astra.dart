@@ -9,7 +9,7 @@ import 'package:pubspec_parse/pubspec_parse.dart' show Pubspec;
 
 /// A exception thrown by command line interfaces.
 class CliException implements Exception {
-  CliException(this.message);
+  new(this.message);
 
   /// A message describing the CLI error.
   final String message;
@@ -22,7 +22,7 @@ class CliException implements Exception {
 
 /// A command line interface command.
 abstract class CliCommand extends Command<int> {
-  CliCommand() {
+  new() {
     argParser
       // application
       ..addSeparator('Application options:')

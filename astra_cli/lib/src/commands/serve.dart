@@ -30,7 +30,7 @@ bool isCloseExtensionAdded(Event event) {
 }
 
 class ServeCommand extends CliCommand {
-  ServeCommand()
+  new()
     : name = 'serve',
       description = 'Serve Astra/Shelf application.',
       invocation = 'astra serve [options]',
@@ -170,9 +170,10 @@ class ServeCommand extends CliCommand {
 
   late final bool watch = watchList.isNotEmpty;
 
-  late final List<String> watchList = getStringList(
-    'watch',
-  ).map<String>(normalize).map<String>(absolute).toList();
+  late final List<String> watchList = getStringList('watch')
+      .map<String>(normalize)
+      .map<String>(absolute)
+      .toList();
 
   late final int? servicePort = getInteger('service-port', 0);
 

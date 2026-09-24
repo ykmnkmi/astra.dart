@@ -18,7 +18,7 @@ import 'package:stream_channel/stream_channel.dart' show StreamChannel;
 /// A running HTTP server with a concrete URL.
 final class ShelfServer implements Server {
   /// Creates an instance of [ShelfServer].
-  ShelfServer(this.httpServer, {this.isSecure = false, this.logger});
+  new(this.httpServer, {this.isSecure = false, this.logger});
 
   /// The underlying [HttpServer] instance.
   final HttpServer httpServer;

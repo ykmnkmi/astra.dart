@@ -8,5 +8,6 @@ Future<void> main() async {
 
   var signals = ProcessSignal.sigint.watch();
   await signals.first;
+  print(''); // New line after CTRL+C
   await server.close();
 }

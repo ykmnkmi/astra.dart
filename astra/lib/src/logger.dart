@@ -1,4 +1,5 @@
 import 'dart:io' show stderr, stdout;
+
 import 'package:logging/logging.dart' show Level, LogRecord, Logger;
 
 /// Configures and return the root [Logger].

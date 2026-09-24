@@ -10,7 +10,7 @@ import 'package:logging/logging.dart' show Logger;
 /// A running HTTP server with a concrete URL.
 abstract interface class Server {
   /// Creates an instance of [Server].
-  Server();
+  new();
 
   /// The URL that the server is listening on.
   Uri get url;
@@ -96,7 +96,7 @@ abstract interface class Server {
 /// A running application HTTP server with a concrete URL.
 abstract interface class ApplicationServer implements Server {
   /// Creates an instance of [ApplicationServer].
-  ApplicationServer();
+  new();
 
   /// The application that is running on the server.
   Application get application;
@@ -142,7 +142,7 @@ abstract interface class ApplicationServer implements Server {
 /// A running application HTTP server with a concrete URL.
 final class _ApplicationServer implements ApplicationServer {
   /// Creates an instance of [_ApplicationServer].
-  _ApplicationServer(this.application, this.server) {
+  new(this.application, this.server) {
     application.server = server;
   }
 

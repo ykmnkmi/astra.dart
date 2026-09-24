@@ -15,8 +15,7 @@ String get isolateName => Isolate.current.debugName ?? 'isolate';
 /// A [MessageHub] that runs in an [Isolate].
 final class IsolateMessageHub extends Stream<Object?> implements MessageHub {
   /// Creates an instance of [IsolateMessageHub].
-  IsolateMessageHub(this.sendPort)
-    : inbound = StreamController<Object?>.broadcast();
+  new(this.sendPort) : inbound = StreamController<Object?>.broadcast();
 
   /// The [SendPort] to send messages to.
   final SendPort sendPort;
@@ -64,7 +63,7 @@ final class IsolateMessageHub extends Stream<Object?> implements MessageHub {
 }
 
 final class IsolateServer implements Server {
-  IsolateServer(this.server, this.sendPort) : receivePort = ReceivePort() {
+  new(this.server, this.sendPort) : receivePort = ReceivePort() {
     receivePort.listen(listener);
     logger?.fine('$isolateName listening, sending port.');
     sendPort.send(receivePort.sendPort);
@@ -128,7 +127,7 @@ final class IsolateServer implements Server {
 
 final class ApplicationIsolateServer
     implements ApplicationServer, IsolateServer {
-  ApplicationIsolateServer(this.server, this.sendPort)
+  new(this.server, this.sendPort)
     : receivePort = ReceivePort(),
       messageHub = IsolateMessageHub(sendPort) {
     receivePort.listen(listener);

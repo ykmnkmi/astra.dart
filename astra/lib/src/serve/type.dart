@@ -4,7 +4,7 @@ enum ServerType {
   shelf('HTTP/1.x shelf server.');
 
   // Constructor for the ServerType enumeration.
-  const ServerType(this.description);
+  new(this.description);
 
   /// The human-readable description of this server type.
   final String description;

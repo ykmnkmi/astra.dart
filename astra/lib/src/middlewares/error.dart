@@ -1,7 +1,6 @@
 import 'dart:async' show Future;
 import 'dart:convert' show htmlEscape;
 import 'dart:io' show File;
-import 'dart:isolate' show Isolate;
 
 import 'package:astra/src/core/error.dart';
 import 'package:astra/src/core/handler.dart';
@@ -35,24 +34,14 @@ String _renderTitle(Object error, Trace trace) {
 }
 
 String _renderFrame(Frame frame, [bool full = false]) {
-  var Frame(:library, :line, :column, :member) = frame;
-
   var result =
       '<div class="frame">'
-      '<span class="library">${library.replaceAll('\\', '/')}</span> '
-      '$line:$column, '
-      'in <span class="member">${htmlEscape.convert(member!)}</span>';
+      '<span class="library">${frame.library.replaceAll('\\', '/')}</span> '
+      '${frame.line}:${frame.column}, '
+      'in <span class="member">${htmlEscape.convert(frame.member!)}</span>';
 
   if (full && frame.line != null) {
-    Uri uri;
-
-    if (frame.uri.scheme == 'package') {
-      uri = Isolate.resolvePackageUriSync(frame.uri)!;
-    } else {
-      uri = frame.uri;
-    }
-
-    var file = File.fromUri(uri);
+    var file = File.fromUri(frame.uri);
     var lines = file.readAsLinesSync();
     var line = frame.line ?? 1;
     result = '$result<br><pre>${lines[line - 1].trim()}</pre>';
